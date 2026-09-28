@@ -1,0 +1,64 @@
+<p align="right">
+  <a href="README.zh_CN.md">简体中文</a> · <strong>English</strong>
+</p>
+
+# Starmap Tarot for FoloToy AI Passport
+
+Starmap Tarot is a fully offline Simplified Chinese tarot application for the
+FoloToy AI Passport. It ships the complete 78-card 1909 Rider–Waite–Smith deck,
+local interpretations, four reading modes, persistent history, favorites, and
+device settings in one ESP32-C3 firmware image. No account, network connection,
+cloud API, or user-data upload is required.
+
+## Features
+
+- Daily guidance, single-card reading, three-card spread, and Celtic Cross.
+- Upright and reversed cards with position-aware local interpretations.
+- Full 78-card visual library using embedded RGB565 artwork.
+- Reading history, favorite protection, and removal of non-favorite records.
+- Persistent reversal, sound, brightness, history, and favorite settings in NVS.
+- Non-blocking audio feedback, battery display, automatic dimming, and screen off.
+- Purpose-built navy-and-gold LVGL interface with embedded Simplified Chinese fonts.
+
+## Controls
+
+| Control | Action |
+| --- | --- |
+| Up / Down | Move through menus, cards, and history |
+| OK | Enter, reveal a card, open its interpretation, or change a setting |
+| Long press OK | Return to the previous screen or home |
+
+Complete all cards in a reading to save it automatically. In History, press OK
+to toggle the selected record as a favorite. The cleanup command in Settings
+keeps favorites and removes other history records.
+
+## Build
+
+The target is ESP32-C3 with 8 MB Flash and no PSRAM. ESP-IDF 5.5.3 is required.
+
+```bash
+source /path/to/esp-idf-v5.5.3/export.sh
+idf.py build
+```
+
+Run the repository's complete validation and merged-image packaging gate before
+delivery:
+
+```bash
+./tools/validate.sh
+```
+
+The gate creates `build/FoloToy-AI-Passport-full.bin`, which is flashed at
+offset `0x0`. Building successfully is not a substitute for testing the display,
+buttons, audio, battery reporting, and long-running behavior on real hardware.
+
+## Assets and licensing
+
+The card artwork is derived from the public-domain 1909 Rider–Waite–Smith deck.
+Its pinned source revision, license note, and per-file hashes are recorded in
+[`assets/tarot/source-manifest.json`](assets/tarot/source-manifest.json). The
+Simplified Chinese font subset is derived from Noto Sans SC under the SIL Open
+Font License; see [`assets/fonts/`](assets/fonts/).
+
+Tarot readings are provided for entertainment and self-reflection only. They do
+not replace medical, legal, financial, or mental-health professional advice.

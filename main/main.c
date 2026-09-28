@@ -1,242 +1,446 @@
-// main/main.c —— FoloToy AI Passport BSP 驱动参考示例:初始化 + 菜单 + 按键分发。
-//
-// 按键语义(全局统一):
-//   上/下 短按   菜单中=移动选中项;演示页中=该页自定义
-//   确定  短按   菜单中=进入选中项;演示页中=该页自定义
-//   确定  长按   演示页中=返回菜单(由本文件统一拦截)
-#include "bsp_i2c.h"
-#include "bsp_display.h"
-#include "bsp_button.h"
-#include "bsp_audio.h"
+// FoloToy AI Passport 离线塔罗应用。
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+
 #include "bsp_battery.h"
-#include "bsp_pins.h"      // 错误日志里要打印 BSP_LCD_* 引脚号
-#include "demo.h"
-#include "demo_navigation.h"
-#include "ui_pixel.h"
-#include "lvgl.h"
+#include "bsp_button.h"
+#include "bsp_display.h"
+#include "bsp_i2c.h"
+#include "bsp_pins.h"
 #include "esp_log.h"
-#include "esp_sleep.h"
+#include "esp_random.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
+#include "lvgl.h"
+#include "tarot_audio.h"
+#include "tarot_catalog.h"
+#include "tarot_history.h"
+#include "tarot_model.h"
+#include "tarot_store.h"
 
-static const char *TAG = "main";
+LV_FONT_DECLARE(tarot_font_14);
+LV_FONT_DECLARE(tarot_font_20);
 
-static const demo_entry_t DEMOS[] = {
-    { .name = "Display", .enter = demo_display_enter, .exit = demo_display_exit,
-      .key = demo_display_key },
-    { .name = "Button", .enter = demo_button_enter, .exit = demo_button_exit,
-      .key = demo_button_key },
-    { .name = "Audio", .enter = demo_audio_enter, .exit = demo_audio_exit,
-      .key = demo_audio_key, .start = demo_audio_start, .stop = demo_audio_stop },
-    { .name = "Battery", .enter = demo_battery_enter, .exit = demo_battery_exit,
-      .key = demo_battery_key },
-    { .name = "Wi-Fi", .enter = demo_wifi_enter, .exit = demo_wifi_exit,
-      .key = demo_wifi_key, .start = demo_wifi_start, .stop = demo_wifi_stop },
-    { .name = "BLE", .enter = demo_ble_enter, .exit = demo_ble_exit,
-      .key = demo_ble_key, .start = demo_ble_start, .stop = demo_ble_stop },
-    { .name = "Low Power", .enter = demo_low_power_enter, .exit = demo_low_power_exit,
-      .key = demo_low_power_key, .start = demo_low_power_start, .stop = demo_low_power_stop },
-};
-#define DEMO_COUNT (sizeof(DEMOS) / sizeof(DEMOS[0]))
-#define INPUT_QUEUE_DEPTH 8
+#define COLOR_NIGHT 0x100D24
+#define COLOR_PANEL 0x211A3D
+#define COLOR_PANEL_SELECTED 0x392A5B
+#define COLOR_GOLD 0xD7B66B
+#define COLOR_IVORY 0xF5EBD5
+#define COLOR_MUTED 0xA99EBC
+#define INPUT_QUEUE_DEPTH 10
+#define DIM_AFTER_US (30LL * 1000 * 1000)
+#define OFF_AFTER_US (120LL * 1000 * 1000)
+
+typedef enum {
+    PAGE_HOME = 0, PAGE_SPREADS, PAGE_READING, PAGE_DETAIL,
+    PAGE_LIBRARY, PAGE_HISTORY, PAGE_SETTINGS, PAGE_ABOUT,
+} app_page_t;
 
 typedef struct {
-    bsp_btn_t btn;
+    bsp_btn_t button;
     bsp_btn_ev_t event;
 } input_event_t;
 
-// 各外设初始化结果:失败的项在菜单里标 [FAIL] 且不允许进入。
-static bool s_ok[DEMO_COUNT];
-
-static lv_obj_t *s_menu_scr;
-static lv_obj_t *s_cards[DEMO_COUNT];
-static lv_obj_t *s_rows[DEMO_COUNT];
-static lv_obj_t *s_mascot;
-static demo_navigation_t s_navigation;
+static const char *TAG = "tarot_app";
 static QueueHandle_t s_input_queue;
-static TaskHandle_t s_input_task;
 static volatile bool s_input_ready;
+static app_page_t s_page = PAGE_HOME;
+static lv_obj_t *s_screen;
+static tarot_persisted_t s_data;
+static tarot_session_t s_session;
+static lv_image_dsc_t s_card_image;
+static bool s_session_saved;
+static bool s_audio_available;
+static uint8_t s_home_index;
+static uint8_t s_spread_index;
+static uint8_t s_settings_index;
+static uint8_t s_library_card;
+static uint8_t s_history_index;
+static int s_battery_soc = -1;
+static int64_t s_last_input_us;
+static bool s_dimmed;
+static bool s_screen_off;
+static char s_text_buffer[640];
 
-static void menu_refresh(void) {
-    for (size_t i = 0; i < DEMO_COUNT; i++) {
-        lv_label_set_text_fmt(s_rows[i], "%s%s",
-                              DEMOS[i].name,
-                              s_ok[i] ? "" : "  [FAIL]");
-        ui_pixel_set_selected(s_cards[i], i == s_navigation.selected, s_ok[i]);
-        lv_obj_set_style_text_color(s_rows[i],
-            s_ok[i] ? lv_color_hex(UI_INK) : lv_color_hex(0x7A2020), 0);
+static const char *const HOME_ITEMS[] = {
+    "开始占卜", "今日指引", "牌库百科", "历史记录", "设置", "关于",
+};
+static const char *const SPREAD_ITEMS[] = { "单牌问答", "三牌阵", "凯尔特十字" };
+
+static lv_obj_t *new_label(lv_obj_t *parent, const char *text, const lv_font_t *font,
+                           lv_color_t color) {
+    lv_obj_t *label = lv_label_create(parent);
+    lv_obj_set_style_text_font(label, font, 0);
+    lv_obj_set_style_text_color(label, color, 0);
+    lv_label_set_text(label, text);
+    return label;
+}
+
+static lv_obj_t *build_base(const char *title) {
+    if (s_screen) lv_obj_delete(s_screen);
+    s_screen = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(s_screen, lv_color_hex(COLOR_NIGHT), 0);
+    lv_obj_set_style_bg_opa(s_screen, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(s_screen, 0, 0);
+    lv_obj_set_style_pad_all(s_screen, 0, 0);
+    lv_obj_t *heading = new_label(s_screen, title, &tarot_font_20, lv_color_hex(COLOR_GOLD));
+    lv_obj_align(heading, LV_ALIGN_TOP_LEFT, 14, 12);
+    char battery[12];
+    if (s_battery_soc >= 0) snprintf(battery, sizeof(battery), "%d%%", s_battery_soc);
+    else snprintf(battery, sizeof(battery), "--%%");
+    lv_obj_t *battery_label = new_label(s_screen, battery, &tarot_font_14, lv_color_hex(COLOR_MUTED));
+    lv_obj_align(battery_label, LV_ALIGN_TOP_RIGHT, -14, 16);
+    lv_obj_t *line = lv_obj_create(s_screen);
+    lv_obj_set_size(line, 212, 1);
+    lv_obj_set_style_bg_color(line, lv_color_hex(COLOR_GOLD), 0);
+    lv_obj_set_style_bg_opa(line, LV_OPA_60, 0);
+    lv_obj_set_style_border_width(line, 0, 0);
+    lv_obj_align(line, LV_ALIGN_TOP_MID, 0, 42);
+    return s_screen;
+}
+
+static void menu_row(const char *text, int y, bool selected) {
+    lv_obj_t *row = lv_obj_create(s_screen);
+    lv_obj_set_pos(row, 13, y);
+    lv_obj_set_size(row, 214, 38);
+    lv_obj_set_style_radius(row, 10, 0);
+    lv_obj_set_style_bg_color(row, lv_color_hex(selected ? COLOR_PANEL_SELECTED : COLOR_PANEL), 0);
+    lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(row, selected ? 2 : 1, 0);
+    lv_obj_set_style_border_color(row, lv_color_hex(selected ? COLOR_GOLD : 0x4C4167), 0);
+    lv_obj_set_style_pad_all(row, 0, 0);
+    lv_obj_t *label = new_label(row, text, &tarot_font_14,
+                                lv_color_hex(selected ? COLOR_IVORY : COLOR_MUTED));
+    lv_obj_center(label);
+}
+
+static void footer_hint(const char *text) {
+    lv_obj_t *hint = new_label(s_screen, text, &tarot_font_14, lv_color_hex(COLOR_MUTED));
+    lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -8);
+}
+
+static void show_home(void) {
+    s_page = PAGE_HOME;
+    build_base("星图塔罗");
+    for (size_t i = 0; i < 6; ++i) menu_row(HOME_ITEMS[i], 52 + (int)i * 41, i == s_home_index);
+    footer_hint("上下选择 · 确定进入");
+    lv_screen_load(s_screen);
+}
+
+static void show_spreads(void) {
+    s_page = PAGE_SPREADS;
+    build_base("选择牌阵");
+    for (size_t i = 0; i < 3; ++i) menu_row(SPREAD_ITEMS[i], 72 + (int)i * 50, i == s_spread_index);
+    lv_obj_t *note = new_label(s_screen, "请先在心中明确问题，再开始洗牌。", &tarot_font_14,
+                               lv_color_hex(COLOR_MUTED));
+    lv_obj_set_width(note, 210);
+    lv_label_set_long_mode(note, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(note, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(note, LV_ALIGN_BOTTOM_MID, 0, -44);
+    footer_hint("长按确定返回");
+    lv_screen_load(s_screen);
+}
+
+static void show_card_back(void) {
+    lv_obj_t *back = lv_obj_create(s_screen);
+    lv_obj_set_size(back, TAROT_IMAGE_WIDTH, TAROT_IMAGE_HEIGHT);
+    lv_obj_align(back, LV_ALIGN_CENTER, 0, 3);
+    lv_obj_set_style_radius(back, 8, 0);
+    lv_obj_set_style_bg_color(back, lv_color_hex(0x26184B), 0);
+    lv_obj_set_style_border_width(back, 3, 0);
+    lv_obj_set_style_border_color(back, lv_color_hex(COLOR_GOLD), 0);
+    lv_obj_t *mark = new_label(back, "星\n图\n塔\n罗", &tarot_font_20, lv_color_hex(COLOR_GOLD));
+    lv_obj_set_style_text_align(mark, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_center(mark);
+}
+
+static void show_reading(void) {
+    s_page = PAGE_READING;
+    build_base(tarot_spread_name(s_session.spread));
+    tarot_draw_t *draw = &s_session.cards[s_session.selected];
+    snprintf(s_text_buffer, sizeof(s_text_buffer), "%s  %u/%u",
+             tarot_position_name(s_session.spread, s_session.selected),
+             (unsigned)s_session.selected + 1, (unsigned)s_session.count);
+    lv_obj_t *position = new_label(s_screen, s_text_buffer, &tarot_font_14, lv_color_hex(COLOR_IVORY));
+    lv_obj_align(position, LV_ALIGN_TOP_MID, 0, 50);
+    if (!draw->revealed) {
+        show_card_back();
+        footer_hint("确定揭牌 · 上下换牌");
+    } else if (tarot_card_image(draw->card_id, &s_card_image)) {
+        lv_obj_t *image = lv_image_create(s_screen);
+        lv_image_set_src(image, &s_card_image);
+        lv_obj_align(image, LV_ALIGN_CENTER, 0, 3);
+        if (draw->reversed) {
+            lv_image_set_pivot(image, TAROT_IMAGE_WIDTH / 2, TAROT_IMAGE_HEIGHT / 2);
+            lv_image_set_rotation(image, 1800);
+        }
+        snprintf(s_text_buffer, sizeof(s_text_buffer), "%s%s",
+                 tarot_card_name(draw->card_id), draw->reversed ? " · 逆位" : " · 正位");
+        lv_obj_t *name = new_label(s_screen, s_text_buffer, &tarot_font_14, lv_color_hex(COLOR_GOLD));
+        lv_obj_align(name, LV_ALIGN_BOTTOM_MID, 0, -35);
+        footer_hint("确定看解读 · 上下换牌");
     }
+    lv_screen_load(s_screen);
 }
 
-static void menu_build(void) {
-    s_menu_scr = ui_pixel_screen_create("FoloToy");
+static void show_detail(void) {
+    s_page = PAGE_DETAIL;
+    tarot_draw_t *draw = &s_session.cards[s_session.selected];
+    build_base(tarot_card_name(draw->card_id));
+    tarot_card_interpret(draw->card_id, draw->reversed,
+                         tarot_position_name(s_session.spread, s_session.selected),
+                         s_text_buffer, sizeof(s_text_buffer));
+    lv_obj_t *panel = lv_obj_create(s_screen);
+    lv_obj_set_pos(panel, 13, 55);
+    lv_obj_set_size(panel, 214, 220);
+    lv_obj_set_style_radius(panel, 12, 0);
+    lv_obj_set_style_bg_color(panel, lv_color_hex(COLOR_PANEL), 0);
+    lv_obj_set_style_border_color(panel, lv_color_hex(COLOR_GOLD), 0);
+    lv_obj_set_style_border_width(panel, 1, 0);
+    lv_obj_t *body = new_label(panel, s_text_buffer, &tarot_font_14, lv_color_hex(COLOR_IVORY));
+    lv_obj_set_width(body, 184);
+    lv_label_set_long_mode(body, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_line_space(body, 7, 0);
+    lv_obj_align(body, LV_ALIGN_TOP_MID, 0, 8);
+    footer_hint("长按确定返回牌面");
+    lv_screen_load(s_screen);
+}
 
-    for (size_t i = 0; i < DEMO_COUNT; i++) {
-        int x = 11 + (int)(i % 2) * 112;
-        int y = 52 + (int)(i / 2) * 47;
-        s_cards[i] = ui_pixel_panel_create(s_menu_scr, x, y, 102, 40, UI_PAPER);
-        s_rows[i] = lv_label_create(s_cards[i]);
-        lv_obj_set_style_text_font(s_rows[i], &lv_font_montserrat_14, 0);
-        lv_obj_set_style_text_align(s_rows[i], LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_center(s_rows[i]);
+static void show_library(void) {
+    s_page = PAGE_LIBRARY;
+    build_base("牌库百科");
+    if (tarot_card_image(s_library_card, &s_card_image)) {
+        lv_obj_t *image = lv_image_create(s_screen);
+        lv_image_set_src(image, &s_card_image);
+        lv_obj_align(image, LV_ALIGN_CENTER, 0, 0);
     }
-
-    s_mascot = ui_pixel_mascot_create(s_menu_scr, 101, 242);
-
-    menu_refresh();
-    lv_screen_load(s_menu_scr);
+    snprintf(s_text_buffer, sizeof(s_text_buffer), "%02u/78  %s",
+             (unsigned)s_library_card + 1, tarot_card_name(s_library_card));
+    lv_obj_t *name = new_label(s_screen, s_text_buffer, &tarot_font_14, lv_color_hex(COLOR_GOLD));
+    lv_obj_align(name, LV_ALIGN_BOTTOM_MID, 0, -34);
+    footer_hint("上下浏览 · 长按返回");
+    lv_screen_load(s_screen);
 }
 
-static void enter_menu(void) {
-    menu_build();
+static void show_history(void) {
+    s_page = PAGE_HISTORY;
+    build_base("历史记录");
+    if (s_data.history.count == 0) {
+        lv_obj_t *empty = new_label(s_screen, "还没有完成的占卜。\n完成揭牌后会自动保存。",
+                                    &tarot_font_14, lv_color_hex(COLOR_MUTED));
+        lv_obj_set_style_text_align(empty, LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_align(empty, LV_ALIGN_CENTER, 0, -5);
+    } else {
+        if (s_history_index >= s_data.history.count) s_history_index = 0;
+        const tarot_record_t *record = tarot_history_recent(&s_data.history, s_history_index);
+        snprintf(s_text_buffer, sizeof(s_text_buffer), "第 %lu 次 · %s%s\n\n",
+                 (unsigned long)record->sequence, tarot_spread_name(record->spread),
+                 record->favorite ? " · 已收藏" : "");
+        size_t used = strlen(s_text_buffer);
+        for (size_t i = 0; i < record->count && i < 5; ++i) {
+            used += snprintf(s_text_buffer + used, sizeof(s_text_buffer) - used,
+                             "%s：%s%s\n", tarot_position_name(record->spread, i),
+                             tarot_card_name(record->cards[i].card_id),
+                             record->cards[i].reversed ? "（逆）" : "");
+        }
+        if (record->count > 5) snprintf(s_text_buffer + used, sizeof(s_text_buffer) - used,
+                                        "其余 %u 张…", (unsigned)record->count - 5U);
+        lv_obj_t *body = new_label(s_screen, s_text_buffer, &tarot_font_14, lv_color_hex(COLOR_IVORY));
+        lv_obj_set_width(body, 205);
+        lv_label_set_long_mode(body, LV_LABEL_LONG_WRAP);
+        lv_obj_align(body, LV_ALIGN_TOP_MID, 0, 63);
+    }
+    footer_hint(s_data.history.count ? "上下翻阅 · 确定收藏 · 长按返回" : "长按确定返回");
+    lv_screen_load(s_screen);
 }
 
-static demo_nav_input_t navigation_input(bsp_btn_t btn, bsp_btn_ev_t event) {
-    if (event == BSP_BTN_LONG && btn == BSP_BTN_OK) return DEMO_NAV_INPUT_OK_LONG;
-    if (event != BSP_BTN_CLICK) return DEMO_NAV_INPUT_OTHER;
-    if (btn == BSP_BTN_UP) return DEMO_NAV_INPUT_UP_CLICK;
-    if (btn == BSP_BTN_DOWN) return DEMO_NAV_INPUT_DOWN_CLICK;
-    if (btn == BSP_BTN_OK) return DEMO_NAV_INPUT_OK_CLICK;
-    return DEMO_NAV_INPUT_OTHER;
+static void show_settings(void) {
+    s_page = PAGE_SETTINGS;
+    build_base("设置");
+    char rows[4][40];
+    snprintf(rows[0], sizeof(rows[0]), "逆位：%s", s_data.reversals_enabled ? "开启" : "关闭");
+    snprintf(rows[1], sizeof(rows[1]), "声音：%s", s_data.sound_enabled && s_audio_available ? "开启" : "关闭");
+    snprintf(rows[2], sizeof(rows[2]), "亮度：%u%%", s_data.brightness);
+    snprintf(rows[3], sizeof(rows[3]), "清理非收藏历史");
+    for (size_t i = 0; i < 4; ++i) menu_row(rows[i], 68 + (int)i * 48, i == s_settings_index);
+    footer_hint("确定修改 · 长按返回");
+    lv_screen_load(s_screen);
 }
 
-static void process_input(const input_event_t *input) {
-    demo_nav_input_t nav_input = navigation_input(input->btn, input->event);
+static void show_about(void) {
+    s_page = PAGE_ABOUT;
+    build_base("关于");
+    const char *text = "星图塔罗 · 离线版\n\n78 张 1909 Waite-Smith 公版牌面。所有解读均在设备本地完成。\n\n本应用用于娱乐与自我反思，不替代医疗、法律、财务或心理专业意见。";
+    lv_obj_t *body = new_label(s_screen, text, &tarot_font_14, lv_color_hex(COLOR_IVORY));
+    lv_obj_set_width(body, 205);
+    lv_label_set_long_mode(body, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_line_space(body, 5, 0);
+    lv_obj_align(body, LV_ALIGN_TOP_MID, 0, 64);
+    footer_hint("长按确定返回");
+    lv_screen_load(s_screen);
+}
 
-    if (s_navigation.active >= 0) {
-        demo_nav_result_t result = demo_navigation_handle(&s_navigation, nav_input, true);
-        const demo_entry_t *demo = &DEMOS[result.index];
-        if (result.action == DEMO_NAV_ACTION_EXIT) {
-            esp_err_t e = demo->stop ? demo->stop() : ESP_OK;
-            if (e != ESP_OK) {
-                ESP_LOGE(TAG, "%s 页面停止失败: %s", demo->name, esp_err_to_name(e));
+static void start_reading(tarot_spread_t spread) {
+    if (!tarot_session_start(&s_session, spread, s_data.reversals_enabled, esp_random)) return;
+    s_session_saved = false;
+    tarot_audio_play_confirm();
+    show_reading();
+}
+
+static void save_completed_session(void) {
+    if (s_session_saved || !tarot_session_all_revealed(&s_session)) return;
+    if (tarot_history_add(&s_data.history, &s_session)) tarot_store_request_save(&s_data);
+    s_session_saved = true;
+}
+
+static void handle_long_back(void) {
+    if (s_page == PAGE_HOME) return;
+    if (s_page == PAGE_DETAIL) show_reading();
+    else show_home();
+}
+
+static void handle_click(bsp_btn_t button) {
+    int delta = button == BSP_BTN_UP ? -1 : button == BSP_BTN_DOWN ? 1 : 0;
+    if (s_page == PAGE_HOME) {
+        if (delta) s_home_index = (uint8_t)((s_home_index + 6 + delta) % 6);
+        else if (button == BSP_BTN_OK) {
+            if (s_home_index == 0) show_spreads();
+            else if (s_home_index == 1) start_reading(TAROT_SPREAD_DAILY);
+            else if (s_home_index == 2) show_library();
+            else if (s_home_index == 3) show_history();
+            else if (s_home_index == 4) show_settings();
+            else show_about();
+            return;
+        }
+        show_home();
+    } else if (s_page == PAGE_SPREADS) {
+        if (delta) s_spread_index = (uint8_t)((s_spread_index + 3 + delta) % 3);
+        else if (button == BSP_BTN_OK) {
+            static const tarot_spread_t spreads[] = { TAROT_SPREAD_SINGLE, TAROT_SPREAD_THREE, TAROT_SPREAD_CELTIC_CROSS };
+            start_reading(spreads[s_spread_index]);
+            return;
+        }
+        show_spreads();
+    } else if (s_page == PAGE_READING) {
+        if (delta) tarot_session_move(&s_session, delta);
+        else if (button == BSP_BTN_OK) {
+            tarot_draw_t *draw = &s_session.cards[s_session.selected];
+            if (!draw->revealed) {
+                tarot_session_reveal(&s_session);
+                tarot_audio_play_reveal();
+                save_completed_session();
+            } else {
+                show_detail();
                 return;
             }
-            if (!bsp_lvgl_lock(500)) return;
-            demo->exit();
-            demo_navigation_complete_exit(&s_navigation);
-            enter_menu();
-            bsp_lvgl_unlock();
-        } else if (result.action == DEMO_NAV_ACTION_FORWARD) {
-            demo->key(input->btn, input->event);
         }
-        return;
-    }
-
-    if (nav_input == DEMO_NAV_INPUT_OTHER || nav_input == DEMO_NAV_INPUT_OK_LONG) return;
-    if (!bsp_lvgl_lock(500)) return;
-    demo_nav_result_t result = demo_navigation_handle(
-        &s_navigation, nav_input, s_ok[s_navigation.selected]);
-    if (result.action == DEMO_NAV_ACTION_REFRESH) {
-        menu_refresh();
-        ui_pixel_mascot_jump(s_mascot);
-    } else if (result.action == DEMO_NAV_ACTION_ENTER) {
-        const demo_entry_t *demo = &DEMOS[result.index];
-        ui_pixel_mascot_jump(s_mascot);
-        lv_obj_delete(s_menu_scr);
-        s_menu_scr = NULL;
-        s_mascot = NULL;
-        demo->enter();
-        bsp_lvgl_unlock();
-
-        esp_err_t e = demo->start ? demo->start() : ESP_OK;
-        if (e != ESP_OK) {
-            ESP_LOGE(TAG, "%s 页面启动失败: %s", demo->name, esp_err_to_name(e));
+        show_reading();
+    } else if (s_page == PAGE_LIBRARY) {
+        if (delta) s_library_card = (uint8_t)((s_library_card + TAROT_CARD_COUNT + delta) % TAROT_CARD_COUNT);
+        show_library();
+    } else if (s_page == PAGE_HISTORY) {
+        if (s_data.history.count && delta) s_history_index = (uint8_t)((s_history_index + s_data.history.count + delta) % s_data.history.count);
+        else if (s_data.history.count && button == BSP_BTN_OK) {
+            const tarot_record_t *record = tarot_history_recent(&s_data.history, s_history_index);
+            if (record) {
+                tarot_history_toggle_favorite(&s_data.history, record->sequence);
+                tarot_store_request_save(&s_data);
+            }
         }
-        return;
+        show_history();
+    } else if (s_page == PAGE_SETTINGS) {
+        if (delta) s_settings_index = (uint8_t)((s_settings_index + 4 + delta) % 4);
+        else if (button == BSP_BTN_OK) {
+            if (s_settings_index == 0) s_data.reversals_enabled = !s_data.reversals_enabled;
+            else if (s_settings_index == 1 && s_audio_available) {
+                s_data.sound_enabled = !s_data.sound_enabled;
+                tarot_audio_set_enabled(s_data.sound_enabled);
+            } else if (s_settings_index == 2) {
+                s_data.brightness = s_data.brightness >= 100 ? 40 : s_data.brightness + 30;
+                bsp_display_backlight(s_data.brightness);
+            } else if (s_settings_index == 3) {
+                tarot_history_clear_nonfavorites(&s_data.history);
+                s_history_index = 0;
+            }
+            tarot_store_request_save(&s_data);
+        }
+        show_settings();
     }
-    bsp_lvgl_unlock();
 }
 
-static void input_task(void *arg) {
-    (void)arg;
+static void restore_backlight(void) {
+    s_last_input_us = esp_timer_get_time();
+    if (s_dimmed || s_screen_off) bsp_display_backlight(s_data.brightness);
+    s_dimmed = false;
+    s_screen_off = false;
+}
+
+static void update_idle_backlight(void) {
+    int64_t idle = esp_timer_get_time() - s_last_input_us;
+    if (idle >= OFF_AFTER_US && !s_screen_off) {
+        bsp_display_backlight(0);
+        s_screen_off = true;
+    } else if (idle >= DIM_AFTER_US && !s_dimmed) {
+        bsp_display_backlight(s_data.brightness > 20 ? 15 : s_data.brightness);
+        s_dimmed = true;
+    }
+}
+
+static void input_task(void *argument) {
+    (void)argument;
     input_event_t input;
     for (;;) {
-        if (xQueueReceive(s_input_queue, &input, portMAX_DELAY) == pdTRUE) {
-            process_input(&input);
+        if (xQueueReceive(s_input_queue, &input, pdMS_TO_TICKS(500)) != pdTRUE) {
+            update_idle_backlight();
+            continue;
         }
+        restore_backlight();
+        if (!bsp_lvgl_lock(500)) continue;
+        if (input.event == BSP_BTN_LONG && input.button == BSP_BTN_OK) handle_long_back();
+        else if (input.event == BSP_BTN_CLICK) handle_click(input.button);
+        bsp_lvgl_unlock();
     }
 }
 
-static esp_err_t input_dispatch_init(void) {
-    s_input_queue = xQueueCreate(INPUT_QUEUE_DEPTH, sizeof(input_event_t));
-    if (!s_input_queue) return ESP_ERR_NO_MEM;
-    if (xTaskCreate(input_task, "demo_input", 4096, NULL, 5, &s_input_task) != pdPASS) {
-        vQueueDelete(s_input_queue);
-        s_input_queue = NULL;
-        return ESP_ERR_NO_MEM;
-    }
-    return ESP_OK;
-}
-
-static void input_dispatch_deinit(void) {
-    s_input_ready = false;
-    if (s_input_task) {
-        vTaskDelete(s_input_task);
-        s_input_task = NULL;
-    }
-    if (s_input_queue) {
-        vQueueDelete(s_input_queue);
-        s_input_queue = NULL;
-    }
-}
-
-// button callbacks run on the shared esp_timer task; enqueue only and return immediately.
-static void on_key(bsp_btn_t btn, bsp_btn_ev_t ev, void *user) {
+static void on_key(bsp_btn_t button, bsp_btn_ev_t event, void *user) {
     (void)user;
     if (!s_input_ready || !s_input_queue) return;
-    const input_event_t input = { .btn = btn, .event = ev };
+    input_event_t input = { .button = button, .event = event };
     (void)xQueueSend(s_input_queue, &input, 0);
 }
 
 void app_main(void) {
-    ESP_LOGI(TAG, "FoloToy AI Passport BSP demo 启动");
-    esp_sleep_wakeup_cause_t wakeup = esp_sleep_get_wakeup_cause();
-    if (wakeup != ESP_SLEEP_WAKEUP_UNDEFINED) {
-        ESP_LOGI(TAG, "休眠唤醒原因: %d", wakeup);
-    }
-
-    bsp_i2c_init();
-    bsp_i2c_scan();
-
-    // 屏幕是本 demo 的 UI 载体,失败就没有菜单可言 —— 打清楚日志后退出,
-    // 不做"串口菜单"降级(那会让本文件复杂一倍,违背参考示例的初衷)。
+    ESP_LOGI(TAG, "starting offline tarot application");
+    (void)bsp_i2c_init();
     if (bsp_display_init() != ESP_OK || !bsp_lvgl_init()) {
-        ESP_LOGE(TAG, "显示/LVGL 初始化失败,demo 无法继续。"
-                      "检查 SPI 接线(MOSI=%d SCLK=%d CS=%d DC=%d BL=%d)",
+        ESP_LOGE(TAG, "display init failed (MOSI=%d SCLK=%d CS=%d DC=%d BL=%d)",
                  BSP_LCD_MOSI, BSP_LCD_SCLK, BSP_LCD_CS, BSP_LCD_DC, BSP_LCD_BL);
         return;
     }
-    bsp_display_backlight(100);
-
-    demo_navigation_init(&s_navigation, DEMO_COUNT);
-
-    // 其余外设单项失败不阻塞:菜单里标 [FAIL],其他项照常可测。
-    s_ok[0] = true;                                   // Display 已确认可用
-    esp_err_t input_err = input_dispatch_init();
-    esp_err_t button_err = input_err == ESP_OK
-                         ? bsp_button_init(on_key, NULL)
-                         : ESP_ERR_INVALID_STATE;
-    s_ok[1] = input_err == ESP_OK && button_err == ESP_OK;
-    if (input_err != ESP_OK) {
-        ESP_LOGE(TAG, "按键事件任务创建失败: %s", esp_err_to_name(input_err));
-    } else if (button_err != ESP_OK) {
-        ESP_LOGE(TAG, "按键初始化失败: %s", esp_err_to_name(button_err));
-        input_dispatch_deinit();
+    (void)tarot_store_init(&s_data);
+    s_audio_available = tarot_audio_init();
+    if (!s_audio_available) s_data.sound_enabled = false;
+    tarot_audio_set_enabled(s_data.sound_enabled);
+    if (bsp_battery_init() == ESP_OK) s_battery_soc = bsp_battery_soc();
+    bsp_display_backlight(s_data.brightness);
+    s_input_queue = xQueueCreate(INPUT_QUEUE_DEPTH, sizeof(input_event_t));
+    if (!s_input_queue || xTaskCreate(input_task, "tarot_input", 5120, NULL, 5, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "input task allocation failed");
+        return;
     }
-    s_ok[2] = (bsp_audio_init() == ESP_OK);
-    s_ok[3] = (bsp_battery_init() == ESP_OK);
-    s_ok[4] = true;                                    // 页面内按需初始化并显示错误
-    s_ok[5] = true;
-    s_ok[6] = true;
-
+    if (bsp_button_init(on_key, NULL) != ESP_OK) {
+        ESP_LOGE(TAG, "button init failed");
+        return;
+    }
+    s_last_input_us = esp_timer_get_time();
     if (bsp_lvgl_lock(1000)) {
-        enter_menu();
+        show_home();
         bsp_lvgl_unlock();
         s_input_ready = true;
     }
-
-    ESP_LOGI(TAG, "就绪:Display=%d Button=%d Audio=%d Battery=%d",
-             s_ok[0], s_ok[1], s_ok[2], s_ok[3]);
+    ESP_LOGI(TAG, "ready: audio=%d battery=%d persistence_error=%d",
+             s_audio_available, s_battery_soc, tarot_store_has_error());
 }

@@ -39,3 +39,12 @@
 - 与当前 BSP 音频路径匹配时优先采用 16 kHz、16 位单声道 PCM。
 - 嵌入音频前评估 Flash 与内部 RAM 成本；长录音应流式或分块。
 - 无再分发许可不提交媒体文件。
+
+## 塔罗应用资源
+
+- [`tarot/README.zh_CN.md`](tarot/README.zh_CN.md) 记录 78 张公版
+  Waite-Smith 牌面的来源、审计清单与可复现 RGB565 图集流程。
+- `fonts/tarot-font-manifest.json` 记录 Noto Sans SC 来源哈希、SIL Open Font
+  License、转换器版本、字号和应用实际字形集合。
+- 固件生成物位于 `main/assets/` 与 `main/fonts/`，`tools/` 下的生成器是这些
+  文件的可复现来源。

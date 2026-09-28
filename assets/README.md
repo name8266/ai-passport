@@ -41,3 +41,12 @@ Store reusable music and sound-effect sources in `music/`.
 - Prefer 16 kHz, 16-bit mono PCM when it matches the current BSP audio path.
 - Check Flash and internal-RAM cost before embedding audio; stream or chunk long recordings.
 - Do not commit media without redistribution permission.
+
+## Tarot application assets
+
+- [`tarot/README.md`](tarot/README.md) documents the 78-card public-domain
+  Waite-Smith source set, audit manifest, and deterministic RGB565 atlas build.
+- `fonts/tarot-font-manifest.json` records the Noto Sans SC source hash, SIL
+  Open Font License, converter version, sizes, and exact application glyph set.
+- Generated firmware artifacts are linked from `main/assets/` and `main/fonts/`;
+  the generators under `tools/` are the reproducible source of those files.

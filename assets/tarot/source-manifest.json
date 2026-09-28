@@ -1,0 +1,795 @@
+{
+  "schema": 1,
+  "source_category": null,
+  "source_repository": "https://github.com/sixseeds/tarot-api",
+  "source_commit": "71825eed74683305b139a669b23ca5dc12f76857",
+  "card_count": 78,
+  "width": 112,
+  "height": 192,
+  "pixel_format": "RGB565 little-endian",
+  "bytes_per_card": 43008,
+  "atlas_size": 3354624,
+  "atlas_sha256": "03f7cbdab089c63a5f060f4bd813ba04f72d47b917a9ab3df0e2b33b84f78d4c",
+  "cards": [
+    {
+      "card_id": 0,
+      "title": "File:RWS1909 - 00 Fool.jpeg",
+      "source_file": "ar00.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar00.jpg",
+      "download_sha256": "557c6592b73107508eac65ef140d090d2ccd657ac5a2d5d4fe31c6c2ceacbcb5",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 1,
+      "title": "File:RWS1909 - 01 Magician.jpeg",
+      "source_file": "ar01.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar01.jpg",
+      "download_sha256": "e0569e468545abfd2987ec0af5d3c51da3a9d478e37077aeaa1d715ddfc9941b",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 2,
+      "title": "File:RWS1909 - 02 High Priestess.jpeg",
+      "source_file": "ar02.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar02.jpg",
+      "download_sha256": "0e87b5a22187a299334188c2e8fd178125151f9015c122f6946367489cfd252a",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 3,
+      "title": "File:RWS1909 - 03 Empress.jpeg",
+      "source_file": "ar03.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar03.jpg",
+      "download_sha256": "2f0a9885c4f4e68bbca4cb40d3d5f42d4c7559f914bb5b3765ee429c74c142df",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 4,
+      "title": "File:RWS1909 - 04 Emperor.jpeg",
+      "source_file": "ar04.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar04.jpg",
+      "download_sha256": "7a800b57c5b7da7b493e6968da31325327134e98083e95ee75b3db6eaef7e868",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 5,
+      "title": "File:RWS1909 - 05 Hierophant.jpeg",
+      "source_file": "ar05.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar05.jpg",
+      "download_sha256": "68faba7f016b2d76b2fc2200f834279a0b08b7228767ae744fcdc70f9402699d",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 6,
+      "title": "File:RWS1909 - 06 Lovers.jpeg",
+      "source_file": "ar06.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar06.jpg",
+      "download_sha256": "5a24e337a146568ebbbfa9783fa451d22c02bccd3cb7fe518afdb3ff396487fe",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 7,
+      "title": "File:RWS1909 - 07 Chariot.jpeg",
+      "source_file": "ar07.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar07.jpg",
+      "download_sha256": "3906e01a159d3b7f1696e9094080e0a4ae95b2f4d4ca8b084131aba6ad133dd8",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 8,
+      "title": "File:RWS1909 - 08 Strength.jpeg",
+      "source_file": "ar08.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar08.jpg",
+      "download_sha256": "b222f1799b8dc46944d28f6079b1551011691dc439740371126e874fcf0c768f",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 9,
+      "title": "File:RWS1909 - 09 Hermit.jpeg",
+      "source_file": "ar09.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar09.jpg",
+      "download_sha256": "0f86ac4560e598ced039665e21023d329e7a7e58872c46b3e9a9d85bb6cb2a50",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 10,
+      "title": "File:RWS1909 - 10 Wheel of Fortune.jpeg",
+      "source_file": "ar10.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar10.jpg",
+      "download_sha256": "2979bea7530572f408739757c87200772f6171a5249684cc9ee2a379108b3657",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 11,
+      "title": "File:RWS1909 - 11 Justice.jpeg",
+      "source_file": "ar11.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar11.jpg",
+      "download_sha256": "028645f4ed40a82035c410f4b7b5b00adbdcdf1c21ffd706cddeaf9227e0151d",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 12,
+      "title": "File:RWS1909 - 12 Hanged Man.jpeg",
+      "source_file": "ar12.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar12.jpg",
+      "download_sha256": "0eacf7afe48e4b51c5405a8354ecb867a4d8868151137434ef84621e4d56359c",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 13,
+      "title": "File:RWS1909 - 13 Death.jpeg",
+      "source_file": "ar13.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar13.jpg",
+      "download_sha256": "9e9cdd41a4d975691e79acc2358b45f4f2c58661431c3113a5ccf27477356a66",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 14,
+      "title": "File:RWS1909 - 14 Temperance.jpeg",
+      "source_file": "ar14.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar14.jpg",
+      "download_sha256": "a306b373f8ff18270a2daabe3d89967eadd428e460c39ed717bda7bd38a1f009",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 15,
+      "title": "File:RWS1909 - 15 Devil.jpeg",
+      "source_file": "ar15.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar15.jpg",
+      "download_sha256": "f8e37102cbf2120270c0ed8c3e193b260d2f79dd5908bc9acbd48e8335083cf8",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 16,
+      "title": "File:RWS1909 - 16 Tower.jpeg",
+      "source_file": "ar16.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar16.jpg",
+      "download_sha256": "ab5ce9bf29f32b9cf61720b375fe35f23ce7e116ee1c648a9bf6832e17241163",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 17,
+      "title": "File:RWS1909 - 17 Star.jpeg",
+      "source_file": "ar17.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar17.jpg",
+      "download_sha256": "20bb3e04c1655cc318031d94a024d84199cfeae2ca55e80d2d341c2d30435ac7",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 18,
+      "title": "File:RWS1909 - 18 Moon.jpeg",
+      "source_file": "ar18.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar18.jpg",
+      "download_sha256": "866474dc3de02bf3817495fd75d254dac2b9f36470f2f29ecb54de572f9dc70e",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 19,
+      "title": "File:RWS1909 - 19 Sun.jpeg",
+      "source_file": "ar19.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar19.jpg",
+      "download_sha256": "6c21ef99fef3807bafb26cd467464c8efc59e7312a688ae66285968e364c6450",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 20,
+      "title": "File:RWS1909 - 20 Judgement.jpeg",
+      "source_file": "ar20.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar20.jpg",
+      "download_sha256": "1d670d30e651554051f1a04708a11c57583a92a2cc370b8c0fc54fb82f2ffbd3",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 21,
+      "title": "File:RWS1909 - 21 World.jpeg",
+      "source_file": "ar21.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/ar21.jpg",
+      "download_sha256": "f866b87a3c4422f96074080024860f46b5b3f456fcad74ca7aefdb5263bf0e69",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 22,
+      "title": "File:RWS1909 - Wands 01.jpeg",
+      "source_file": "wa01.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa01.jpg",
+      "download_sha256": "c29a4231878072d66be3aa344b348ea77cf12617571db4836a270730ae5a04e0",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 23,
+      "title": "File:RWS1909 - Wands 02.jpeg",
+      "source_file": "wa02.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa02.jpg",
+      "download_sha256": "b715689f6097b32884678d52f946df0fafdd225ed8ead3979307f455a88e8e80",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 24,
+      "title": "File:RWS1909 - Wands 03.jpeg",
+      "source_file": "wa03.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa03.jpg",
+      "download_sha256": "1177316634bf3990c95ccb908b7e5a6759ec0356039d896e6ee0bbb8796e958a",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 25,
+      "title": "File:RWS1909 - Wands 04.jpeg",
+      "source_file": "wa04.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa04.jpg",
+      "download_sha256": "9850a241100dd084bacab39a8e87baaa13d1de1a590dc0dde013b92aa783af7e",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 26,
+      "title": "File:RWS1909 - Wands 05.jpeg",
+      "source_file": "wa05.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa05.jpg",
+      "download_sha256": "6298f82e6ce5e7524041bb608852471b03e29d528f6a5b52b2b44a8ff1f06bba",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 27,
+      "title": "File:RWS1909 - Wands 06.jpeg",
+      "source_file": "wa06.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa06.jpg",
+      "download_sha256": "249a1eaa2de24dc9c1095e953b9577ca613fcda4b4b884dab2a1964c686dad72",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 28,
+      "title": "File:RWS1909 - Wands 07.jpeg",
+      "source_file": "wa07.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa07.jpg",
+      "download_sha256": "0117736a1c9d543960bb94c73d20a587e9ec877dfc2120b7d5ee0255c40dd731",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 29,
+      "title": "File:RWS1909 - Wands 08.jpeg",
+      "source_file": "wa08.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa08.jpg",
+      "download_sha256": "fbf01153074154c6b0e130e0690e00320e9293daaf9c84fe4a37804f02145cd6",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 30,
+      "title": "File:RWS1909 - Wands 09.jpeg",
+      "source_file": "wa09.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa09.jpg",
+      "download_sha256": "f0edfe460b1ba3fdd2cb0d0e82786a84bcdcaf97bb2e1a2ffaf4c82ed235b469",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 31,
+      "title": "File:RWS1909 - Wands 10.jpeg",
+      "source_file": "wa10.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa10.jpg",
+      "download_sha256": "64c10fe7ba527498547bb3bf85a4a5c5fc687ba2209b8d38ffe5722d25810685",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 32,
+      "title": "File:RWS1909 - Wands 11.jpeg",
+      "source_file": "wa11.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa11.jpg",
+      "download_sha256": "ecb79ab9035c43d322cbef211e8028fc175e220a764db7fcb566c4e44d1842bb",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 33,
+      "title": "File:RWS1909 - Wands 12.jpeg",
+      "source_file": "wa12.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa12.jpg",
+      "download_sha256": "00dd859cf067753c5ed009ac0ab8a0673cb8e5bdf5677fb3c7d4b04c93c0e025",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 34,
+      "title": "File:RWS1909 - Wands 13.jpeg",
+      "source_file": "wa13.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa13.jpg",
+      "download_sha256": "f1646c86efe388dfff3d4a1fc8e5a5c7bb60a5605d3e4b67c1157216c773202d",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 35,
+      "title": "File:RWS1909 - Wands 14.jpeg",
+      "source_file": "wa14.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/wa14.jpg",
+      "download_sha256": "671c7c53329fa99e309f101a2ee093503a5d3bad137cb626a588dc74f4f0506f",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 36,
+      "title": "File:RWS1909 - Cups 01.jpeg",
+      "source_file": "cu01.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu01.jpg",
+      "download_sha256": "fd157290a61bd075e837879275b811c86c32d3ea2beadb2b24327d133c5fb5f9",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 37,
+      "title": "File:RWS1909 - Cups 02.jpeg",
+      "source_file": "cu02.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu02.jpg",
+      "download_sha256": "5d1f09a9b69784e6006a9b662496f0664b26b15740062ac2285e77eadf3b36e4",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 38,
+      "title": "File:RWS1909 - Cups 03.jpeg",
+      "source_file": "cu03.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu03.jpg",
+      "download_sha256": "25bfd4dbc2917a5a33b34c56579facffca464df0f4b4a0b4f00d9c9e96d9be0e",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 39,
+      "title": "File:RWS1909 - Cups 04.jpeg",
+      "source_file": "cu04.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu04.jpg",
+      "download_sha256": "92097fe69d21dd0a0c9d5ece68ed465fa4a53d5107509cde3689840b67ed3f13",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 40,
+      "title": "File:RWS1909 - Cups 05.jpeg",
+      "source_file": "cu05.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu05.jpg",
+      "download_sha256": "07d2354d331f8a9397c407cea0b2bcc1544b134eab526b9262ececb3d0a57166",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 41,
+      "title": "File:RWS1909 - Cups 06.jpeg",
+      "source_file": "cu06.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu06.jpg",
+      "download_sha256": "bb6fb5b6de8c22811e0c9057a05e46cd0014984e3d43160844bd5c395e8973bf",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 42,
+      "title": "File:RWS1909 - Cups 07.jpeg",
+      "source_file": "cu07.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu07.jpg",
+      "download_sha256": "3c9d1d310ca3f4303a2e4beb872d998f7b45fbd26ee361ee48fadb366cf3b3a7",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 43,
+      "title": "File:RWS1909 - Cups 08.jpeg",
+      "source_file": "cu08.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu08.jpg",
+      "download_sha256": "727c07c60753aa7925c9421ca3a93e80eaadd0053018e68c819b2ac5e6562312",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 44,
+      "title": "File:RWS1909 - Cups 09.jpeg",
+      "source_file": "cu09.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu09.jpg",
+      "download_sha256": "5d0704e0dc1de8ab59da38230b609a5aeeceaf61473ca5271f48049976f3cb6f",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 45,
+      "title": "File:RWS1909 - Cups 10.jpeg",
+      "source_file": "cu10.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu10.jpg",
+      "download_sha256": "ac33d5a07ac63e10301cd632cedc020aca25a0d8a3e64f58fbd9e221b39fa261",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 46,
+      "title": "File:RWS1909 - Cups 11.jpeg",
+      "source_file": "cu11.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu11.jpg",
+      "download_sha256": "c6000e0ec6cf784ec75ac3a9fa8971e9ba56c8072c899cc0d44dece6acafc526",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 47,
+      "title": "File:RWS1909 - Cups 12.jpeg",
+      "source_file": "cu12.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu12.jpg",
+      "download_sha256": "99a7b7c91da744cb03a3741c4bac674ef91adbb5b22aca53404f3467d1ea8e65",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 48,
+      "title": "File:RWS1909 - Cups 13.jpeg",
+      "source_file": "cu13.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu13.jpg",
+      "download_sha256": "a1732a137bfc441a68703e3c8c14653f22452a287e790b9d5047035afc374b2a",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 49,
+      "title": "File:RWS1909 - Cups 14.jpeg",
+      "source_file": "cu14.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/cu14.jpg",
+      "download_sha256": "79ae249016aaafb01279007e2da5ad00dffd6dc7d3017526853cfa6efc989372",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 50,
+      "title": "File:RWS1909 - Swords 01.jpeg",
+      "source_file": "sw01.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw01.jpg",
+      "download_sha256": "32f0f932346a25b6ec3753ff95d3e4a7481cb5c3582205ba76c53356a496f15a",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 51,
+      "title": "File:RWS1909 - Swords 02.jpeg",
+      "source_file": "sw02.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw02.jpg",
+      "download_sha256": "a44b7e2b454db3dc1ff42f70107fb15750babf659f5750892de4b5be721ec380",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 52,
+      "title": "File:RWS1909 - Swords 03.jpeg",
+      "source_file": "sw03.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw03.jpg",
+      "download_sha256": "4fdf7db3e7611561831af32b5c886f9862c7d90a851965cddf71298047da1dee",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 53,
+      "title": "File:RWS1909 - Swords 04.jpeg",
+      "source_file": "sw04.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw04.jpg",
+      "download_sha256": "d4f9dad59b25daf3c9e98e50107dd692e9682f058cdc8424ce61fd448e941a78",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 54,
+      "title": "File:RWS1909 - Swords 05.jpeg",
+      "source_file": "sw05.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw05.jpg",
+      "download_sha256": "e4fc379d7ce3f7675f474ec9b3c2c8e4be7bdc0af2f2186eb2e2de4643b0a0bf",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 55,
+      "title": "File:RWS1909 - Swords 06.jpeg",
+      "source_file": "sw06.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw06.jpg",
+      "download_sha256": "25279d7133301f59748f9ec0c6517a56fc4b8f76477ecfb4495f039adbc9aed5",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 56,
+      "title": "File:RWS1909 - Swords 07.jpeg",
+      "source_file": "sw07.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw07.jpg",
+      "download_sha256": "6204a31b5949937c95ea47ed47bae0cdd86ba112cb0c933935efbfc294033ea6",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 57,
+      "title": "File:RWS1909 - Swords 08.jpeg",
+      "source_file": "sw08.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw08.jpg",
+      "download_sha256": "019acbe3faff292c48c2744c42df052d7c7440a896f1cac42930e8c727d983b6",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 58,
+      "title": "File:RWS1909 - Swords 09.jpeg",
+      "source_file": "sw09.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw09.jpg",
+      "download_sha256": "b592a2ebe7fca2b648c12d42ec1d5edd4da60d60b0ec7e548e7115c977c485fb",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 59,
+      "title": "File:RWS1909 - Swords 10.jpeg",
+      "source_file": "sw10.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw10.jpg",
+      "download_sha256": "10d0b161d115dc340c6c54a274a9f0a21547584b9bd20dbd61fb12e78885043f",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 60,
+      "title": "File:RWS1909 - Swords 11.jpeg",
+      "source_file": "sw11.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw11.jpg",
+      "download_sha256": "ac69cec7c4b763fe229b3bc43214d5c81e573abe0584a13691970ab65be351ad",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 61,
+      "title": "File:RWS1909 - Swords 12.jpeg",
+      "source_file": "sw12.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw12.jpg",
+      "download_sha256": "b38c1618eb6b5eca33d5bfebfddf8739773fb4ec8918a8946b4df2790d95db4e",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 62,
+      "title": "File:RWS1909 - Swords 13.jpeg",
+      "source_file": "sw13.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw13.jpg",
+      "download_sha256": "55854543540d12f9c201197537f4521b22379b84d0955149621755601ce6da90",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 63,
+      "title": "File:RWS1909 - Swords 14.jpeg",
+      "source_file": "sw14.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/sw14.jpg",
+      "download_sha256": "5307da08322c8ccf2bc748aec5fe919e16849568fda3986225a921bf2cac9cee",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 64,
+      "title": "File:RWS1909 - Pentacles 01.jpeg",
+      "source_file": "pe01.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe01.jpg",
+      "download_sha256": "fd6ddf90ead3062dd3696856e9771356dd9a2527048dab19417ee7ad79e28464",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 65,
+      "title": "File:RWS1909 - Pentacles 02.jpeg",
+      "source_file": "pe02.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe02.jpg",
+      "download_sha256": "1ee94470d0a0d53f867b5f6616bfe9e672b5693ba7c1d0a0c29303b2a1c08a88",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 66,
+      "title": "File:RWS1909 - Pentacles 03.jpeg",
+      "source_file": "pe03.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe03.jpg",
+      "download_sha256": "a8d826b099c0920329be52de5b96c0b2e5ddcfb45b8d109490e9ab74ae6f9eaa",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 67,
+      "title": "File:RWS1909 - Pentacles 04.jpeg",
+      "source_file": "pe04.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe04.jpg",
+      "download_sha256": "37e44050b8ac86dc7db3c1bb00e80154e97986b028a1499504ab89c5612e5989",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 68,
+      "title": "File:RWS1909 - Pentacles 05.jpeg",
+      "source_file": "pe05.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe05.jpg",
+      "download_sha256": "5a6705ba00c102c9e66a716b182e195f17c1bcf94a8d1b5163e2ce7195166938",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 69,
+      "title": "File:RWS1909 - Pentacles 06.jpeg",
+      "source_file": "pe06.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe06.jpg",
+      "download_sha256": "d9d67638f7f4075b42b03ee80ca9bf3817d2406cda647618504140b85ab3ca6b",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 70,
+      "title": "File:RWS1909 - Pentacles 07.jpeg",
+      "source_file": "pe07.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe07.jpg",
+      "download_sha256": "78a9d4965ce497192e5186737a44d73b4e94aa8a4092b49b374879ed22b138ab",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 71,
+      "title": "File:RWS1909 - Pentacles 08.jpeg",
+      "source_file": "pe08.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe08.jpg",
+      "download_sha256": "13c82cbdec9ce101f157ee502663eb38bbd8117cec5e019b8400474056caebd9",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 72,
+      "title": "File:RWS1909 - Pentacles 09.jpeg",
+      "source_file": "pe09.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe09.jpg",
+      "download_sha256": "e491630d7291a34266f2d227f4085602cb9a000e31346402773a653e07b48f32",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 73,
+      "title": "File:RWS1909 - Pentacles 10.jpeg",
+      "source_file": "pe10.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe10.jpg",
+      "download_sha256": "e14d5029ff2151a5ef53218c853382828dd0940bfd3a608d72ec59a967f97809",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 74,
+      "title": "File:RWS1909 - Pentacles 11.jpeg",
+      "source_file": "pe11.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe11.jpg",
+      "download_sha256": "d2c3cb2f6a602e62748f873eca72acfab06b64a6de50cf3499e6197d650b6fe9",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 75,
+      "title": "File:RWS1909 - Pentacles 12.jpeg",
+      "source_file": "pe12.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe12.jpg",
+      "download_sha256": "6a652fbf447b7d0c78145627749c87806d1c356e96e73ca365d2618d9b255e9f",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 76,
+      "title": "File:RWS1909 - Pentacles 13.jpeg",
+      "source_file": "pe13.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe13.jpg",
+      "download_sha256": "051a9a46a806910754969d806b3cf1e1621d30f51225b0a3db9b5474e222a877",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    },
+    {
+      "card_id": 77,
+      "title": "File:RWS1909 - Pentacles 14.jpeg",
+      "source_file": "pe14.jpg",
+      "source_url": "https://github.com/sixseeds/tarot-api/blob/71825eed74683305b139a669b23ca5dc12f76857/cards/pe14.jpg",
+      "download_sha256": "887b31bb3a9213e9f97dd6fd9c0f8b421c24735f3a0efd1d087fadfb600b0020",
+      "license": "Public domain (Rider-Waite deck, 1909)",
+      "artist": "Pamela Colman Smith",
+      "credit": "Pinned mirror of the public-domain 1909 Rider-Waite deck"
+    }
+  ]
+}
