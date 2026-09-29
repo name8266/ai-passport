@@ -27,3 +27,4 @@ bool tarot_history_add(tarot_history_t *history, const tarot_session_t *session)
 const tarot_record_t *tarot_history_recent(const tarot_history_t *history, size_t newest_index);
 bool tarot_history_toggle_favorite(tarot_history_t *history, uint32_t sequence);
 void tarot_history_clear_nonfavorites(tarot_history_t *history);
+bool tarot_history_full_with_favorites(const tarot_history_t *history);

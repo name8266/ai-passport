@@ -1,0 +1,4 @@
+#include <assert.h>
+#include <stdio.h>
+#include "tarot_runtime.h"
+int main(void){tarot_runtime_t r;bool w=false;tarot_runtime_init(&r,0);assert(tarot_runtime_update_idle(&r,TAROT_DIM_AFTER_US)==TAROT_IDLE_DIMMED);assert(!tarot_runtime_note_input(&r,TAROT_DIM_AFTER_US+1,true,&w)&&!w);assert(tarot_runtime_note_input(&r,TAROT_DIM_AFTER_US+2,false,&w));tarot_runtime_init(&r,0);assert(tarot_runtime_update_idle(&r,TAROT_OFF_AFTER_US)==TAROT_IDLE_OFF);assert(!tarot_runtime_note_input(&r,TAROT_OFF_AFTER_US+1,true,&w)&&w);assert(!tarot_runtime_note_input(&r,TAROT_OFF_AFTER_US+2,false,&w));assert(!tarot_runtime_note_input(&r,TAROT_OFF_AFTER_US+3,true,&w));assert(tarot_runtime_note_input(&r,TAROT_OFF_AFTER_US+4,false,&w));tarot_runtime_init(&r,0);assert(!tarot_runtime_battery_refresh_due(&r,TAROT_BATTERY_REFRESH_US-1));assert(tarot_runtime_battery_refresh_due(&r,TAROT_BATTERY_REFRESH_US));puts("tarot runtime tests passed");return 0;}

@@ -12,6 +12,7 @@
 
 #define TAROT_STORE_MAGIC 0x54415254U
 #define TAROT_STORE_VERSION 1U
+#define TAROT_SAVE_COALESCE_MS 180
 
 typedef struct {
     uint32_t magic;
@@ -26,6 +27,7 @@ static QueueHandle_t s_queue;
 static nvs_handle_t s_nvs;
 static bool s_ready;
 static volatile bool s_error;
+static tarot_store_blob_t s_worker_blob;
 
 static uint32_t crc32_bytes(const void *data, size_t length) {
     const uint8_t *bytes = data;
@@ -60,15 +62,12 @@ static tarot_store_blob_t make_blob(const tarot_persisted_t *data) {
 
 static void save_task(void *argument) {
     (void)argument;
-    tarot_store_blob_t blob;
     for (;;) {
-        if (xQueueReceive(s_queue, &blob, portMAX_DELAY) != pdTRUE) continue;
-        esp_err_t error = nvs_set_blob(s_nvs, "state", &blob, sizeof(blob));
-        if (error == ESP_OK) error = nvs_commit(s_nvs);
-        if (error != ESP_OK) {
-            s_error = true;
-            ESP_LOGE(TAG, "save failed: %s", esp_err_to_name(error));
-        }
+        if (xQueueReceive(s_queue,&s_worker_blob,portMAX_DELAY)!=pdTRUE) continue;
+        vTaskDelay(pdMS_TO_TICKS(TAROT_SAVE_COALESCE_MS)); while (xQueueReceive(s_queue,&s_worker_blob,0)==pdTRUE) {}
+        esp_err_t error=nvs_set_blob(s_nvs,"state",&s_worker_blob,sizeof(s_worker_blob)); if(error==ESP_OK) error=nvs_commit(s_nvs);
+        if(error!=ESP_OK){s_error=true;ESP_LOGE(TAG,"save failed: %s",esp_err_to_name(error));}
+        else ESP_LOGD(TAG,"save ok; stack remaining=%lu",(unsigned long)uxTaskGetStackHighWaterMark(NULL));
     }
 }
 

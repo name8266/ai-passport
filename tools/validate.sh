@@ -42,6 +42,9 @@ run_static_checks() {
         tests/test_tarot_model.c main/tarot_model.c main/tarot_history.c \
         -o "${test_dir}/test_tarot_model"
     "${test_dir}/test_tarot_model"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_tarot_runtime.c main/tarot_runtime.c -o "${test_dir}/test_tarot_runtime"
+    "${test_dir}/test_tarot_runtime"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Icomponents/bsp/src \
         tests/test_bsp_display_rounding.c components/bsp/src/bsp_display_rounding.c \
         -o "${test_dir}/test_bsp_display_rounding"

@@ -81,11 +81,14 @@ static void test_history_preserves_favorites(void) {
     assert(history.records[0].favorite);
 }
 
+static void test_history_reports_all_favorites_full(void){tarot_history_t h;tarot_history_init(&h);tarot_session_t s;for(size_t i=0;i<TAROT_HISTORY_CAPACITY;++i){assert(tarot_session_start(&s,TAROT_SPREAD_DAILY,false,test_random));assert(tarot_session_reveal(&s));assert(tarot_history_add(&h,&s));const tarot_record_t*r=tarot_history_recent(&h,0);assert(r);assert(tarot_history_toggle_favorite(&h,r->sequence));}assert(tarot_history_full_with_favorites(&h));assert(tarot_session_start(&s,TAROT_SPREAD_SINGLE,false,test_random));assert(tarot_session_reveal(&s));assert(!tarot_history_add(&h,&s));}
+
 int main(void) {
     test_spread_shapes();
     test_unique_draws_and_reveal();
     test_navigation_wraps_and_reversals_can_be_disabled();
     test_history_preserves_favorites();
+    test_history_reports_all_favorites_full();
     puts("tarot model tests passed");
     return 0;
 }

@@ -1,6 +1,7 @@
 idf_component_register(
     SRCS "main.c"
          "tarot_model.c"
+         "tarot_runtime.c"
          "tarot_catalog.c"
          "tarot_history.c"
          "tarot_store.c"

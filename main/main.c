@@ -19,6 +19,7 @@
 #include "tarot_catalog.h"
 #include "tarot_history.h"
 #include "tarot_model.h"
+#include "tarot_runtime.h"
 #include "tarot_store.h"
 
 LV_FONT_DECLARE(tarot_font_14);
@@ -31,12 +32,10 @@ LV_FONT_DECLARE(tarot_font_20);
 #define COLOR_IVORY 0xF5EBD5
 #define COLOR_MUTED 0xA99EBC
 #define INPUT_QUEUE_DEPTH 10
-#define DIM_AFTER_US (30LL * 1000 * 1000)
-#define OFF_AFTER_US (120LL * 1000 * 1000)
 
 typedef enum {
     PAGE_HOME = 0, PAGE_SPREADS, PAGE_READING, PAGE_DETAIL,
-    PAGE_LIBRARY, PAGE_HISTORY, PAGE_SETTINGS, PAGE_ABOUT,
+    PAGE_LIBRARY, PAGE_HISTORY, PAGE_SETTINGS, PAGE_CONFIRM_CLEAR, PAGE_ABOUT,
 } app_page_t;
 
 typedef struct {
@@ -49,20 +48,22 @@ static QueueHandle_t s_input_queue;
 static volatile bool s_input_ready;
 static app_page_t s_page = PAGE_HOME;
 static lv_obj_t *s_screen;
+static lv_obj_t *s_battery_label;
 static tarot_persisted_t s_data;
 static tarot_session_t s_session;
 static lv_image_dsc_t s_card_image;
 static bool s_session_saved;
+static bool s_save_blocked;
 static bool s_audio_available;
+static bool s_battery_available;
 static uint8_t s_home_index;
 static uint8_t s_spread_index;
 static uint8_t s_settings_index;
+static uint8_t s_confirm_index;
 static uint8_t s_library_card;
 static uint8_t s_history_index;
 static int s_battery_soc = -1;
-static int64_t s_last_input_us;
-static bool s_dimmed;
-static bool s_screen_off;
+static tarot_runtime_t s_runtime;
 static char s_text_buffer[640];
 
 static const char *const HOME_ITEMS[] = {
@@ -80,7 +81,10 @@ static lv_obj_t *new_label(lv_obj_t *parent, const char *text, const lv_font_t *
 }
 
 static lv_obj_t *build_base(const char *title) {
-    if (s_screen) lv_obj_delete(s_screen);
+    if (s_screen) {
+        lv_obj_delete(s_screen);
+        s_battery_label = NULL;
+    }
     s_screen = lv_obj_create(NULL);
     lv_obj_set_style_bg_color(s_screen, lv_color_hex(COLOR_NIGHT), 0);
     lv_obj_set_style_bg_opa(s_screen, LV_OPA_COVER, 0);
@@ -91,8 +95,8 @@ static lv_obj_t *build_base(const char *title) {
     char battery[12];
     if (s_battery_soc >= 0) snprintf(battery, sizeof(battery), "%d%%", s_battery_soc);
     else snprintf(battery, sizeof(battery), "--%%");
-    lv_obj_t *battery_label = new_label(s_screen, battery, &tarot_font_14, lv_color_hex(COLOR_MUTED));
-    lv_obj_align(battery_label, LV_ALIGN_TOP_RIGHT, -14, 16);
+    s_battery_label = new_label(s_screen, battery, &tarot_font_14, lv_color_hex(COLOR_MUTED));
+    lv_obj_align(s_battery_label, LV_ALIGN_TOP_RIGHT, -14, 16);
     lv_obj_t *line = lv_obj_create(s_screen);
     lv_obj_set_size(line, 212, 1);
     lv_obj_set_style_bg_color(line, lv_color_hex(COLOR_GOLD), 0);
@@ -102,10 +106,10 @@ static lv_obj_t *build_base(const char *title) {
     return s_screen;
 }
 
-static void menu_row(const char *text, int y, bool selected) {
+static void menu_box(const char *text, int x, int y, int width, int height, bool selected) {
     lv_obj_t *row = lv_obj_create(s_screen);
-    lv_obj_set_pos(row, 13, y);
-    lv_obj_set_size(row, 214, 38);
+    lv_obj_set_pos(row, x, y);
+    lv_obj_set_size(row, width, height);
     lv_obj_set_style_radius(row, 10, 0);
     lv_obj_set_style_bg_color(row, lv_color_hex(selected ? COLOR_PANEL_SELECTED : COLOR_PANEL), 0);
     lv_obj_set_style_bg_opa(row, LV_OPA_COVER, 0);
@@ -116,6 +120,7 @@ static void menu_row(const char *text, int y, bool selected) {
                                 lv_color_hex(selected ? COLOR_IVORY : COLOR_MUTED));
     lv_obj_center(label);
 }
+static void menu_row(const char *text, int y, bool selected) { menu_box(text, 13, y, 214, 38, selected); }
 
 static void footer_hint(const char *text) {
     lv_obj_t *hint = new_label(s_screen, text, &tarot_font_14, lv_color_hex(COLOR_MUTED));
@@ -125,7 +130,10 @@ static void footer_hint(const char *text) {
 static void show_home(void) {
     s_page = PAGE_HOME;
     build_base("星图塔罗");
-    for (size_t i = 0; i < 6; ++i) menu_row(HOME_ITEMS[i], 52 + (int)i * 41, i == s_home_index);
+    for (size_t i = 0; i < 6; ++i) {
+        int column = (int)(i % 2U), row = (int)(i / 2U);
+        menu_box(HOME_ITEMS[i], 12 + column * 114, 58 + row * 64, 102, 54, i == s_home_index);
+    }
     footer_hint("上下选择 · 确定进入");
     lv_screen_load(s_screen);
 }
@@ -181,7 +189,7 @@ static void show_reading(void) {
                  tarot_card_name(draw->card_id), draw->reversed ? " · 逆位" : " · 正位");
         lv_obj_t *name = new_label(s_screen, s_text_buffer, &tarot_font_14, lv_color_hex(COLOR_GOLD));
         lv_obj_align(name, LV_ALIGN_BOTTOM_MID, 0, -35);
-        footer_hint("确定看解读 · 上下换牌");
+        footer_hint(s_save_blocked ? "无法保存 · 收藏保护" : "确定看解读 · 上下换牌");
     }
     lv_screen_load(s_screen);
 }
@@ -266,10 +274,18 @@ static void show_settings(void) {
     snprintf(rows[2], sizeof(rows[2]), "亮度：%u%%", s_data.brightness);
     snprintf(rows[3], sizeof(rows[3]), "清理非收藏历史");
     for (size_t i = 0; i < 4; ++i) menu_row(rows[i], 68 + (int)i * 48, i == s_settings_index);
-    footer_hint("确定修改 · 长按返回");
+    footer_hint(tarot_store_has_error() ? "保存不可用 · 长按返回" : "确定修改 · 长按返回");
     lv_screen_load(s_screen);
 }
-
+static void show_confirm_clear(void) {
+    s_page = PAGE_CONFIRM_CLEAR;
+    build_base("清理历史");
+    lv_obj_t *body = new_label(s_screen, "确定清理非收藏历史?\n\n已收藏记录会保留。", &tarot_font_14, lv_color_hex(COLOR_IVORY));
+    lv_obj_set_width(body, 205); lv_label_set_long_mode(body, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(body, LV_TEXT_ALIGN_CENTER, 0); lv_obj_align(body, LV_ALIGN_TOP_MID, 0, 78);
+    menu_row("返回", 168, s_confirm_index == 0); menu_row("确定清理", 216, s_confirm_index == 1);
+    footer_hint("上下选择 · 确定"); lv_screen_load(s_screen);
+}
 static void show_about(void) {
     s_page = PAGE_ABOUT;
     build_base("关于");
@@ -286,19 +302,23 @@ static void show_about(void) {
 static void start_reading(tarot_spread_t spread) {
     if (!tarot_session_start(&s_session, spread, s_data.reversals_enabled, esp_random)) return;
     s_session_saved = false;
+    s_save_blocked = false;
     tarot_audio_play_confirm();
     show_reading();
 }
 
 static void save_completed_session(void) {
     if (s_session_saved || !tarot_session_all_revealed(&s_session)) return;
-    if (tarot_history_add(&s_data.history, &s_session)) tarot_store_request_save(&s_data);
-    s_session_saved = true;
+    if (tarot_history_add(&s_data.history, &s_session)) {
+        tarot_store_request_save(&s_data); s_session_saved = true; s_save_blocked = false; return;
+    }
+    s_save_blocked = tarot_history_full_with_favorites(&s_data.history);
 }
 
 static void handle_long_back(void) {
     if (s_page == PAGE_HOME) return;
     if (s_page == PAGE_DETAIL) show_reading();
+    else if (s_page == PAGE_CONFIRM_CLEAR) show_settings();
     else show_home();
 }
 
@@ -362,43 +382,44 @@ static void handle_click(bsp_btn_t button) {
                 s_data.brightness = s_data.brightness >= 100 ? 40 : s_data.brightness + 30;
                 bsp_display_backlight(s_data.brightness);
             } else if (s_settings_index == 3) {
-                tarot_history_clear_nonfavorites(&s_data.history);
-                s_history_index = 0;
+                s_confirm_index = 0; show_confirm_clear(); return;
             }
             tarot_store_request_save(&s_data);
         }
         show_settings();
+    } else if (s_page == PAGE_CONFIRM_CLEAR) {
+        if (delta) s_confirm_index = (uint8_t)((s_confirm_index + 2 + delta) % 2);
+        else if (button == BSP_BTN_OK) {
+            if (s_confirm_index == 1) { tarot_history_clear_nonfavorites(&s_data.history); s_history_index = 0; tarot_store_request_save(&s_data); }
+            show_settings(); return;
+        }
+        show_confirm_clear();
     }
 }
-
-static void restore_backlight(void) {
-    s_last_input_us = esp_timer_get_time();
-    if (s_dimmed || s_screen_off) bsp_display_backlight(s_data.brightness);
-    s_dimmed = false;
-    s_screen_off = false;
+static void apply_idle_state(tarot_idle_state_t state, tarot_idle_state_t previous) {
+    if (state == TAROT_IDLE_OFF) { bsp_display_backlight(0); tarot_audio_suspend(); }
+    else if (state == TAROT_IDLE_DIMMED) bsp_display_backlight(s_data.brightness > 20 ? 15 : s_data.brightness);
+    else { bsp_display_backlight(s_data.brightness); if (previous == TAROT_IDLE_OFF) tarot_audio_resume(); }
 }
-
-static void update_idle_backlight(void) {
-    int64_t idle = esp_timer_get_time() - s_last_input_us;
-    if (idle >= OFF_AFTER_US && !s_screen_off) {
-        bsp_display_backlight(0);
-        s_screen_off = true;
-    } else if (idle >= DIM_AFTER_US && !s_dimmed) {
-        bsp_display_backlight(s_data.brightness > 20 ? 15 : s_data.brightness);
-        s_dimmed = true;
-    }
+static void refresh_battery_if_due(int64_t now_us) {
+    if (!s_battery_available || !tarot_runtime_battery_refresh_due(&s_runtime, now_us)) return;
+    int soc = bsp_battery_soc(); if (soc < 0 || soc == s_battery_soc) return; s_battery_soc = soc;
+    if (!bsp_lvgl_lock(100)) return;
+    if (s_battery_label) { char battery[12]; snprintf(battery, sizeof(battery), "%d%%", s_battery_soc); lv_label_set_text(s_battery_label, battery); }
+    bsp_lvgl_unlock();
 }
-
 static void input_task(void *argument) {
-    (void)argument;
-    input_event_t input;
+    (void)argument; input_event_t input;
     for (;;) {
         if (xQueueReceive(s_input_queue, &input, pdMS_TO_TICKS(500)) != pdTRUE) {
-            update_idle_backlight();
-            continue;
+            int64_t now_us=esp_timer_get_time(); tarot_idle_state_t previous=s_runtime.idle_state;
+            tarot_idle_state_t state=tarot_runtime_update_idle(&s_runtime, now_us);
+            if (state != previous) apply_idle_state(state, previous); refresh_battery_if_due(now_us); continue;
         }
-        restore_backlight();
-        if (!bsp_lvgl_lock(500)) continue;
+        int64_t now_us=esp_timer_get_time(); tarot_idle_state_t previous=s_runtime.idle_state; bool woke=false;
+        bool dispatch=tarot_runtime_note_input(&s_runtime, now_us, input.event==BSP_BTN_PRESS, &woke);
+        if (previous != TAROT_IDLE_ACTIVE) apply_idle_state(TAROT_IDLE_ACTIVE, previous);
+        if (!dispatch || !bsp_lvgl_lock(500)) continue;
         if (input.event == BSP_BTN_LONG && input.button == BSP_BTN_OK) handle_long_back();
         else if (input.event == BSP_BTN_CLICK) handle_click(input.button);
         bsp_lvgl_unlock();
@@ -424,7 +445,7 @@ void app_main(void) {
     s_audio_available = tarot_audio_init();
     if (!s_audio_available) s_data.sound_enabled = false;
     tarot_audio_set_enabled(s_data.sound_enabled);
-    if (bsp_battery_init() == ESP_OK) s_battery_soc = bsp_battery_soc();
+    if (bsp_battery_init() == ESP_OK) { s_battery_available = true; s_battery_soc = bsp_battery_soc(); }
     bsp_display_backlight(s_data.brightness);
     s_input_queue = xQueueCreate(INPUT_QUEUE_DEPTH, sizeof(input_event_t));
     if (!s_input_queue || xTaskCreate(input_task, "tarot_input", 5120, NULL, 5, NULL) != pdPASS) {
@@ -435,7 +456,7 @@ void app_main(void) {
         ESP_LOGE(TAG, "button init failed");
         return;
     }
-    s_last_input_us = esp_timer_get_time();
+    tarot_runtime_init(&s_runtime, esp_timer_get_time());
     if (bsp_lvgl_lock(1000)) {
         show_home();
         bsp_lvgl_unlock();

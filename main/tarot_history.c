@@ -77,3 +77,5 @@ void tarot_history_clear_nonfavorites(tarot_history_t *history) {
            (TAROT_HISTORY_CAPACITY - write) * sizeof(history->records[0]));
     history->count = (uint8_t)write;
 }
+
+bool tarot_history_full_with_favorites(const tarot_history_t *history) { if (!history || history->count < TAROT_HISTORY_CAPACITY) return false; for (size_t i=0;i<TAROT_HISTORY_CAPACITY;++i) if (!history->records[i].favorite) return false; return true; }
