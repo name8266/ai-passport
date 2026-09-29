@@ -45,6 +45,33 @@ static void test_unique_draws_and_reveal(void) {
     assert(tarot_session_all_revealed(&session));
 }
 
+static void test_many_draws_are_unique_and_cover_both_orientations(void) {
+    bool card_seen[TAROT_CARD_COUNT] = { false };
+    bool upright_seen = false;
+    bool reversed_seen = false;
+
+    for (size_t round = 0; round < 1000; ++round) {
+        tarot_session_t session;
+        bool draw_seen[TAROT_CARD_COUNT] = { false };
+        assert(tarot_session_start(&session, TAROT_SPREAD_CELTIC_CROSS, true, test_random));
+        for (size_t i = 0; i < session.count; ++i) {
+            uint8_t card_id = session.cards[i].card_id;
+            assert(card_id < TAROT_CARD_COUNT);
+            assert(!draw_seen[card_id]);
+            draw_seen[card_id] = true;
+            card_seen[card_id] = true;
+            upright_seen |= !session.cards[i].reversed;
+            reversed_seen |= session.cards[i].reversed;
+        }
+    }
+
+    for (size_t card_id = 0; card_id < TAROT_CARD_COUNT; ++card_id) {
+        assert(card_seen[card_id]);
+    }
+    assert(upright_seen);
+    assert(reversed_seen);
+}
+
 static void test_navigation_wraps_and_reversals_can_be_disabled(void) {
     tarot_session_t session;
     assert(tarot_session_start(&session, TAROT_SPREAD_THREE, false, test_random));
@@ -65,27 +92,53 @@ static void test_history_preserves_favorites(void) {
         assert(tarot_history_add(&history, &session));
     }
     const tarot_record_t *oldest = tarot_history_recent(&history, TAROT_HISTORY_CAPACITY - 1);
-    assert(oldest);
+    const tarot_record_t *next_oldest = tarot_history_recent(&history, TAROT_HISTORY_CAPACITY - 2);
+    assert(oldest && next_oldest);
     uint32_t favorite_sequence = oldest->sequence;
+    uint32_t evicted_sequence = next_oldest->sequence;
     assert(tarot_history_toggle_favorite(&history, favorite_sequence));
     assert(tarot_session_start(&session, TAROT_SPREAD_SINGLE, true, test_random));
     assert(tarot_session_reveal(&session));
     assert(tarot_history_add(&history, &session));
-    bool found = false;
+    bool favorite_found = false;
+    bool evicted_found = false;
     for (size_t i = 0; i < history.count; ++i) {
-        if (history.records[i].sequence == favorite_sequence) found = true;
+        if (history.records[i].sequence == favorite_sequence) favorite_found = true;
+        if (history.records[i].sequence == evicted_sequence) evicted_found = true;
     }
-    assert(found);
+    assert(history.count == TAROT_HISTORY_CAPACITY);
+    assert(favorite_found);
+    assert(!evicted_found);
     tarot_history_clear_nonfavorites(&history);
     assert(history.count == 1);
     assert(history.records[0].favorite);
 }
 
-static void test_history_reports_all_favorites_full(void){tarot_history_t h;tarot_history_init(&h);tarot_session_t s;for(size_t i=0;i<TAROT_HISTORY_CAPACITY;++i){assert(tarot_session_start(&s,TAROT_SPREAD_DAILY,false,test_random));assert(tarot_session_reveal(&s));assert(tarot_history_add(&h,&s));const tarot_record_t*r=tarot_history_recent(&h,0);assert(r);assert(tarot_history_toggle_favorite(&h,r->sequence));}assert(tarot_history_full_with_favorites(&h));assert(tarot_session_start(&s,TAROT_SPREAD_SINGLE,false,test_random));assert(tarot_session_reveal(&s));assert(!tarot_history_add(&h,&s));}
+static void test_history_reports_all_favorites_full(void) {
+    tarot_history_t history;
+    tarot_history_init(&history);
+    tarot_session_t session;
+    for (size_t i = 0; i < TAROT_HISTORY_CAPACITY; ++i) {
+        assert(tarot_session_start(&session, TAROT_SPREAD_DAILY, false, test_random));
+        assert(tarot_session_reveal(&session));
+        assert(tarot_history_add(&history, &session));
+        const tarot_record_t *record = tarot_history_recent(&history, 0);
+        assert(record);
+        assert(tarot_history_toggle_favorite(&history, record->sequence));
+    }
+
+    tarot_history_t before = history;
+    assert(tarot_history_full_with_favorites(&history));
+    assert(tarot_session_start(&session, TAROT_SPREAD_SINGLE, false, test_random));
+    assert(tarot_session_reveal(&session));
+    assert(!tarot_history_add(&history, &session));
+    assert(memcmp(&history, &before, sizeof(history)) == 0);
+}
 
 int main(void) {
     test_spread_shapes();
     test_unique_draws_and_reveal();
+    test_many_draws_are_unique_and_cover_both_orientations();
     test_navigation_wraps_and_reversals_can_be_disabled();
     test_history_preserves_favorites();
     test_history_reports_all_favorites_full();

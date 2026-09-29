@@ -9,6 +9,7 @@
 #include "bsp_i2c.h"
 #include "bsp_pins.h"
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
@@ -82,10 +83,15 @@ static lv_obj_t *new_label(lv_obj_t *parent, const char *text, const lv_font_t *
 
 static lv_obj_t *build_base(const char *title) {
     if (s_screen) {
-        lv_obj_delete(s_screen);
+        /* Reuse one active screen. Deleting the active LVGL screen leaves the
+         * display without an active root and recreating screens fragments the
+         * small no-PSRAM heap during rapid navigation. */
+        lv_obj_clean(s_screen);
         s_battery_label = NULL;
     }
-    s_screen = lv_obj_create(NULL);
+    else {
+        s_screen = lv_obj_create(NULL);
+    }
     lv_obj_set_style_bg_color(s_screen, lv_color_hex(COLOR_NIGHT), 0);
     lv_obj_set_style_bg_opa(s_screen, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(s_screen, 0, 0);
@@ -127,6 +133,12 @@ static void footer_hint(const char *text) {
     lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -8);
 }
 
+static void load_screen(void) {
+    /* auto_del removes LVGL's initial blank screen on first load. Later calls
+     * target the already-active reusable screen and are harmless no-ops. */
+    lv_screen_load_anim(s_screen, LV_SCREEN_LOAD_ANIM_NONE, 0, 0, true);
+}
+
 static void show_home(void) {
     s_page = PAGE_HOME;
     build_base("星图塔罗");
@@ -135,7 +147,7 @@ static void show_home(void) {
         menu_box(HOME_ITEMS[i], 12 + column * 114, 58 + row * 64, 102, 54, i == s_home_index);
     }
     footer_hint("上下选择 · 确定进入");
-    lv_screen_load(s_screen);
+    load_screen();
 }
 
 static void show_spreads(void) {
@@ -149,7 +161,7 @@ static void show_spreads(void) {
     lv_obj_set_style_text_align(note, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(note, LV_ALIGN_BOTTOM_MID, 0, -44);
     footer_hint("长按确定返回");
-    lv_screen_load(s_screen);
+    load_screen();
 }
 
 static void show_card_back(void) {
@@ -191,7 +203,7 @@ static void show_reading(void) {
         lv_obj_align(name, LV_ALIGN_BOTTOM_MID, 0, -35);
         footer_hint(s_save_blocked ? "无法保存 · 收藏保护" : "确定看解读 · 上下换牌");
     }
-    lv_screen_load(s_screen);
+    load_screen();
 }
 
 static void show_detail(void) {
@@ -214,7 +226,7 @@ static void show_detail(void) {
     lv_obj_set_style_text_line_space(body, 7, 0);
     lv_obj_align(body, LV_ALIGN_TOP_MID, 0, 8);
     footer_hint("长按确定返回牌面");
-    lv_screen_load(s_screen);
+    load_screen();
 }
 
 static void show_library(void) {
@@ -230,7 +242,7 @@ static void show_library(void) {
     lv_obj_t *name = new_label(s_screen, s_text_buffer, &tarot_font_14, lv_color_hex(COLOR_GOLD));
     lv_obj_align(name, LV_ALIGN_BOTTOM_MID, 0, -34);
     footer_hint("上下浏览 · 长按返回");
-    lv_screen_load(s_screen);
+    load_screen();
 }
 
 static void show_history(void) {
@@ -262,7 +274,7 @@ static void show_history(void) {
         lv_obj_align(body, LV_ALIGN_TOP_MID, 0, 63);
     }
     footer_hint(s_data.history.count ? "上下翻阅 · 确定收藏 · 长按返回" : "长按确定返回");
-    lv_screen_load(s_screen);
+    load_screen();
 }
 
 static void show_settings(void) {
@@ -275,7 +287,7 @@ static void show_settings(void) {
     snprintf(rows[3], sizeof(rows[3]), "清理非收藏历史");
     for (size_t i = 0; i < 4; ++i) menu_row(rows[i], 68 + (int)i * 48, i == s_settings_index);
     footer_hint(tarot_store_has_error() ? "保存不可用 · 长按返回" : "确定修改 · 长按返回");
-    lv_screen_load(s_screen);
+    load_screen();
 }
 static void show_confirm_clear(void) {
     s_page = PAGE_CONFIRM_CLEAR;
@@ -284,7 +296,8 @@ static void show_confirm_clear(void) {
     lv_obj_set_width(body, 205); lv_label_set_long_mode(body, LV_LABEL_LONG_WRAP);
     lv_obj_set_style_text_align(body, LV_TEXT_ALIGN_CENTER, 0); lv_obj_align(body, LV_ALIGN_TOP_MID, 0, 78);
     menu_row("返回", 168, s_confirm_index == 0); menu_row("确定清理", 216, s_confirm_index == 1);
-    footer_hint("上下选择 · 确定"); lv_screen_load(s_screen);
+    footer_hint("上下选择 · 确定");
+    load_screen();
 }
 static void show_about(void) {
     s_page = PAGE_ABOUT;
@@ -296,7 +309,7 @@ static void show_about(void) {
     lv_obj_set_style_text_line_space(body, 5, 0);
     lv_obj_align(body, LV_ALIGN_TOP_MID, 0, 64);
     footer_hint("长按确定返回");
-    lv_screen_load(s_screen);
+    load_screen();
 }
 
 static void start_reading(tarot_spread_t spread) {
@@ -310,7 +323,10 @@ static void start_reading(tarot_spread_t spread) {
 static void save_completed_session(void) {
     if (s_session_saved || !tarot_session_all_revealed(&s_session)) return;
     if (tarot_history_add(&s_data.history, &s_session)) {
-        tarot_store_request_save(&s_data); s_session_saved = true; s_save_blocked = false; return;
+        tarot_store_request_save(&s_data);
+        s_session_saved = true;
+        s_save_blocked = false;
+        return;
     }
     s_save_blocked = tarot_history_full_with_favorites(&s_data.history);
 }
@@ -397,27 +413,65 @@ static void handle_click(bsp_btn_t button) {
     }
 }
 static void apply_idle_state(tarot_idle_state_t state, tarot_idle_state_t previous) {
-    if (state == TAROT_IDLE_OFF) { bsp_display_backlight(0); tarot_audio_suspend(); }
-    else if (state == TAROT_IDLE_DIMMED) bsp_display_backlight(s_data.brightness > 20 ? 15 : s_data.brightness);
-    else { bsp_display_backlight(s_data.brightness); if (previous == TAROT_IDLE_OFF) tarot_audio_resume(); }
+    if (state == TAROT_IDLE_OFF) {
+        bsp_display_backlight(0);
+        tarot_audio_suspend();
+    }
+    else if (state == TAROT_IDLE_DIMMED) {
+        bsp_display_backlight(s_data.brightness > 20 ? 15 : s_data.brightness);
+    }
+    else {
+        bsp_display_backlight(s_data.brightness);
+        if (previous == TAROT_IDLE_OFF) tarot_audio_resume();
+    }
 }
+
 static void refresh_battery_if_due(int64_t now_us) {
     if (!s_battery_available || !tarot_runtime_battery_refresh_due(&s_runtime, now_us)) return;
-    int soc = bsp_battery_soc(); if (soc < 0 || soc == s_battery_soc) return; s_battery_soc = soc;
+    int soc = bsp_battery_soc();
+    if (soc < 0 || soc > 100 || soc == s_battery_soc) return;
+    s_battery_soc = soc;
     if (!bsp_lvgl_lock(100)) return;
-    if (s_battery_label) { char battery[12]; snprintf(battery, sizeof(battery), "%d%%", s_battery_soc); lv_label_set_text(s_battery_label, battery); }
+    if (s_battery_label) {
+        char battery[12];
+        snprintf(battery, sizeof(battery), "%d%%", s_battery_soc);
+        lv_label_set_text(s_battery_label, battery);
+    }
     bsp_lvgl_unlock();
 }
+
+static void log_runtime_health(void) {
+    ESP_LOGI(TAG,
+             "health: heap_free=%lu largest=%lu stack_input=%lu stack_audio=%lu stack_save=%lu",
+             (unsigned long)heap_caps_get_free_size(MALLOC_CAP_8BIT),
+             (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT),
+             (unsigned long)uxTaskGetStackHighWaterMark(NULL),
+             (unsigned long)tarot_audio_stack_high_water(),
+             (unsigned long)tarot_store_stack_high_water());
+}
+
 static void input_task(void *argument) {
-    (void)argument; input_event_t input;
+    (void)argument;
+    input_event_t input;
+    int64_t next_health_log_us = esp_timer_get_time() + TAROT_BATTERY_REFRESH_US;
     for (;;) {
         if (xQueueReceive(s_input_queue, &input, pdMS_TO_TICKS(500)) != pdTRUE) {
-            int64_t now_us=esp_timer_get_time(); tarot_idle_state_t previous=s_runtime.idle_state;
-            tarot_idle_state_t state=tarot_runtime_update_idle(&s_runtime, now_us);
-            if (state != previous) apply_idle_state(state, previous); refresh_battery_if_due(now_us); continue;
+            int64_t now_us = esp_timer_get_time();
+            tarot_idle_state_t previous = s_runtime.idle_state;
+            tarot_idle_state_t state = tarot_runtime_update_idle(&s_runtime, now_us);
+            if (state != previous) apply_idle_state(state, previous);
+            refresh_battery_if_due(now_us);
+            if (now_us >= next_health_log_us) {
+                log_runtime_health();
+                next_health_log_us = now_us + TAROT_BATTERY_REFRESH_US;
+            }
+            continue;
         }
-        int64_t now_us=esp_timer_get_time(); tarot_idle_state_t previous=s_runtime.idle_state; bool woke=false;
-        bool dispatch=tarot_runtime_note_input(&s_runtime, now_us, input.event==BSP_BTN_PRESS, &woke);
+        int64_t now_us = esp_timer_get_time();
+        tarot_idle_state_t previous = s_runtime.idle_state;
+        bool woke = false;
+        bool dispatch = tarot_runtime_note_input(&s_runtime, now_us,
+                                                 input.event == BSP_BTN_PRESS, &woke);
         if (previous != TAROT_IDLE_ACTIVE) apply_idle_state(TAROT_IDLE_ACTIVE, previous);
         if (!dispatch || !bsp_lvgl_lock(500)) continue;
         if (input.event == BSP_BTN_LONG && input.button == BSP_BTN_OK) handle_long_back();
@@ -447,8 +501,10 @@ void app_main(void) {
     tarot_audio_set_enabled(s_data.sound_enabled);
     if (bsp_battery_init() == ESP_OK) { s_battery_available = true; s_battery_soc = bsp_battery_soc(); }
     bsp_display_backlight(s_data.brightness);
+    tarot_runtime_init(&s_runtime, esp_timer_get_time());
     s_input_queue = xQueueCreate(INPUT_QUEUE_DEPTH, sizeof(input_event_t));
-    if (!s_input_queue || xTaskCreate(input_task, "tarot_input", 5120, NULL, 5, NULL) != pdPASS) {
+    if (!s_input_queue ||
+        xTaskCreate(input_task, "tarot_input", 5120, NULL, 5, NULL) != pdPASS) {
         ESP_LOGE(TAG, "input task allocation failed");
         return;
     }
@@ -456,7 +512,6 @@ void app_main(void) {
         ESP_LOGE(TAG, "button init failed");
         return;
     }
-    tarot_runtime_init(&s_runtime, esp_timer_get_time());
     if (bsp_lvgl_lock(1000)) {
         show_home();
         bsp_lvgl_unlock();

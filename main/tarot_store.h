@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "tarot_history.h"
@@ -15,3 +16,4 @@ typedef struct {
 bool tarot_store_init(tarot_persisted_t *data);
 void tarot_store_request_save(const tarot_persisted_t *data);
 bool tarot_store_has_error(void);
+size_t tarot_store_stack_high_water(void);

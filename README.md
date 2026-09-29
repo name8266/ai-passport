@@ -56,12 +56,20 @@ delivery:
 ```
 
 The gate creates `build/FoloToy-AI-Passport-full.bin`, which is flashed at
-offset `0x0`. A merged installation image can overwrite/reset NVS, so do not
-describe a full-image firmware update as preserving existing tarot history or
-settings unless the chosen flashing path has separately been verified not to
-write the NVS region. Building successfully is not a substitute for testing the
-display, buttons, audio, battery reporting, persistence, wake behavior, and
-long-running behavior on real hardware.
+offset `0x0`. Data retention depends on the update path:
+
+| Operation | Tarot history and settings |
+| --- | --- |
+| Normal power-off or restart | Retained in NVS |
+| Same-layout segmented flash using the generated `flash_args` | Retained; the listed bootloader, partition-table, and app writes do not write the NVS partition at `0x9000` |
+| App-only write at `0x10000`, with a matching bootloader and partition table | Retained |
+| Merged `FoloToy-AI-Passport-full.bin` write at `0x0` | Erased/overwritten; the merged file spans the NVS address range |
+
+This partition table has no OTA app slots, so segmented or app-only flashing is
+a development update path, not an OTA mechanism. Use the full image for a first
+installation or intentional factory reset. Building successfully is not a
+substitute for testing the display, buttons, audio, battery reporting,
+persistence, wake behavior, and long-running behavior on real hardware.
 
 ## Assets and licensing
 

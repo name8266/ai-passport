@@ -74,19 +74,39 @@ const char *tarot_card_keyword(uint8_t card_id, bool reversed) {
 
 static const char *position_guidance(const char *p) {
     if (!p) return "留意当前的选择与感受";
-    if (!strcmp(p,"今日主题")) return "留意今日主题"; if (!strcmp(p,"问题核心")||!strcmp(p,"核心")) return "观察问题的核心";
-    if (!strcmp(p,"过去")) return "回看过去的选择与变化"; if (!strcmp(p,"现在")) return "留意当前的选择与感受";
-    if (!strcmp(p,"未来")||!strcmp(p,"可能发展")) return "把它当作可能的发展方向"; if (!strcmp(p,"挑战")) return "留意阻力与变化";
-    if (!strcmp(p,"基础")) return "回看基础与来源"; if (!strcmp(p,"近期过去")) return "回看近期变化";
-    if (!strcmp(p,"近期未来")) return "留意近期可能发生的变化"; if (!strcmp(p,"自我")) return "留意自己的想法与感受";
-    if (!strcmp(p,"环境")) return "观察环境与他人的选择"; if (!strcmp(p,"希望与恐惧")) return "分开看希望与恐惧";
-    if (!strcmp(p,"结果")) return "把它当作当前方向的结果"; return "留意当前的选择与感受";
+    if (!strcmp(p, "今日主题")) return "留意今日主题";
+    if (!strcmp(p, "问题核心") || !strcmp(p, "核心")) return "观察问题的核心";
+    if (!strcmp(p, "过去")) return "回看过去的选择与变化";
+    if (!strcmp(p, "现在")) return "留意当前的选择与感受";
+    if (!strcmp(p, "未来") || !strcmp(p, "可能发展")) return "把它当作可能的发展方向";
+    if (!strcmp(p, "挑战")) return "留意阻力与变化";
+    if (!strcmp(p, "基础")) return "回看基础与来源";
+    if (!strcmp(p, "近期过去")) return "回看近期变化";
+    if (!strcmp(p, "近期未来")) return "留意近期可能发生的变化";
+    if (!strcmp(p, "自我")) return "留意自己的想法与感受";
+    if (!strcmp(p, "环境")) return "观察环境与他人的选择";
+    if (!strcmp(p, "希望与恐惧")) return "分开看希望与恐惧";
+    if (!strcmp(p, "结果")) return "把它当作当前方向的结果";
+    return "留意当前的选择与感受";
 }
+
 void tarot_card_interpret(uint8_t card_id, bool reversed, const char *position, char *buffer, size_t buffer_size) {
-    if (!buffer || !buffer_size) return; if (!position) position="当前"; const char *g=position_guidance(position);
-    if (card_id < 22) { snprintf(buffer,buffer_size,"%s｜%s%s\n%s。%s。把它当作观察视角，而不是不可改变的预言。",position,tarot_card_name(card_id),reversed?"（逆位）":"（正位）",tarot_card_keyword(card_id,reversed),g); return; }
-    size_t rank=(card_id-22)%14; const char *r=reversed?RANK_REVERSED[rank]:RANK_UP[rank];
-    snprintf(buffer,buffer_size,"%s｜%s%s\n%s；%s。%s。留意现实证据，再决定下一步。",position,tarot_card_name(card_id),reversed?"（逆位）":"（正位）",tarot_card_keyword(card_id,reversed),r,g);
+    if (!buffer || !buffer_size) return;
+    if (!position) position = "当前";
+    const char *guidance = position_guidance(position);
+    if (card_id < 22) {
+        snprintf(buffer, buffer_size,
+                 "%s｜%s%s\n%s。%s。把它当作观察视角，而不是不可改变的预言。",
+                 position, tarot_card_name(card_id), reversed ? "（逆位）" : "（正位）",
+                 tarot_card_keyword(card_id, reversed), guidance);
+        return;
+    }
+    size_t rank = (card_id - 22) % 14;
+    const char *rank_text = reversed ? RANK_REVERSED[rank] : RANK_UP[rank];
+    snprintf(buffer, buffer_size,
+             "%s｜%s%s\n%s；%s。%s。留意现实证据，再决定下一步。",
+             position, tarot_card_name(card_id), reversed ? "（逆位）" : "（正位）",
+             tarot_card_keyword(card_id, reversed), rank_text, guidance);
 }
 
 bool tarot_card_image(uint8_t card_id, lv_image_dsc_t *descriptor) {
