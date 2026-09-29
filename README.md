@@ -17,8 +17,10 @@ cloud API, or user-data upload is required.
 - Full 78-card visual library using embedded RGB565 artwork.
 - Reading history, favorite protection, and removal of non-favorite records.
 - Persistent reversal, sound, brightness, history, and favorite settings in NVS.
-- Non-blocking audio feedback, battery display, automatic dimming, and screen off.
-- Purpose-built navy-and-gold LVGL interface with embedded Simplified Chinese fonts.
+- Non-blocking audio feedback, periodically refreshed battery display, automatic dimming, and screen off.
+- Wake-only first button interaction after screen-off, with ES8311 software suspend while the display is off.
+- Confirmed cleanup for non-favorite history; favorite saturation is surfaced instead of silently dropping a reading.
+- Purpose-built navy-and-gold LVGL interface with a compact two-column home screen and embedded Simplified Chinese fonts.
 
 ## Controls
 
@@ -30,7 +32,12 @@ cloud API, or user-data upload is required.
 
 Complete all cards in a reading to save it automatically. In History, press OK
 to toggle the selected record as a favorite. The cleanup command in Settings
-keeps favorites and removes other history records.
+asks for confirmation, keeps favorites, and removes other history records. If
+all 32 history slots are favorites, a new completed reading remains visible but
+is explicitly reported as unsaved until the user frees a history slot.
+
+After automatic screen-off, the first function-button interaction only wakes the
+display; it does not also activate the selected UI action.
 
 ## Build
 
@@ -49,8 +56,12 @@ delivery:
 ```
 
 The gate creates `build/FoloToy-AI-Passport-full.bin`, which is flashed at
-offset `0x0`. Building successfully is not a substitute for testing the display,
-buttons, audio, battery reporting, and long-running behavior on real hardware.
+offset `0x0`. A merged installation image can overwrite/reset NVS, so do not
+describe a full-image firmware update as preserving existing tarot history or
+settings unless the chosen flashing path has separately been verified not to
+write the NVS region. Building successfully is not a substitute for testing the
+display, buttons, audio, battery reporting, persistence, wake behavior, and
+long-running behavior on real hardware.
 
 ## Assets and licensing
 
