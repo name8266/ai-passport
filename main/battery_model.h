@@ -3,7 +3,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define BAT_MAX_ASSETS 16
+#define BAT_PAGE_SIZE 16
 #define BAT_MAX_EVENTS 48
 #define BAT_SCHEMA 1
 #define BAT_MIN_EPOCH 1704067200LL
@@ -27,7 +27,7 @@ typedef struct {
 typedef struct {
     uint32_t magic, schema, revision, next_id, event_sequence;
     uint16_t count, event_count;
-    bat_asset_t assets[BAT_MAX_ASSETS];
+    bat_asset_t assets[BAT_PAGE_SIZE];
     bat_event_t events[BAT_MAX_EVENTS];
     uint32_t checksum;
 } bat_db_t;

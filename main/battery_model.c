@@ -49,7 +49,7 @@ int bat_find(const bat_db_t *db, uint32_t id) {
     return -1;
 }
 bool bat_db_valid(const bat_db_t *db) {
-    if (db->magic!=BAT_MAGIC || db->schema!=BAT_SCHEMA || db->count>BAT_MAX_ASSETS
+    if (db->magic!=BAT_MAGIC || db->schema!=BAT_SCHEMA || db->count>BAT_PAGE_SIZE
         || db->event_count>BAT_MAX_EVENTS || !db->next_id || db->checksum!=checksum(db)) return false;
     for (unsigned i=0; i<db->count; ++i) {
         const bat_asset_t *a=&db->assets[i];
@@ -85,7 +85,7 @@ bat_result_t bat_upsert(bat_db_t *db, const bat_asset_t *a, uint32_t revision, i
     if (!bat_asset_valid(a) || !can_write(db,epoch)) return BAT_INVALID;
     int index=bat_find(db,a->id); unsigned from=a->status, action=BAT_EDIT;
     if (!a->id) {
-        if (db->count==BAT_MAX_ASSETS || db->next_id==UINT32_MAX) return BAT_FULL;
+        if (db->count==BAT_PAGE_SIZE || db->next_id==UINT32_MAX) return BAT_FULL;
         index=db->count++; action=BAT_CREATE;
     } else if (index<0) return BAT_NOT_FOUND;
     else {

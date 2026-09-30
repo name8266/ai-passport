@@ -65,12 +65,18 @@ run_static_checks() {
         tests/test_battery_model.c main/battery_model.c main/battery_protocol.c \
         -o "${test_dir}/test_battery_model"
     "${test_dir}/test_battery_model"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -DBAT_ARCHIVE_TEST -Imain \
+        tests/test_battery_archive.c main/battery_archive.c main/battery_care.c main/battery_model.c \
+        -o "${test_dir}/test_battery_archive"
+    mkdir "${test_dir}/archive"
+    "${test_dir}/test_battery_archive" "${test_dir}/archive"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Itests/battery_stubs -Imain \
-        tests/test_battery_store.c main/battery_store.c main/battery_model.c \
+        tests/test_battery_store.c main/battery_store.c main/battery_archive.c main/battery_care.c main/battery_model.c \
         -o "${test_dir}/test_battery_store"
-    "${test_dir}/test_battery_store"
-    "${test_dir}/test_battery_store" corrupt
-    "${test_dir}/test_battery_store" init-fail
+    for scenario in normal corrupt init-fail mount-fail blank migration; do
+        mkdir "${test_dir}/store-${scenario}"
+        "${test_dir}/test_battery_store" "${test_dir}/store-${scenario}" "${scenario}"
+    done
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_deep_sleep_contract.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_check_repo.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_verify_firmware.py

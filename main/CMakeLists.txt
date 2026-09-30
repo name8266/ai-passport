@@ -1,7 +1,7 @@
 idf_component_register(
-    SRCS "main.c" "battery_model.c" "battery_protocol.c" "battery_store.c" "battery_web.c" "battery_ui.c"
+    SRCS "main.c" "battery_model.c" "battery_protocol.c" "battery_store.c" "battery_archive.c" "battery_care.c" "battery_sound.c" "battery_web.c" "battery_ui.c"
     INCLUDE_DIRS "."
-    REQUIRES bsp esp_event esp_netif esp_timer esp_wifi esp_http_server nvs_flash json
+    REQUIRES bsp esp_event esp_netif esp_timer esp_wifi esp_http_server nvs_flash json joltwallet__littlefs
 )
 set(WEB_GZIP "${CMAKE_CURRENT_BINARY_DIR}/battery.html.gz")
 add_custom_command(OUTPUT "${WEB_GZIP}"

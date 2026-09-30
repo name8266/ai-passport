@@ -35,7 +35,7 @@ int main(void) {
     assert(bat_action(&db,1,BAT_CHECKOUT,9,0)==BAT_TRANSITION);
     assert(bat_action(&db,1,BAT_DELETE,9,0)==BAT_OK && db.count==0);
     assert(bat_db_valid(&db)); assert(bat_action(&db,1,BAT_RETURN,10,0)==BAT_NOT_FOUND);
-    for (int i=0;i<BAT_MAX_ASSETS;++i) assert(bat_upsert(&db,&a,db.revision,0)==BAT_OK);
+    for (int i=0;i<BAT_PAGE_SIZE;++i) assert(bat_upsert(&db,&a,db.revision,0)==BAT_OK);
     before=db; assert(bat_upsert(&db,&a,db.revision,0)==BAT_FULL); assert(!memcmp(&before,&db,sizeof(db)));
     assert(db.assets[0].id==2); edit=db.assets[0];
     for (int i=0;i<100;++i) assert(bat_upsert(&db,&edit,db.revision,BAT_MIN_EPOCH+i)==BAT_OK);

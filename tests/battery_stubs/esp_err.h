@@ -9,3 +9,5 @@ typedef int esp_err_t;
 #define ESP_ERR_NVS_NOT_FOUND 4
 #define ESP_ERR_NVS_NO_FREE_PAGES 5
 const char *esp_err_to_name(esp_err_t err);
+
+#define ESP_ERR_NOT_FOUND 6

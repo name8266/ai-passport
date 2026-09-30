@@ -1,201 +1,199 @@
 <p align="right"><a href="README.zh_CN.md">简体中文</a> · <strong>English</strong></p>
 
-# Battery Desk
+# Battery Desk and Blue
 
-Battery Desk turns the FoloToy AI Passport into a small local battery asset manager.
-Development starts from `main` on `feature/battery-assets`. The firmware uses the
-existing BSP in `components/bsp`; all asset, storage, clock, networking and UI logic
-lives in `main`. The application does not compile or navigate to baseline demo UI.
+A local battery collection and care companion for the FoloToy AI Passport.
+Source lives on `feature/battery-assets`, originally created from `main`.
+The embedded web server, complete inventory, audit history, reminder settings and
+British Shorthair blue cat's growth all live on the device. No external database,
+cloud account, CDN or Internet connection is needed. Hardware APIs remain in
+`components/bsp`; application logic and both redesigned interfaces are in `main`.
+The baseline demo menu and pages are not compiled into this application.
 
-## What is included
+## Inventory without an arbitrary total limit
 
-- A redesigned portrait device UI: overview, numbered asset cards, action selection
-  and confirmation, and the phone workspace connection screen.
-- A responsive browser workspace with inventory counts, status distribution,
-  lowest-charge chart, searchable/filterable asset table, detail/edit dialogs,
-  operation history, CSV export and full JSON export.
-- Sixteen assets and the latest 48 audit events in a versioned, CRC-checked NVS
-  snapshot. IDs are stable and never reused. Removing an asset requires retirement
-  first, explicit confirmation, and does not remove its surviving audit entries.
-- Atomic publication after successful `nvs_set_blob` and `nvs_commit`. Conflicting
-  revisions are rejected. Storage initialization/corruption never triggers an
-  automatic partition erase; the app shows storage unavailable and refuses writes.
-- An on-demand, single-client WPA2 SoftAP with a generated 12-character key shown
-  only on the device. The key changes whenever the workspace starts. The browser
-  is embedded and compressed; no CDN, Internet connection or paid service is needed.
-- Phone clock synchronization on page open, refresh, foreground return, and about
-  once a minute while visible. The phone's Unix timestamp and timezone offset are
-  transmitted to the device. The monotonic clock advances time between syncs.
+The previous 16-asset total restriction is removed. **16 is a page size**, so RAM
+usage stays bounded. Web and device can browse successive pages; web search and
+status/attention/reminder filters scan the entire inventory. Dashboard counts
+cover all assets; the charge chart explicitly covers the current page. CSV exports
+all assets regardless of filters. JSON exports all assets and all audit entries,
+plus the cat's growth and reminder preferences; there is no restore/import endpoint.
+The history page shows the latest 48 entries, while older history stays in Flash.
 
-## Start using it
+Physical capacity is finite: this board has **8 MB Flash**, with a **0x4f0000-byte
+(4.94 MiB) LittleFS partition** reserved for assets and history. The firmware
+partition is 3 MiB. The UI displays actual filesystem usage. The effective number
+of assets depends on filesystem overhead and growing history; it is not a promised
+unlimited capacity or a fixed number of rows. A 32 KiB reserve protects ordinary
+writes from consuming all free space; exports and deletions remain available.
+IDs are stable and not reused. Exhausted space rejects writes without evicting
+assets. Large collection scan latency and actual full-storage behavior need board
+measurement; host tests demonstrate 140 records, not a hardware capacity benchmark.
 
-1. Hold `OK` on the device overview to open the phone workspace, then click `OK`
-   to start Wi-Fi. Alternatively, click `DOWN` from the overview.
-2. Join the `BatteryDesk-XXXX` network using the key displayed on the device.
-   Keep the connection even if the phone reports that this Wi-Fi has no Internet.
-3. Open **http://192.168.4.1/** in your phone browser. The clock syncs automatically.
-4. Add battery name, chemistry, nominal capacity, charge, health, cycles, location
-   and notes. Use the detail dialog for status changes.
-5. Use the device to browse `BAT-001` IDs and confirm quick operations. Use `OK`
-   on the phone workspace screen to stop Wi-Fi when you have finished.
+## Use it
 
-The top-right device percentage is the Passport's own optional CW2017 reading.
-Asset charge and health are user-entered inventory data. This application does
-not measure, switch or charge external batteries. It does not add wiring.
+1. Hold `OK` on Blue's home screen, then click `OK` to start the workspace.
+2. Join `BatteryDesk-XXXX` using the generated key shown on the device. Keep the
+   connection when the phone warns that it has no Internet.
+3. Open **http://192.168.4.1/**. The phone sends its real Unix time and timezone
+   automatically on open, refresh, foreground return and about once a minute while
+   visible. The device advances that time with its monotonic clock.
+4. Add assets, record their charge/health and optional next-check date, and choose
+   the charging-check interval (1–1440 minutes; default 120).
+5. Open an asset's details to check out, return, charge, finish charge, service,
+   finish service or retire it. Retirement is required before deletion.
 
-## Device controls
+The top-right screen percentage is the Passport's own optional CW2017 reading.
+Inventory charge and health are manually entered. Completing charge records 100%
+and increments cycles; confirm actual charging has finished first. This firmware
+does not electrically measure, switch or charge the recorded batteries.
 
-| Screen | UP / DOWN click | OK click | OK hold |
+| Device screen | UP / DOWN click | OK click | OK hold |
 | --- | --- | --- | --- |
-| Overview | Phone workspace | Browse assets | Phone workspace |
-| Asset cards | Previous / next asset, wrapping | Action picker; empty inventory opens phone workspace | Overview |
-| Action picker | Choose operation; cancel pending confirmation | First selects, second confirms and persists | Asset card |
-| Phone workspace | Overview | Start / stop Wi-Fi | Overview |
+| Blue home | Reminders / asset cards | Pet Blue | Phone workspace |
+| Asset cards | Previous / next asset across pages | Choose action | Blue home |
+| Action picker | Select; cancel pending confirmation | Select, then confirm and save | Asset card |
+| Reminders | Browse due assets across pages | Snooze sounds for 15 minutes | Blue home |
+| Phone workspace | Blue home | Start / stop Wi-Fi | Blue home |
 
-Double-click and non-OK long presses have no assigned action. A press after the
-backlight turns off only wakes the screen and cannot execute an asset operation.
-The backlight dims to 15% after 45 seconds without device input and turns off
-at 120 seconds. Returning to the overview does not stop an active workspace;
-stop it explicitly from its screen. The running local server requires an awake
-CPU; deep sleep is not implemented or claimed.
+Non-OK holds and double clicks have no assigned action. The backlight dims after
+45 seconds and turns off after 120; the first press wakes without executing an
+operation. Starting Wi-Fi is explicit, supports one client, and generates a fresh
+12-character WPA2 key at every start. Returning home does not stop the server.
+Deep sleep is not implemented. Device text uses supported English Montserrat fonts
+and ASCII `BAT-xxx` identifiers; full UTF-8 names remain in the browser and exports.
 
-Device UI uses English and supported Montserrat 14/20/28 fonts. Arbitrary UTF-8
-asset names remain in the browser. Stable ASCII `BAT-xxx` IDs are displayed on
-the device so Chinese names cannot become missing-glyph boxes. Full names and
-locations are preserved and can be exported.
+## Gentle reminders and growth
 
-## Data and state rules
+Active assets produce low-charge reminders at ≤20%, a charging check after the
+chosen interval, an optional scheduled check, or a status update after seven days.
+The earliest applicable reason is shown. A charge begun without known time is
+shown immediately for checking rather than inventing its start time. Retired assets
+are excluded. There is no estimate that charge is physically complete.
 
-| Current state | Allowed operations |
-| --- | --- |
-| Ready | Check out, start charge, inspect, retire |
-| In use | Return, retire |
-| Charging | Finish charge, retire |
-| Service | Finish service, start charge, retire |
-| Retired | Edit metadata, delete |
+The browser has a reminder center, a due counter and an all-due paginated filter.
+The terminal shows the counter and lets you browse every due asset. The speaker
+worker synthesizes a short rising cue, with a 30-minute repeat cooldown. Sound
+volume (0–60), mute, quiet hours (default 22:00–08:00) and a 15-minute snooze are
+persisted. Quiet start=end disables the quiet-hours window. Visual reminders remain
+visible during mute/snooze. Sound is disabled until the phone has synchronized the
+clock. Speaker initialization failure is nonfatal and reported. Closing the browser
+stops browser updates; there are no background OS push notifications. The powered
+terminal continues checking reminders after the phone disconnects.
 
-Metadata can be edited in every state. Status changes use the audited operation
-endpoint; editing cannot bypass the state machine. Finishing charge sets the
-registered charge to 100% and increments cycles, so confirm the physical charge
-has finished. Retiring an asset is terminal. A full cycle counter rejects charge
-completion; correct metadata before retrying. The attention count includes active
-assets with charge at most 20%, health below 80%, or service status.
+Blue is a rounded blue-grey British Shorthair with amber eyes, a blink animation
+and a happy hop. Real care earns growth: completed charge +10, completed service
++8, meaningful metadata update +5, return +2. Each asset/action rewards once per
+local calendar day, with 40 total points per day. Unknown-time actions and repeated
+unchanged edits give no reward. Petting triggers a friendly response without points.
+Levels unlock at 0/60/120/180 points, adding a collar, crown and heart in the web UI;
+the terminal has a collar and gold decoration. Growth and streak survive power loss.
+Rewards accompany user-recorded care, not independently verified charging; never
+charge a battery just to earn points.
 
-Names, locations and notes support validated UTF-8, with respective limits of
-63, 47 and 95 **bytes**. Controls and invalid UTF-8 are rejected. Capacity is
-1–60000 mAh, percentages 0–100, cycles 0–65535. New browser assets start ready.
-Firmware uses the original NVS/PHY/factory partition layout and a dedicated
-`battery_v1` namespace. Schema 1 stores a fixed-layout snapshot, validates its
-size/version/CRC on boot, and fails closed on unknown layouts. No migration from
-other applications is attempted and unrelated namespaces are not erased.
+## Persistence, migration and time
 
-The audit buffer keeps the latest 48 entries, evicting the oldest on the next
-operation. Export regularly for longer history. CSV exports all asset rows,
-regardless of current filters. JSON exports all retained assets/events, but this
-version does not include a restore/import endpoint. Exported files may include
-your asset names, locations and notes; store them as you would other inventory data.
+LittleFS stores one CRC-checked asset file per ID, a metadata file and an append-only
+CRC-checked audit file. A durable intent contains the new asset, audit entry and
+metadata. Saves sync the intent, update the asset, append history once, replace
+metadata atomically, then remove the intent. On reboot an interrupted durable
+transaction replays idempotently before the archive becomes available. A request
+failure can leave the result unknown: inspect state/history after recovery before
+retrying. Revision conflicts reject stale edits and preserve browser drafts.
 
-Cold boot intentionally starts with **unknown current time**. A saved timestamp
-cannot establish how long power was absent. Offline actions still persist with
-epoch 0 and are labelled unsynchronized; later sync never invents dates for
-those old events. Valid sync timestamps span 2024-01-01 through 2100-01-01 and
-timezone offsets -12 through +14 hours. Clock quality follows the phone's system
-clock, not an independent time authority. Page requests are serialized and
-bounded; HTTP mutations require a matching local Host/Origin, JSON content type
-and custom header. The SoftAP password controls local access; this is a private
-single-user workspace, without Internet hosting or user accounts.
+Only an entirely erased new assets partition can be automatically formatted.
+A mount failure on nonblank bytes, corrupt legacy NVS, unknown metadata or a corrupt
+pending transaction fails closed without erase. The device still presents its
+storage error and workspace screen. Initialization never erases unrelated NVS.
+Existing `battery_v1` NVS records migrate with stable IDs and retained old history;
+the source remains untouched. Progress markers make migration resumable and prevent
+deleted old assets from resurrecting on later boots.
 
-If another client/device operation changes data while an edit is open, saving
-rejects the stale revision and retains the draft. Close/reopen the editor to
-review the latest data before saving again. A network timeout can leave the
-save result unknown: refresh and inspect the history before retrying, especially
-charge completion. There are no automatic mutation retries.
+Cold boot starts with unknown current time: Flash timestamps cannot tell how long
+power was absent. Offline operations save with epoch 0. Phone sync never invents
+historical dates. Absolute schedules, growth, quiet hours and timed speaker checks
+need fresh phone time after each power cycle. Valid dates span 2024–2100, timezone
+−12 to +14 hours. Time accuracy depends on the phone's clock.
 
-## Build and tests
+Names/locations/notes allow validated UTF-8 up to 63/47/95 **bytes**. Capacity is
+1–60000 mAh, percentages 0–100 and cycles 0–65535. Status edits cannot bypass the
+audited state machine. JSON bodies are bounded to 1536 bytes and reject unsafe
+payloads, duplicate fields and foreign request origins. The AP key controls access;
+this is a private local workspace without accounts or Internet hosting.
 
-Use the five installed Passport skills and ESP-IDF **5.5.3**:
+## Build, browser verification and flashing
+
+Use ESP-IDF **5.5.3** and the five required Passport skills:
 
 ```bash
 source <esp-idf-v5.5.3>/export.sh
-./tools/validate.sh --static
-./tools/validate.sh --firmware
 ./tools/validate.sh
-```
-
-The shared static gate includes model/protocol tests and storage fault injection,
-plus the existing baseline tests. It needs no attached board. Model tests cover
-transitions, revision conflicts, finite bounds, UTF-8, CRC/schema rejection,
-rolling history and clock behavior. Store tests compile the actual storage module
-with NVS/mutex fault stubs and verify write/commit failures do not publish a change.
-The final gate retains a merged image and matching ELF/MAP debug bundle under
-`build/firmware/<full-bin-sha256>/`; verify it with
-`python3 tools/archive_firmware.py verify <archive-directory>`.
-
-For a browser preview with synthetic data and the actual C state model:
-
-```bash
 python3 tests/battery_web_preview.py --seed
-# Open http://127.0.0.1:8765/
-```
-
-Without `--seed`, the preview begins empty. It holds synthetic data in memory and
-is not an emulator of ESP-IDF HTTP, Wi-Fi, NVS or the physical LCD. For repeatable
-browser tests, make Playwright available to Node and install Chromium, then run:
-
-```bash
+# Synthetic preview: http://127.0.0.1:8765/
 NODE_PATH=<directory-containing-playwright> node tests/test_battery_web.cjs
 ```
 
-The script uses `/usr/bin/chromium` unless `CHROMIUM_PATH` is supplied. It starts
-its own loopback fixture on port 8766 and tests clock sync, CRUD/status operations,
-conflicts with draft preservation, UTF-8 limits, escaping, filtering, downloads,
-disconnect/recovery and 1440/390/320 px layouts. It saves synthetic screenshots and
-exports under `build/previews/`. This optional browser test is separate from the
-shared gate because it requires a browser installation.
+The full gate covers repository checks, model/protocol tests, real file-engine
+140-record pagination, four interrupted-transaction stages, CRC rejection, migration,
+reward caps, quiet hours, ESP wrapper mount/space/lock failures and existing BSP
+button/audio recovery tests. The browser fixture executes the production C archive
+on a temporary host filesystem; it is not a board emulator. Browser tests cover
+33 assets, all-due navigation, global search, exports exceeding 48 entries, cat reward
+behavior, settings/snooze, CRUD, conflicts, escaping, reconnection and 1440/390/320
+pixel layouts. Screenshots are synthetic and saved under `build/previews/`.
 
-Flash the verified `build/FoloToy-AI-Passport-full.bin` at **0x0** only after
-explicit permission. The merged image may reset stored data; export first.
-A compatible segmented flash is needed to preserve existing NVS, as described in
-[firmware layout](../../development/engineering/firmware-layout.md).
-Never write the application-only binary at 0x0. USB flashing cannot reach your
-computer from a cloud workspace without an explicitly available USB bridge.
+The verified `build/FoloToy-AI-Passport-full.bin` is flashed at **0x0**. Its matching
+ELF/MAP and segmented images live in `build/firmware/<full-image-sha256>/`. Verify the
+bundle with `python3 tools/archive_firmware.py verify <bundle>`.
 
-## Physical-device acceptance
+**For upgrading the prior Battery Desk while retaining NVS for migration**, export
+first and use the matching bundle's segmented `flash_args` (bootloader 0x0, partition
+0x8000, application 0x10000). Do not flash the merged image over old NVS: its padding
+can reset that data. New layout: NVS 0x9000/0x6000, PHY 0xf000/0x1000, factory
+0x10000/0x300000, assets 0x310000/0x4f0000. Once on this layout, compatible segmented
+updates leave both data partitions untouched. No filesystem image is flashed.
+Never use the application-only binary at 0x0 or perform a full-chip erase as an
+upgrade step. Nonblank incompatible assets bytes require an explicit recovery
+choice; the app will not silently erase them. See [firmware layout](../../development/engineering/firmware-layout.md).
+For an optional render of the actual terminal widgets (after IDF resolves LVGL):
 
-Every item below remains NOT RUN until observed on a real Passport. A compiler,
-host test, browser fixture or successful flash does not count as device acceptance.
+```bash
+cmake -S tests/lvgl_preview -B build/screen-preview
+cmake --build build/screen-preview
+mkdir -p build/previews
+build/screen-preview/battery_screen_preview build/previews
+```
 
-| Item | Procedure | Expected result |
+This uses RGB565 at 240×320 and the configured 32 KiB LVGL pool, checks available
+allocator space, and writes PPM frames for home, happy, assets, actions, reminders
+and Wi-Fi. It does not validate the physical LCD or SPI. Single-line labels have
+explicit heights; multiline descriptions and key hints have bounded heights.
+
+USB flashing requires explicit consent and access to the user's computer/USB bridge.
+
+## Physical acceptance — NOT RUN
+
+A build, host test or browser screenshot is not hardware acceptance.
+
+| Item | Procedure | Acceptance |
 | --- | --- | --- |
-| Boot and original UI removal | Boot the exact verified firmware; navigate every screen | New overview/card/action/workspace UI only; no demo test menu |
-| Portrait display | Visit every screen, empty state, error message and three action rows | Correct colors, readable text, no clipping at rounded corners; top-right own battery reading or `--` |
-| Three-key behavior | Exercise each click/hold, cancel confirmation, rapidly switch assets | Correct selection and back navigation; no double action; callbacks remain responsive |
-| Mobile workflow | Connect Android and iOS, open 192.168.4.1, add/edit/filter assets | DHCP, compressed page, tables and charts work; write success updates device within its refresh interval |
-| Clock | Set a known phone time/timezone; open/foreground/refresh page; compare device | Display matches phone within transmission delay; event epoch follows phone; reboot is unknown until re-sync |
-| Offline persistence | Stop Wi-Fi; perform an operation; cut power after save confirmation and reboot | Asset state and history persist; pre-sync events remain explicitly undated |
-| Interrupted NVS save | On expendable test data, cut power during saves over repeated trials | Recover a valid previous or completed snapshot; never a silently accepted corrupt record |
-| Capacity and history | Fill 16 assets; attempt the 17th; execute more than 48 operations; export | 17th rejected, newest 48 ordered events retained, full exports readable |
-| Web/device conflict | Keep a web editor open; change the asset on the device; save stale editor | Revision conflict; draft retained; latest data reloads without an overwrite |
-| Invalid requests | Submit oversized/malformed/deep JSON, invalid dates and foreign origins | 400/403/413 or controlled timeout; no mutation, crash or automatic retry |
-| Reconnect/lifecycle | Start/stop workspace 20 times; disconnect/rejoin phones and interrupt requests | No stuck sockets/tasks/netif; key changes each start; offline error and recovery work |
-| Memory/stack | Record heap/largest block at AP start and full-history fetch; check task high-water marks | Stable allocation over repeated cycles; adequate contiguous memory and worker stacks, no resets |
-| Battery degradation | Test a board without readable CW2017 | `--` shown; inventory and Web service still operate |
-| Idle screen | Wait 45 s then 120 s; press a button after blanking | Dim then off; first press wakes only; enabled web stays available |
-| Data preservation on upgrade | Export; perform compatible segmented reflash or deliberate full refresh | Segmented compatible update preserves data; merged refresh impact is understood |
+| UI and three keys | Visit every screen; test click/hold, wake, page boundaries and stale confirmations | New UI only, readable 240×320 layout, no clipped controls or duplicate operations |
+| Web and clock | Android/iOS join AP; open/foreground/refresh; compare local time | Page loads, clock and timezone match, CRUD updates terminal; reboot waits for sync |
+| Larger inventory | Create ≥140 assets and >48 operations; search last ID, browse both directions and export | All assets reachable; full export and counts agree; measure response latency |
+| Power interruption | On expendable data cut power during each save/migration phase, repeatedly | Valid prior or completed transaction; no duplicates/resurrected assets or silent format |
+| Capacity | Fill expendable filesystem to reserve; export and delete | Writes reject safely, export works, deletion recovers space; no automatic eviction |
+| Reminder timing | Use low SOC, one-minute charging check, scheduled check, stale record, retirement | Correct web/terminal due state; every due asset reachable across pages |
+| Speaker | Test normal/zero/max 60 volume, mute, quiet boundary, snooze and codec failure | Short gentle cue, no clipping/pops, cooldown, controls and data survive reboot; UI stays responsive |
+| Blue | Perform valid care twice in one day, next day and beyond 40 points; pet repeatedly | Correct once-per-action reward, cap/streak, durable unlocks; petting adds no points |
+| Resource stability | Repeat AP start/stop 20 times; scan/export large data while cues play; log heap/stacks | No resets/leaks/deadlocks; adequate main/HTTP/audio stacks and LVGL pool |
+| Upgrade | Export, segmented-upgrade old app, restart repeatedly, delete migrated asset | Stable IDs and old history preserved; removed legacy asset does not return |
 
-## References consulted
+## References
 
-The fork did not contain demo branches, so only the relevant upstream patterns
-were fetched for inspection, without merging their UI, BSP or configuration:
-
-- `demo/cat-themed-pomodoro-timer` at `4086b9e8e9e0eca2b547a83560cebb4e3b40059a`:
-  separated model/storage/UI and NVS worker patterns. Its erase-on-init recovery
-  is deliberately not copied.
-- `demo/blufi-provisioning` at `9c039cc5127f22072afa83bedb7fa3d8efe635ad`:
-  one-time network/event initialization. Bluetooth provisioning is not needed for
-  this local AP-only management app.
-- [SoftAP resource budget](../../reference/phoenixzhc/softap-provisioning-and-resource-budget.md):
-  AP-only management, bounded HTTP, lazy optional peripherals, no-PSRAM budgets.
-- [Hardware guide](../../hardware-design/AI_HARDWARE_DEVELOPMENT_GUIDE.md) and
-  [AI guide](../../development/ai-guide.md): BSP ownership, locking, input callbacks,
-  mandatory UI redesign and separate physical acceptance.
+Inspected upstream `demo/cat-themed-pomodoro-timer` at
+`4086b9e8e9e0eca2b547a83560cebb4e3b40059a` and `demo/blufi-provisioning` at
+`9c039cc5127f22072afa83bedb7fa3d8efe635ad`, without reusing their UI.
+The fork has no matching demo branches. Also used the
+[SoftAP resource budget](../../reference/phoenixzhc/softap-provisioning-and-resource-budget.md),
+[hardware guide](../../hardware-design/AI_HARDWARE_DEVELOPMENT_GUIDE.md) and
+[AI guide](../../development/ai-guide.md).
