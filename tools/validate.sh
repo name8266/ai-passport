@@ -61,6 +61,16 @@ run_static_checks() {
             -o "${test_dir}/test_demo_${demo}_runtime"
         "${test_dir}/test_demo_${demo}_runtime"
     done
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_battery_model.c main/battery_model.c main/battery_protocol.c \
+        -o "${test_dir}/test_battery_model"
+    "${test_dir}/test_battery_model"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Itests/battery_stubs -Imain \
+        tests/test_battery_store.c main/battery_store.c main/battery_model.c \
+        -o "${test_dir}/test_battery_store"
+    "${test_dir}/test_battery_store"
+    "${test_dir}/test_battery_store" corrupt
+    "${test_dir}/test_battery_store" init-fail
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_deep_sleep_contract.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_check_repo.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_verify_firmware.py
