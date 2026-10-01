@@ -36,12 +36,15 @@ static void test_unique_draws_and_reveal(void) {
         seen[session.cards[i].card_id] = true;
         assert(!session.cards[i].revealed);
     }
+    assert(tarot_session_revealed_count(&session) == 0);
     assert(!tarot_session_all_revealed(&session));
     for (size_t i = 0; i < session.count; ++i) {
         session.selected = (uint8_t)i;
         assert(tarot_session_reveal(&session));
+        assert(tarot_session_revealed_count(&session) == i + 1);
         assert(!tarot_session_reveal(&session));
     }
+    assert(tarot_session_revealed_count(&session) == session.count);
     assert(tarot_session_all_revealed(&session));
 }
 

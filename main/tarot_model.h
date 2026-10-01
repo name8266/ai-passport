@@ -37,4 +37,5 @@ bool tarot_session_start(tarot_session_t *session, tarot_spread_t spread,
                          bool reversals_enabled, tarot_random_fn_t random_fn);
 bool tarot_session_move(tarot_session_t *session, int delta);
 bool tarot_session_reveal(tarot_session_t *session);
+size_t tarot_session_revealed_count(const tarot_session_t *session);
 bool tarot_session_all_revealed(const tarot_session_t *session);

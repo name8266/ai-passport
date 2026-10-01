@@ -36,7 +36,8 @@ LV_FONT_DECLARE(tarot_font_20);
 
 typedef enum {
     PAGE_HOME = 0, PAGE_SPREADS, PAGE_READING, PAGE_DETAIL,
-    PAGE_LIBRARY, PAGE_HISTORY, PAGE_SETTINGS, PAGE_CONFIRM_CLEAR, PAGE_ABOUT,
+    PAGE_LIBRARY, PAGE_LIBRARY_DETAIL, PAGE_HISTORY, PAGE_SETTINGS,
+    PAGE_CONFIRM_CLEAR, PAGE_ABOUT,
 } app_page_t;
 
 typedef struct {
@@ -62,6 +63,7 @@ static uint8_t s_spread_index;
 static uint8_t s_settings_index;
 static uint8_t s_confirm_index;
 static uint8_t s_library_card;
+static bool s_library_reversed;
 static uint8_t s_history_index;
 static int s_battery_soc = -1;
 static tarot_runtime_t s_runtime;
@@ -181,9 +183,10 @@ static void show_reading(void) {
     s_page = PAGE_READING;
     build_base(tarot_spread_name(s_session.spread));
     tarot_draw_t *draw = &s_session.cards[s_session.selected];
-    snprintf(s_text_buffer, sizeof(s_text_buffer), "%s  %u/%u",
+    snprintf(s_text_buffer, sizeof(s_text_buffer), "%s  %u/%u · 已揭 %u",
              tarot_position_name(s_session.spread, s_session.selected),
-             (unsigned)s_session.selected + 1, (unsigned)s_session.count);
+             (unsigned)s_session.selected + 1, (unsigned)s_session.count,
+             (unsigned)tarot_session_revealed_count(&s_session));
     lv_obj_t *position = new_label(s_screen, s_text_buffer, &tarot_font_14, lv_color_hex(COLOR_IVORY));
     lv_obj_align(position, LV_ALIGN_TOP_MID, 0, 50);
     if (!draw->revealed) {
@@ -201,7 +204,8 @@ static void show_reading(void) {
                  tarot_card_name(draw->card_id), draw->reversed ? " · 逆位" : " · 正位");
         lv_obj_t *name = new_label(s_screen, s_text_buffer, &tarot_font_14, lv_color_hex(COLOR_GOLD));
         lv_obj_align(name, LV_ALIGN_BOTTOM_MID, 0, -35);
-        footer_hint(s_save_blocked ? "无法保存 · 收藏保护" : "确定看解读 · 上下换牌");
+        footer_hint(s_save_blocked ? "无法保存 · 收藏保护" :
+                    s_session_saved ? "已保存 · 确定看解读" : "确定看解读 · 上下换牌");
     }
     load_screen();
 }
@@ -241,7 +245,38 @@ static void show_library(void) {
              (unsigned)s_library_card + 1, tarot_card_name(s_library_card));
     lv_obj_t *name = new_label(s_screen, s_text_buffer, &tarot_font_14, lv_color_hex(COLOR_GOLD));
     lv_obj_align(name, LV_ALIGN_BOTTOM_MID, 0, -34);
-    footer_hint("上下浏览 · 长按返回");
+    footer_hint("上下浏览 · 确定看解读");
+    load_screen();
+}
+
+static void show_library_detail(void) {
+    s_page = PAGE_LIBRARY_DETAIL;
+    build_base(tarot_card_name(s_library_card));
+    snprintf(s_text_buffer, sizeof(s_text_buffer), "%s · %s",
+             s_library_reversed ? "逆位" : "正位",
+             tarot_card_keyword(s_library_card, s_library_reversed));
+    lv_obj_t *keyword = new_label(s_screen, s_text_buffer, &tarot_font_14,
+                                  lv_color_hex(COLOR_GOLD));
+    lv_obj_set_width(keyword, 208);
+    lv_label_set_long_mode(keyword, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_align(keyword, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(keyword, LV_ALIGN_TOP_MID, 0, 55);
+
+    tarot_card_interpret(s_library_card, s_library_reversed, "牌库参考",
+                         s_text_buffer, sizeof(s_text_buffer));
+    lv_obj_t *panel = lv_obj_create(s_screen);
+    lv_obj_set_pos(panel, 13, 92);
+    lv_obj_set_size(panel, 214, 180);
+    lv_obj_set_style_radius(panel, 12, 0);
+    lv_obj_set_style_bg_color(panel, lv_color_hex(COLOR_PANEL), 0);
+    lv_obj_set_style_border_color(panel, lv_color_hex(COLOR_GOLD), 0);
+    lv_obj_set_style_border_width(panel, 1, 0);
+    lv_obj_t *body = new_label(panel, s_text_buffer, &tarot_font_14, lv_color_hex(COLOR_IVORY));
+    lv_obj_set_width(body, 184);
+    lv_label_set_long_mode(body, LV_LABEL_LONG_WRAP);
+    lv_obj_set_style_text_line_space(body, 6, 0);
+    lv_obj_align(body, LV_ALIGN_TOP_MID, 0, 8);
+    footer_hint("上下看正逆 · 长按返回");
     load_screen();
 }
 
@@ -334,6 +369,7 @@ static void save_completed_session(void) {
 static void handle_long_back(void) {
     if (s_page == PAGE_HOME) return;
     if (s_page == PAGE_DETAIL) show_reading();
+    else if (s_page == PAGE_LIBRARY_DETAIL) show_library();
     else if (s_page == PAGE_CONFIRM_CLEAR) show_settings();
     else show_home();
 }
@@ -375,8 +411,16 @@ static void handle_click(bsp_btn_t button) {
         }
         show_reading();
     } else if (s_page == PAGE_LIBRARY) {
-        if (delta) s_library_card = (uint8_t)((s_library_card + TAROT_CARD_COUNT + delta) % TAROT_CARD_COUNT);
-        show_library();
+        if (delta) {
+            s_library_card = (uint8_t)((s_library_card + TAROT_CARD_COUNT + delta) % TAROT_CARD_COUNT);
+            show_library();
+        } else if (button == BSP_BTN_OK) {
+            s_library_reversed = false;
+            show_library_detail();
+        }
+    } else if (s_page == PAGE_LIBRARY_DETAIL) {
+        if (delta) s_library_reversed = !s_library_reversed;
+        show_library_detail();
     } else if (s_page == PAGE_HISTORY) {
         if (s_data.history.count && delta) s_history_index = (uint8_t)((s_history_index + s_data.history.count + delta) % s_data.history.count);
         else if (s_data.history.count && button == BSP_BTN_OK) {

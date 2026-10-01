@@ -68,10 +68,16 @@ bool tarot_session_reveal(tarot_session_t *session) {
     return true;
 }
 
-bool tarot_session_all_revealed(const tarot_session_t *session) {
-    if (!session || session->count == 0) return false;
+size_t tarot_session_revealed_count(const tarot_session_t *session) {
+    if (!session) return 0;
+    size_t revealed = 0;
     for (size_t i = 0; i < session->count; ++i) {
-        if (!session->cards[i].revealed) return false;
+        if (session->cards[i].revealed) ++revealed;
     }
-    return true;
+    return revealed;
+}
+
+bool tarot_session_all_revealed(const tarot_session_t *session) {
+    return session && session->count > 0 &&
+           tarot_session_revealed_count(session) == session->count;
 }

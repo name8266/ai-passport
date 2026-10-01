@@ -81,3 +81,10 @@ Font License; see [`assets/fonts/`](assets/fonts/).
 
 Tarot readings are provided for entertainment and self-reflection only. They do
 not replace medical, legal, financial, or mental-health professional advice.
+
+
+## Community release readiness
+
+This branch is structured as a community-facing application rather than a hardware-test demo. Before submission, use a 3:4 cover that shows the real 240×320 interface, run `./tools/validate.sh`, and verify the resulting merged firmware on an actual AI Passport. A successful host/CI build is evidence of software reproducibility, not a substitute for checking the LCD, Chinese glyphs, buttons, audio, battery reporting, persistence, wake behavior, and extended runtime on hardware.
+
+Suggested community title: **Starmap Tarot · Offline 78-Card Reader**.
