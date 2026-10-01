@@ -262,7 +262,7 @@ static void show_library_detail(void) {
     lv_obj_set_style_text_align(keyword, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(keyword, LV_ALIGN_TOP_MID, 0, 55);
 
-    tarot_card_interpret(s_library_card, s_library_reversed, "牌库参考",
+    tarot_card_interpret(s_library_card, s_library_reversed, "牌库",
                          s_text_buffer, sizeof(s_text_buffer));
     lv_obj_t *panel = lv_obj_create(s_screen);
     lv_obj_set_pos(panel, 13, 92);
