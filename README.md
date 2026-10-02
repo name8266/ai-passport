@@ -15,7 +15,7 @@ cloud API, or user-data upload is required.
 - Daily guidance, single-card reading, three-card spread, and Celtic Cross.
 - Upright and reversed cards with position-aware local interpretations.
 - Full 78-card visual library using embedded RGB565 artwork.
-- Reading history, favorite protection, and removal of non-favorite records.
+- Reading history that can reopen every saved card and its interpretation, with favorite protection and removal of non-favorite records.
 - Persistent reversal, sound, brightness, history, and favorite settings in NVS.
 - Non-blocking audio feedback, periodically refreshed battery display, automatic dimming, and screen off.
 - Wake-only first button interaction after screen-off, with ES8311 software suspend while the display is off.
@@ -26,12 +26,14 @@ cloud API, or user-data upload is required.
 
 | Control | Action |
 | --- | --- |
-| Up / Down | Move through menus, cards, and history |
-| OK | Enter, reveal a card, open its interpretation, or change a setting |
-| Long press OK | Return to the previous screen or home |
+| Up / Down | Move through menus, cards, history records, and cards inside a saved reading |
+| OK | Enter, reveal, open interpretations; on a saved interpretation, toggle that reading's favorite state |
+| Long press OK | Return one level or home; core browsing screens keep this return affordance visible |
 
 Complete all cards in a reading to save it automatically. In History, press OK
-to toggle the selected record as a favorite. The cleanup command in Settings
+to reopen a saved reading, use Up/Down to revisit each card, then press OK again
+to read its interpretation; the interpretation screen can toggle the reading's
+favorite state. The cleanup command in Settings
 asks for confirmation, keeps favorites, and removes other history records. If
 all 32 history slots are favorites, a new completed reading remains visible but
 is explicitly reported as unsaved until the user frees a history slot.
