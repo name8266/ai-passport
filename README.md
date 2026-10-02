@@ -13,7 +13,7 @@ cloud API, or user-data upload is required.
 ## Features
 
 - Daily guidance, single-card reading, three-card spread, and Celtic Cross.
-- Upright and reversed cards with position-aware local interpretations.
+- Upright and reversed cards with position-aware local interpretations, structured as Core / Progress / Position / Action for concise 240×320 reading.
 - Full 78-card visual library using embedded RGB565 artwork.
 - Reading history that can reopen every saved card and its interpretation, with favorite protection and removal of non-favorite records.
 - Persistent reversal, sound, brightness, history, and favorite settings in NVS.
@@ -83,6 +83,7 @@ Font License; see [`assets/fonts/`](assets/fonts/).
 
 Tarot readings are provided for entertainment and self-reflection only. They do
 not replace medical, legal, financial, or mental-health professional advice.
+Future/result positions are framed as possible directions rather than deterministic predictions.
 
 
 ## Community release readiness

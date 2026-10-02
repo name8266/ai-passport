@@ -223,13 +223,22 @@ static void show_reading(void) {
 static void show_detail(void) {
     s_page = PAGE_DETAIL;
     tarot_draw_t *draw = &s_session.cards[s_session.selected];
+    const char *position = tarot_position_name(s_session.spread, s_session.selected);
     build_base(tarot_card_name(draw->card_id));
-    tarot_card_interpret(draw->card_id, draw->reversed,
-                         tarot_position_name(s_session.spread, s_session.selected),
+
+    snprintf(s_text_buffer, sizeof(s_text_buffer), "%s · %s",
+             position, draw->reversed ? "逆位" : "正位");
+    lv_obj_t *status = new_label(s_screen, s_text_buffer, &tarot_font_14,
+                                 lv_color_hex(COLOR_GOLD));
+    lv_obj_set_width(status, 208);
+    lv_obj_set_style_text_align(status, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(status, LV_ALIGN_TOP_MID, 0, 52);
+
+    tarot_card_interpret(draw->card_id, draw->reversed, position,
                          s_text_buffer, sizeof(s_text_buffer));
     lv_obj_t *panel = lv_obj_create(s_screen);
-    lv_obj_set_pos(panel, 13, 55);
-    lv_obj_set_size(panel, 214, 220);
+    lv_obj_set_pos(panel, 13, 82);
+    lv_obj_set_size(panel, 214, 190);
     lv_obj_set_style_radius(panel, 12, 0);
     lv_obj_set_style_bg_color(panel, lv_color_hex(COLOR_PANEL), 0);
     lv_obj_set_style_border_color(panel, lv_color_hex(COLOR_GOLD), 0);
@@ -237,7 +246,7 @@ static void show_detail(void) {
     lv_obj_t *body = new_label(panel, s_text_buffer, &tarot_font_14, lv_color_hex(COLOR_IVORY));
     lv_obj_set_width(body, 184);
     lv_label_set_long_mode(body, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_line_space(body, 7, 0);
+    lv_obj_set_style_text_line_space(body, 6, 0);
     lv_obj_align(body, LV_ALIGN_TOP_MID, 0, 8);
     footer_hint("长按确定返回牌面");
     load_screen();
@@ -262,9 +271,8 @@ static void show_library(void) {
 static void show_library_detail(void) {
     s_page = PAGE_LIBRARY_DETAIL;
     build_base(tarot_card_name(s_library_card));
-    snprintf(s_text_buffer, sizeof(s_text_buffer), "%s · %s",
-             s_library_reversed ? "逆位" : "正位",
-             tarot_card_keyword(s_library_card, s_library_reversed));
+    snprintf(s_text_buffer, sizeof(s_text_buffer), "%s",
+             s_library_reversed ? "逆位" : "正位");
     lv_obj_t *keyword = new_label(s_screen, s_text_buffer, &tarot_font_14,
                                   lv_color_hex(COLOR_GOLD));
     lv_obj_set_width(keyword, 208);

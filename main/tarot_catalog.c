@@ -86,7 +86,7 @@ static const char *position_guidance(const char *p) {
     if (!strcmp(p, "自我")) return "留意自己的想法与感受";
     if (!strcmp(p, "环境")) return "观察环境与他人的选择";
     if (!strcmp(p, "希望与恐惧")) return "分开看希望与恐惧";
-    if (!strcmp(p, "结果")) return "把它当作当前方向的结果";
+    if (!strcmp(p, "结果")) return "把它当作当前方向的可能结果";
     return "留意当前的选择与感受";
 }
 
@@ -96,16 +96,14 @@ void tarot_card_interpret(uint8_t card_id, bool reversed, const char *position, 
     const char *guidance = position_guidance(position);
     if (card_id < 22) {
         snprintf(buffer, buffer_size,
-                 "%s｜%s%s\n%s。%s。把它当作观察视角，而不是不可改变的预言。",
-                 position, tarot_card_name(card_id), reversed ? "（逆位）" : "（正位）",
+                 "核心：%s\n牌位：%s\n行动：留意现实证据，再决定下一步。",
                  tarot_card_keyword(card_id, reversed), guidance);
         return;
     }
     size_t rank = (card_id - 22) % 14;
     const char *rank_text = reversed ? RANK_REVERSED[rank] : RANK_UP[rank];
     snprintf(buffer, buffer_size,
-             "%s｜%s%s\n%s；%s。%s。留意现实证据，再决定下一步。",
-             position, tarot_card_name(card_id), reversed ? "（逆位）" : "（正位）",
+             "核心：%s\n进程：%s\n牌位：%s\n行动：留意现实证据，再决定下一步。",
              tarot_card_keyword(card_id, reversed), rank_text, guidance);
 }
 
