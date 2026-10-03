@@ -74,7 +74,7 @@ static unsigned s_random_retries;
 static char s_name[NAME_BYTES], s_country[96];
 static uint8_t *s_pixels;
 static lv_image_dsc_t s_image_desc;
-static lv_obj_t *s_title, *s_body, *s_country_label, *s_status, *s_help, *s_image, *s_battery, *s_map, *s_marker;
+static lv_obj_t *s_title, *s_body, *s_country_label, *s_status, *s_help, *s_image, *s_battery, *s_map, *s_marker;\nstatic lv_obj_t *s_header_rule, *s_map_card, *s_info_card, *s_view_frame, *s_status_pill, *s_live_dot;
 
 static uint8_t s_jpeg_work[JPEG_DECODER_WORK_BUF_DEFAULT] __attribute__((aligned(4)));
 static uint16_t s_jpeg_chunk[JPEG_CHUNK_BUF_PIXELS(WC_FULL_WIDTH)] __attribute__((aligned(4)));
@@ -123,6 +123,12 @@ static void draw(const char *status)
     visible(s_title, !full);
     visible(s_help, !full);
     visible(s_battery, !full);
+    visible(s_header_rule, !full);
+    visible(s_map_card, s_page == PAGE_MAP);
+    visible(s_info_card, s_page == PAGE_MAP);
+    visible(s_view_frame, s_page == PAGE_VIEW && !full);
+    visible(s_status_pill, !full);
+    visible(s_live_dot, s_page == PAGE_VIEW && !full);
     visible(s_map, s_page == PAGE_MAP);
     visible(s_marker, s_page == PAGE_MAP);
     visible(s_body, s_page != PAGE_VIEW);
@@ -133,10 +139,10 @@ static void draw(const char *status)
     char text[480] = {0};
     if (s_page == PAGE_MAP) {
         lv_label_set_text(s_title, s_capitals_only ? "各国首都" : "世界之窗");
-        lv_obj_set_pos(s_country_label, 18, 192);
+        lv_obj_set_pos(s_country_label, 24, 197);
         lv_label_set_text(s_country_label, s_country);
-        lv_obj_set_pos(s_body, 18, 216);
-        lv_obj_set_height(s_body, 26);
+        lv_obj_set_pos(s_body, 24, 219);
+        lv_obj_set_height(s_body, 24);
         lv_label_set_long_mode(s_body, LV_LABEL_LONG_DOT);
         int x, y;
         const wc_location_t *loc = current_location();
@@ -146,9 +152,9 @@ static void draw(const char *status)
         lv_label_set_text(s_help, "前后选 · OK查看 · 长上随机\n长下筛首都 · 长OK设置");
     } else if (s_page == PAGE_VIEW) {
         lv_label_set_text(s_title, s_name[0] ? s_name : "地点画面");
-        lv_obj_set_pos(s_country_label, 18, 54);
+        lv_obj_set_pos(s_country_label, 18, 52);
         lv_label_set_text(s_country_label, s_country);
-        lv_obj_set_pos(s_image, s_full ? 0 : 24, s_full ? 80 : 82);
+        lv_obj_set_pos(s_image, s_full ? 0 : 24, s_full ? 80 : 84);
         lv_label_set_text(s_help, "OK刷新 · 长OK返回地图\n长下全屏 · 长上随机游览");
     } else {
         lv_label_set_text(s_title, "连接世界之窗");
@@ -161,7 +167,8 @@ static void draw(const char *status)
         lv_label_set_text(s_body, text);
         lv_label_set_text(s_help, "需要2.4GHz无线网络\n长按OK返回地图");
     }
-    lv_obj_set_pos(s_status, 18, full ? 252 : 248);
+    lv_obj_set_pos(s_status, full ? 18 : 28, full ? 252 : 249);
+    lv_obj_set_width(s_status, full ? 204 : 184);
     lv_label_set_text(s_status, status ? status : "");
     bsp_lvgl_unlock();
 }
@@ -744,15 +751,22 @@ void app_main(void)
     lv_obj_set_style_bg_color(screen, lv_color_hex(0x071820), 0);
     lv_obj_set_style_text_font(screen, &worldcam_font_16, 0);
     lv_screen_load(screen);
-    s_title = label(18, 25, 204, 0x4DE4BD);
+    s_header_rule = panel(18, 47, 204, 1, 0x173A43, 0x173A43, 0);
+    s_map_card = panel(8, 51, 224, 137, 0x0A2029, 0x173A43, 12);
+    s_info_card = panel(14, 190, 212, 56, 0x0D2630, 0x214650, 10);
+    s_view_frame = panel(19, 79, 202, 138, 0x0A2029, 0x214650, 10);
+    s_status_pill = panel(20, 244, 200, 24, 0x0D2E32, 0x24605B, 12);
+    s_live_dot = panel(205, 54, 7, 7, 0x4DE4BD, 0x4DE4BD, LV_RADIUS_CIRCLE);
+
+    s_title = label(18, 20, 154, 0xF0F7F9);
     lv_label_set_long_mode(s_title, LV_LABEL_LONG_DOT);
-    s_battery = label(178, 8, 46, 0xBDCED5);
-    s_body = label(18, 216, 204, 0xF0F7F9);
-    s_country_label = label(18, 192, 204, 0xBDCED5);
+    s_battery = label(178, 20, 44, 0xBDCED5);
+    s_body = label(24, 219, 192, 0xF0F7F9);
+    s_country_label = label(24, 197, 188, 0x7FCFC2);
     lv_label_set_long_mode(s_country_label, LV_LABEL_LONG_DOT);
-    s_status = label(18, 248, 204, 0x4DE4BD);
+    s_status = label(28, 249, 184, 0x4DE4BD);
     lv_label_set_long_mode(s_status, LV_LABEL_LONG_DOT);
-    s_help = label(18, 271, 210, 0xBDCED5);
+    s_help = label(18, 276, 210, 0x8FA8AE);
     s_map = lv_image_create(screen);
     lv_image_set_src(s_map, &worldcam_map);
     lv_obj_set_pos(s_map, 12, 53);
@@ -760,9 +774,11 @@ void app_main(void)
     lv_obj_remove_flag(s_marker, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_size(s_marker, 11, 11);
     lv_obj_set_style_radius(s_marker, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(s_marker, lv_color_hex(0xFFDE87), 0);
-    lv_obj_set_style_border_color(s_marker, lv_color_hex(0xFFFFFF), 0);
+    lv_obj_set_style_bg_color(s_marker, lv_color_hex(0xFFCB66), 0);
+    lv_obj_set_style_border_color(s_marker, lv_color_hex(0xFFF4D6), 0);
     lv_obj_set_style_border_width(s_marker, 2, 0);
+    lv_obj_set_style_shadow_color(s_marker, lv_color_hex(0xFFCB66), 0);
+    lv_obj_set_style_shadow_width(s_marker, 6, 0);
     s_image = lv_image_create(screen);
     lv_obj_set_pos(s_image, 24, 82);
     visible(s_image, false);
