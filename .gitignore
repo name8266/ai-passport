@@ -11,3 +11,8 @@ managed_components/
 /.agents/skills/passport-build
 /.agents/skills/passport-device-test
 /.agents/skills/passport-debug
+
+# WorldCam local Python environment and generated caches
+.worldcam-venv/
+__pycache__/
+/assets/fonts/NotoSansCJKsc-Regular.otf

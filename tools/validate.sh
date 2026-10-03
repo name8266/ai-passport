@@ -66,6 +66,15 @@ run_static_checks() {
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_verify_firmware.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_archive_firmware.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_install_passport_skills.py
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_worldcam_protocol.c main/worldcam_protocol.c \
+        -o "${test_dir}/test_worldcam_protocol"
+    "${test_dir}/test_worldcam_protocol"
+    PYTHONDONTWRITEBYTECODE=1 python3 tests/test_worldcam_gateway.py
+    PYTHONDONTWRITEBYTECODE=1 python3 tests/test_worldcam_font.py
+    PYTHONDONTWRITEBYTECODE=1 python3 tests/test_worldcam_network_probe.py
+    PYTHONDONTWRITEBYTECODE=1 python3 tests/test_worldcam_font_source.py
+    node gateway/mobile-test/checks/probe.test.cjs
     rm -rf "${test_dir}"
     echo "Host tests: PASS"
 }
