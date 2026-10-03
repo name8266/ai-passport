@@ -1,4 +1,4 @@
-# Passport 世界之窗：设备直连工程说明
+<p align="right"><a href="worldcam.md">English</a> · <strong>简体中文</strong></p>\n\n# Passport 世界之窗：设备直连工程说明
 
 世界之窗现在由 ESP32-C3 AI Passport 自己完成联网取图，**网关服务器不再是运行依赖**。
 

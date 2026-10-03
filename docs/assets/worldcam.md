@@ -1,4 +1,4 @@
-# WorldCam direct-device engineering notes
+<p align="right"><a href="worldcam.zh_CN.md">简体中文</a> · <strong>English</strong></p>\n\n# WorldCam direct-device engineering notes
 
 WorldCam runs directly on the ESP32-C3 AI Passport. A gateway server is no longer a runtime dependency.
 
