@@ -112,8 +112,8 @@ static const char *location_status(void)
 {
     const wc_location_t *loc = current_location();
     if (!(loc->flags & WC_FLAG_HAS_SOURCE)) return "尚未找到公开可用画面";
-    if (loc->flags & WC_FLAG_AVAILABLE) return "公开快照 · Passport直连";
-    return "来源最近不可用，可按OK重试";
+    if (loc->flags & WC_FLAG_AVAILABLE) return "公开快照";
+    return "来源暂不可用，可重试";
 }
 
 static void draw(const char *status)
@@ -156,10 +156,10 @@ static void draw(const char *status)
         lv_obj_set_height(s_body, 182);
         lv_label_set_long_mode(s_body, LV_LABEL_LONG_WRAP);
         snprintf(text, sizeof(text),
-                 "手机连接热点：\n%s\n密码：%s\n\n浏览器打开：\n192.168.4.1\n只需配置2.4GHz Wi-Fi",
+                 "手机连接热点：\n%s\n密码：%s\n\n浏览器打开：\n192.168.4.1\n配置2.4GHz Wi-Fi",
                  s_ap_name, s_ap_password);
         lv_label_set_text(s_body, text);
-        lv_label_set_text(s_help, "无需电脑或网关服务器\n长按OK返回地图");
+        lv_label_set_text(s_help, "需要2.4GHz无线网络\n长按OK返回地图");
     }
     lv_obj_set_pos(s_status, 18, full ? 252 : 248);
     lv_label_set_text(s_status, status ? status : "");
@@ -200,7 +200,7 @@ static void queue_frame(void)
     s_next_refresh = esp_timer_get_time() + 60000000;
     clear_pixels();
     xQueueOverwrite(s_jobs, &job);
-    draw("Passport正在直连摄像机…");
+    draw("正在获取画面…");
 }
 
 static void select_location(size_t index, bool watch)
@@ -256,7 +256,7 @@ static esp_http_client_handle_t open_https(const char *url, int64_t *content_len
         return NULL;
     }
     if (length > (int64_t)MAX_SOURCE_BYTES) {
-        *error = "源图片过大";
+        *error = "地点资料过长";
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
         return NULL;
@@ -271,7 +271,7 @@ static bool fetch_usap_url(const char *metadata_url, char *resolved, size_t reso
     esp_http_client_handle_t client = open_https(metadata_url, &length, error);
     if (!client) return false;
     if (length > (int64_t)USAP_METADATA_BYTES) {
-        *error = "南极站元数据过长";
+        *error = "地点资料过长";
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
         return false;
@@ -282,7 +282,7 @@ static bool fetch_usap_url(const char *metadata_url, char *resolved, size_t reso
     while (total < USAP_METADATA_BYTES) {
         int n = esp_http_client_read(client, body + total, USAP_METADATA_BYTES - total);
         if (n < 0) {
-            *error = "南极站元数据读取失败";
+            *error = "地点资料下载失败";
             break;
         }
         if (n == 0) break;
@@ -293,7 +293,7 @@ static bool fetch_usap_url(const char *metadata_url, char *resolved, size_t reso
     if (*error) return false;
     body[total] = 0;
     if (!wc_resolve_usap(body, total, resolved, resolved_size)) {
-        *error = "南极站元数据格式已变化";
+        *error = "地点资料格式不正确";
         return false;
     }
     return true;
@@ -372,7 +372,7 @@ static bool decode_camera_jpeg(esp_http_client_handle_t client, uint16_t width, 
         jpeg_on_chunk, jpeg_on_done, &sink
     );
     if (decoded != JPEG_DECODE_OK) {
-        *error = stream.over_limit ? "源图片超过8MB限制" : "JPEG画面无法解码";
+        *error = stream.over_limit ? "地点资料过长" : "画面格式不正确";
         return false;
     }
     return true;
@@ -390,7 +390,7 @@ static void worker(void *arg)
             goto done;
         }
         if (job.index >= WC_LOCATION_COUNT) {
-            result.error = "地点索引无效";
+            result.error = "地点坐标不正确";
             goto done;
         }
 
@@ -430,7 +430,7 @@ static void worker(void *arg)
         if (!decode_camera_jpeg(client, result.width, result.height, result.pixels, &error)) {
             free(result.pixels);
             result.pixels = NULL;
-            result.error = error ? error : "画面解码失败";
+            result.error = error ? error : "画面格式不正确";
         }
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
@@ -462,7 +462,7 @@ static esp_err_t setup_page(httpd_req_t *req)
         "<title>世界之窗网络配置</title><style>body{font:16px system-ui;max-width:480px;margin:40px auto;"
         "padding:20px;background:#071820;color:#eef7f9}input,button{box-sizing:border-box;width:100%;"
         "padding:12px;margin:10px 0}button{background:#4de4bd;border:0}</style>"
-        "<h1>世界之窗网络配置</h1><p>Passport 将直接通过互联网获取公开摄像机图片，不需要电脑或网关服务器。</p>"
+        "<h1>世界之窗网络配置</h1><p>连接2.4GHz无线网络。</p>"
         "<form><label>2.4GHz Wi-Fi 名称<input name='ssid' maxlength='32' required></label>"
         "<label>密码<input name='password' type='password' maxlength='63'></label>"
         "<button>保存并连接</button></form><p id='status'></p><script>"
@@ -504,7 +504,7 @@ static esp_err_t save_setup(httpd_req_t *req)
     cJSON_Delete(root);
     if (err != ESP_OK) return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "无法保存配置");
     xEventGroupSetBits(s_wifi, WIFI_SETUP);
-    return httpd_resp_sendstr(req, "已保存。Passport 将直接联网获取画面。");
+    return httpd_resp_sendstr(req, "已保存。请查看设备屏幕；连接失败时可在此更正。");
 }
 
 static void start_setup(void)
@@ -644,7 +644,7 @@ static void apply_result(result_t *result)
     };
     lv_image_set_src(s_image, &s_image_desc);
     bsp_lvgl_unlock();
-    draw("HTTPS直连获取 · 公开快照");
+    draw("获取画面 · 公开快照");
     s_random_retries = 0;
     s_next_refresh = esp_timer_get_time() + 60000000;
 release:
@@ -680,7 +680,7 @@ static void input_task(void *arg)
             }
             esp_wifi_set_mode(WIFI_MODE_STA);
             if (s_page == PAGE_SETUP) s_page = PAGE_MAP;
-            draw("无线网络已连接 · 无需网关");
+            draw("无线网络已连接");
         }
         was_ready = ready;
 
@@ -688,7 +688,7 @@ static void input_task(void *arg)
         if ((bits & WIFI_FAILED) && now >= next_connect) {
             next_connect = now + 10000000;
             esp_wifi_connect();
-            if (s_page == PAGE_SETUP) draw("连接失败，请修改Wi-Fi配置");
+            if (s_page == PAGE_SETUP) draw("连接失败，请修改配置");
             else if (!s_busy) draw("无线网络已断开");
         }
         if (s_page == PAGE_VIEW && !s_busy &&
