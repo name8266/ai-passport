@@ -11,6 +11,8 @@
 #include "esp_http_client.h"
 #include "esp_http_server.h"
 #include "esp_netif.h"
+#include "esp_netif_sntp.h"
+#include <time.h>
 #include "esp_random.h"
 #include "esp_timer.h"
 #include "esp_wifi.h"
@@ -74,7 +76,8 @@ static unsigned s_random_retries;
 static char s_name[NAME_BYTES], s_country[96];
 static uint8_t *s_pixels;
 static lv_image_dsc_t s_image_desc;
-static lv_obj_t *s_title, *s_body, *s_country_label, *s_status, *s_help, *s_image, *s_battery, *s_map, *s_marker;\nstatic lv_obj_t *s_header_rule, *s_map_card, *s_info_card, *s_view_frame, *s_status_pill, *s_live_dot;
+static lv_obj_t *s_title, *s_body, *s_country_label, *s_status, *s_help, *s_image, *s_battery, *s_map, *s_marker;
+static lv_obj_t *s_header_rule, *s_map_card, *s_info_card, *s_view_frame, *s_status_pill, *s_live_dot;
 
 static uint8_t s_jpeg_work[JPEG_DECODER_WORK_BUF_DEFAULT] __attribute__((aligned(4)));
 static uint16_t s_jpeg_chunk[JPEG_CHUNK_BUF_PIXELS(WC_FULL_WIDTH)] __attribute__((aligned(4)));
@@ -87,6 +90,22 @@ static lv_obj_t *label(int x, int y, int width, uint32_t color)
     lv_obj_set_width(obj, width);
     lv_obj_set_style_text_color(obj, lv_color_hex(color), 0);
     lv_label_set_text(obj, "");
+    return obj;
+}
+
+static lv_obj_t *panel(int x, int y, int width, int height,
+                       uint32_t background, uint32_t border, int radius)
+{
+    lv_obj_t *obj = lv_obj_create(lv_screen_active());
+    lv_obj_remove_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_pos(obj, x, y);
+    lv_obj_set_size(obj, width, height);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(background), 0);
+    lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(obj, lv_color_hex(border), 0);
+    lv_obj_set_style_border_width(obj, 1, 0);
+    lv_obj_set_style_radius(obj, radius, 0);
+    lv_obj_set_style_pad_all(obj, 0, 0);
     return obj;
 }
 
@@ -396,6 +415,13 @@ static void worker(void *arg)
             result.error = "无线网络未连接";
             goto done;
         }
+        /* TLS certificate dates require a real clock after a cold boot.
+         * Wait in the network worker so buttons and rendering stay responsive. */
+        if (time(NULL) < 1704067200 &&
+            esp_netif_sntp_sync_wait(pdMS_TO_TICKS(15000)) != ESP_OK) {
+            result.error = "NTP未连接，按OK重试";
+            goto done;
+        }
         if (job.index >= WC_LOCATION_COUNT) {
             result.error = "地点坐标不正确";
             goto done;
@@ -457,6 +483,7 @@ static void wifi_event(void *arg, esp_event_base_t base, int32_t event, void *da
         xEventGroupSetBits(s_wifi, WIFI_FAILED);
     }
     if (base == IP_EVENT && event == IP_EVENT_STA_GOT_IP) {
+        ESP_ERROR_CHECK(esp_netif_sntp_start());
         xEventGroupClearBits(s_wifi, WIFI_FAILED);
         xEventGroupSetBits(s_wifi, WIFI_READY);
     }
@@ -742,6 +769,10 @@ void app_main(void)
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, wifi_event, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, wifi_event, NULL));
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
+    esp_sntp_config_t clock_config = ESP_NETIF_SNTP_DEFAULT_CONFIG_MULTIPLE(
+        3, ESP_SNTP_SERVER_LIST("ntp.aliyun.com", "ntp.tencent.com", "pool.ntp.org"));
+    clock_config.start = false;
+    ESP_ERROR_CHECK(esp_netif_sntp_init(&clock_config));
     ESP_ERROR_CHECK(esp_wifi_start());
     snprintf(s_ap_password, sizeof(s_ap_password), "%08lx", (unsigned long)esp_random());
 

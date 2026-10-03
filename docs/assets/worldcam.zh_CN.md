@@ -1,4 +1,6 @@
-<p align="right"><a href="worldcam.md">English</a> · <strong>简体中文</strong></p>\n\n# Passport 世界之窗：设备直连工程说明
+<p align="right"><a href="worldcam.md">English</a> · <strong>简体中文</strong></p>
+
+# Passport 世界之窗：设备直连工程说明
 
 世界之窗现在由 ESP32-C3 AI Passport 自己完成联网取图，**网关服务器不再是运行依赖**。
 
@@ -56,3 +58,5 @@ python tools/probe_worldcam_network.py --vantage-label mainland-local --output W
 主机测试覆盖 Flash 目录生成、地点筛选/随机、USAP 元数据解析、UTF-8 和“无网关运行契约”。固件 CI 使用 ESP-IDF 5.5.3 和受管理的 JPEG 解码组件构建。
 
 正式发布前仍需在真机验证：Wi-Fi 配网、目标网络 TLS 访问、堆/栈峰值、JPEG 颜色和裁切、按键手势、重启保留设置、下载中切换地点以及持续每 60 秒刷新。
+
+设备每次连接 Wi-Fi 后会启动 SNTP，配置阿里、腾讯及 pool.ntp.org 时间服务器。冷启动后，网络任务最多等待 15 秒取得时间，再进行 HTTPS 证书校验；超时会显示错误，可按 OK 重试。所用网络需允许公共网络校时和摄像机地址访问。

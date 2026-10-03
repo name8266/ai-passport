@@ -1,4 +1,6 @@
-<p align="right"><a href="worldcam.zh_CN.md">简体中文</a> · <strong>English</strong></p>\n\n# WorldCam direct-device engineering notes
+<p align="right"><a href="worldcam.zh_CN.md">简体中文</a> · <strong>English</strong></p>
+
+# WorldCam direct-device engineering notes
 
 WorldCam runs directly on the ESP32-C3 AI Passport. A gateway server is no longer a runtime dependency.
 
@@ -56,3 +58,5 @@ That tool is diagnostic only. It is not required for Passport operation.
 Host validation covers catalogue generation, selection logic, USAP resolver parsing, UTF-8 and direct-device contract checks. Firmware CI builds against ESP-IDF 5.5.3 and the managed JPEG decoder.
 
 Physical-device items still requiring release acceptance include Wi-Fi provisioning, TLS access from the intended network, heap/stack peaks, JPEG colors and cropping, button gestures, reboot persistence, location switching during a fetch and sustained 60-second refresh operation.
+
+On each Wi-Fi connection the device starts SNTP with Alibaba, Tencent and pool.ntp.org servers. After a cold boot the network worker waits up to 15 seconds for time before HTTPS certificate validation; a timeout is shown as an error and can be retried with OK. Networks must allow public time synchronization as well as the camera URLs.
