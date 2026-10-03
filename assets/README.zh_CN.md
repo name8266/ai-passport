@@ -39,3 +39,28 @@
 - 与当前 BSP 音频路径匹配时优先采用 16 kHz、16 位单声道 PCM。
 - 嵌入音频前评估 Flash 与内部 RAM 成本；长录音应流式或分块。
 - 无再分发许可不提交媒体文件。
+
+## 世界之窗字体与地图
+
+- `fonts/NotoSansCJKsc-Regular.otf`：来自
+  [notofonts/noto-cjk](https://github.com/notofonts/noto-cjk) 的 Noto Sans CJK SC Regular，
+  SIL Open Font License 1.1，许可证保留为 `fonts/OFL.txt`。16 MB原字体为重新生成时的可选本地依赖，
+  通过 `tools/fetch_worldcam_font_source.py` 从固定提交 `f8d157532fbfaeda587e826d4cd5b21a49186f7c`
+  下载并检查SHA256。生成工具会在缺少时下载；普通固件构建编译已提交的子集，不下载原字体。
+- `fonts/NotoSans-Regular.ttf`：来自
+  [notofonts/noto-fonts](https://github.com/notofonts/noto-fonts) 的 Noto Sans Regular，
+  SIL Open Font License 1.1，许可证保留为 `fonts/NotoSans-OFL.txt`。补充CJK源字体没有的扩展拉丁字符。
+- `fonts/worldcam_font_16.c`：通过 `lv_font_conv` 1.5.3 生成的16px、4bpp无压缩字库。
+  实际字符清单与来源记录在 `fonts/worldcam_chars.txt` 和 `fonts/worldcam_font_manifest.json`，
+  用 `tools/generate_worldcam_font.py` 重新生成，由main组件编译。
+- `maps/world.geo.json`：来自
+  [natural-earth-vector](https://github.com/nvkelso/natural-earth-vector) 的国界轮廓，基于公共领域的
+  [Natural Earth](https://www.naturalearthdata.com/about/terms-of-use/) 数据。
+  `tools/generate_worldcam_map.py` 生成Flash地图 `maps/world_map.c` 和网页 `gateway/world-map.svg`。
+- 城市和首都匹配使用 [GeoNames](https://www.geonames.org/)，
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)；国家名称使用
+  [mledoze/countries](https://github.com/mledoze/countries)，ODbL 1.0；195 个首都登记点的坐标均匹配 GeoNames 城市。维护目录保留来源、坐标精度和首都缺口。
+  地理位置为简略定位，不代表来源可用。参见[世界之窗说明](../docs/assets/worldcam.zh_CN.md)。
+
+- `images/worldcam-phone-check.png`：应用自有手机检测页的390px浏览器截图，展示云端30源抽测通过。
+  不包含摄像机照片或私人设备信息，不代表硬件或大陆网络已经验证。
