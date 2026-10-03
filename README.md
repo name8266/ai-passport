@@ -2,83 +2,63 @@
 
 # WorldCam for FoloToy AI Passport
 
-A Chinese world-map browser for public camera snapshots on the ESP32-C3
-Passport. This feature branch contains the device application, a local image
-gateway, and a phone browser connectivity checker.
+WorldCam is a Chinese world-map browser for public webcam snapshots on the ESP32-C3 AI Passport. **The Passport is now self-contained at runtime: it needs only 2.4 GHz Wi-Fi with Internet access. No PC, Raspberry Pi, proxy service, or local gateway server is required.**
 
-The catalogue has 825 public camera records across 72 countries and territories.
-The separate 195-country capital registry currently has public sources for 50
-capitals and decoded images for 49. The requirement for a working camera in every
-capital remains incomplete; missing sources are explicitly marked.
+The firmware embeds the maintained catalogue of **825 public camera records and 1020 map locations** in the device's 8 MB Flash. It connects from the Passport directly to the publisher's HTTPS image URL, streams JPEG bytes through a bounded decoder, converts them to RGB565 on-device, and displays them in LVGL.
 
-## Use the device
+The separate 195-country capital registry currently has public sources for 50 capitals and decoded images for 49. Missing sources remain explicitly marked; the firmware does not fabricate coverage.
+
+## Device controls
 
 | Action | Map | Image viewer |
 | --- | --- | --- |
-| Previous/next | Select a location | Change location |
-| OK | Open the image | Refresh |
-| Hold OK | Network setup | Return to map |
+| Previous / next | Select a location | Change location |
+| OK | Open snapshot | Refresh |
+| Hold OK | Wi-Fi setup | Return to map |
 | Hold up | Random tour | Random tour |
 | Hold down | All locations / capitals | Toggle fullscreen |
 
-Images are snapshots or publisher previews, refreshed every 60 seconds when
-viewing. Source capture intervals vary. Fetch time is not capture time.
-Fullscreen preserves image proportions with black bars where needed. Native
-screens show location, country and fetch time; publisher attribution and source
-links appear in the web companion.
+Snapshots refresh every 60 seconds while viewing. The displayed fetch state means the Passport retrieved that image; it does not prove the publisher's original capture time.
 
-## Run the local gateway
+## First-time setup
 
-Use Python 3.12+ on a computer in the same trusted LAN as the Passport:
+1. Power on the Passport.
+2. Connect your phone to the displayed `WorldCam-XXXX` hotspot using the on-screen password.
+3. Open `http://192.168.4.1`.
+4. Enter only the 2.4 GHz Wi-Fi SSID and password.
+5. After connection, the setup hotspot closes and WorldCam uses the Passport's own Internet connection.
 
-```bash
-python3 -m venv .worldcam-venv
-.worldcam-venv/bin/pip install -r gateway/requirements.txt
-.worldcam-venv/bin/python gateway/server.py --host 0.0.0.0 --port 8787
+Settings are kept in the application's NVS namespace. A legacy `gateway` key, if present from an older build, is ignored and removed when network settings are saved.
+
+## Direct-device architecture
+
+```text
+Passport Wi-Fi → publisher HTTPS JPEG → streaming decoder → RGB565 → LVGL
 ```
 
-Open `http://<computer-LAN-IP>:8787`. Keep the gateway running. On first boot,
-join the device's displayed `WorldCam-XXXX` Wi-Fi, open `http://192.168.4.1`,
-and enter a 2.4 GHz Wi-Fi network and the gateway URL. Do not use `localhost` as
-the device's gateway address. The app saves settings in its NVS namespace.
-Do not expose the unauthenticated local gateway to the public Internet.
+The catalogue, Chinese names, map coordinates and source URLs are compiled into Flash. HTTPS uses the ESP-IDF certificate bundle. JPEG input is streamed instead of buffering the original image in RAM; the display framebuffer is 192×128 normally or 240×160 fullscreen.
 
-## Test image access from a phone
+One USAP South Pole source publishes a small metadata file rather than a direct JPEG URL. That resolver also runs on the Passport and then fetches the resolved JPEG directly.
 
-The reusable static checker is in `gateway/mobile-test/dist/`:
-
-```bash
-python3 -m http.server 8790 --bind 0.0.0.0 --directory gateway/mobile-test/dist
-```
-
-Open `http://<computer-LAN-IP>:8790` on the phone. The page loads camera images
-directly from the phone's current network, with quick and full tests, pause,
-summary copying and JSON export. The page does not upload the report. Keep it
-in the foreground; backgrounding pauses active probes. Browser results do not
-establish the physical country, VPN status, image freshness or device operation.
-
-For a desktop read-only check, run `tools/probe_worldcam_network.py`; see the
-[full guide](docs/assets/worldcam.md) for direct-access and proxy comparison.
+The decoder uses JPEG's discrete 1/1, 1/2, 1/4 and 1/8 scaling. It centers the view and may crop edges when the source aspect ratio differs. Progressive JPEG is not supported by the current decoder; such a source is reported as unavailable instead of crashing the UI.
 
 ## Build and validation
 
-Activate ESP-IDF 5.5.3, install the gateway requirements, and have Node.js 18+
-available for the browser-probe host tests:
+Use ESP-IDF 5.5.3:
 
 ```bash
 ./tools/validate.sh
 ```
 
-The gate validates the repository and host tests, builds ESP32-C3 firmware and
-verifies the merged image at `build/FoloToy-AI-Passport-full.bin` (flash offset
-`0x0`). Firmware is a build artifact rather than a tracked repository file.
-Flashing requires separate authorization; a full-chip erase is not necessary.
+The ESP Component Manager resolves `jpeg_roi_decoder ^0.5.3`. Validation checks the embedded catalogue is current, confirms the firmware no longer contains the old gateway API contract, runs host tests, builds the ESP32-C3 image and verifies the merged firmware layout.
 
-Build and host checks pass. USB flashing, native Chinese rendering, button
-gestures, Wi-Fi provisioning, heap peaks and long-running operation remain
-unverified on physical hardware. Phone image access is separate from device
-acceptance.
+The repository still contains `gateway/` as **maintenance/reference tooling and the authoritative source catalogue used to regenerate firmware data**. Running `gateway/server.py` is not part of device operation and is not required to use WorldCam.
 
-See the [WorldCam guide](docs/assets/worldcam.md),
-[asset sources and licenses](assets/README.md), and
-[upstream product documentation](docs/README.md).
+## Current limits
+
+- Public webcam URLs can disappear, change certificates, redirect, become region-restricted, or switch image formats.
+- Direct availability in mainland China depends on the user's actual network and each publisher; the maintenance probe can measure a specific network but cannot guarantee future availability.
+- The current catalogue does not provide a working camera for every national capital.
+- USB flashing and long-duration physical-device validation should still be performed before treating this branch as a hardware release.
+
+See [WorldCam engineering notes](docs/assets/worldcam.md) and [asset/source licensing](assets/README.md).

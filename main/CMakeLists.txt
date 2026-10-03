@@ -1,7 +1,7 @@
 idf_component_register(
-    SRCS "main.c" "worldcam_protocol.c"
+    SRCS "main.c" "worldcam_protocol.c" "worldcam_catalog.c"
     INCLUDE_DIRS "."
-    REQUIRES bsp esp_event esp_netif esp_timer esp_wifi nvs_flash esp_http_client esp_http_server json
+    REQUIRES bsp esp_event esp_netif esp_timer esp_wifi nvs_flash esp_http_client esp_http_server json mbedtls
 )
 
 target_sources(${COMPONENT_LIB} PRIVATE

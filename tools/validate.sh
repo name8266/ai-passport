@@ -71,6 +71,7 @@ run_static_checks() {
         -o "${test_dir}/test_worldcam_protocol"
     "${test_dir}/test_worldcam_protocol"
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_worldcam_gateway.py
+    PYTHONDONTWRITEBYTECODE=1 python3 tests/test_worldcam_catalog.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_worldcam_font.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_worldcam_network_probe.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_worldcam_font_source.py
