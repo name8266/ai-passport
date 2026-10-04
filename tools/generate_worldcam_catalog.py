@@ -30,7 +30,9 @@ def build():
         index = by_id.get(location.get("camera_id"))
         camera = cameras[index] if index is not None else None
         flags = []
-        if camera and camera.get("snapshot") and camera.get("status") != "unavailable":
+        if (camera and camera.get("snapshot")
+                and camera.get("status") == "snapshot_verified"
+                and camera.get("device_compatible", False)):
             flags.append("WC_FLAG_AVAILABLE")
         if location.get("capital"):
             flags.append("WC_FLAG_CAPITAL")
