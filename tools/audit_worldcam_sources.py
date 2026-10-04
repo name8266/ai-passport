@@ -18,8 +18,12 @@ def check(c):
    data=r.read(gateway.MAX_BYTES+1);result['last_modified']=r.headers.get('Last-Modified')
   if len(data)>gateway.MAX_BYTES:raise ValueError('Source too large')
   with Image.open(BytesIO(data)) as image:
-   result['width'],result['height']=image.size;image.load()
-  result['status']='snapshot_verified';result['method']='Public URL fetch and image decoding; capture freshness not established'
+   result['width'],result['height']=image.size
+   result['format']=image.format
+   result['progressive']=bool(image.info.get('progressive') or image.info.get('progression'))
+   result['device_compatible']=image.format=='JPEG' and not result['progressive']
+   image.load()
+  result['status']='snapshot_verified';result['method']='Public URL fetch, image decoding, and ESP32 baseline-JPEG compatibility check; capture freshness not established'
  except Exception as e:result['status']='unavailable';result['error']='UnidentifiedImageError: source did not decode as an image' if isinstance(e,UnidentifiedImageError) else type(e).__name__+': '+str(e)[:180]
  return result
 if __name__=='__main__':
