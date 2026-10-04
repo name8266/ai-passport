@@ -3,6 +3,7 @@
 #include "bsp_battery.h"
 #include "worldcam_catalog.h"
 #include "worldcam_protocol.h"
+#include "worldcam_stream.h"
 #include "jpeg_roi_decoder.h"
 #include "lvgl.h"
 #include "src/misc/cache/instance/lv_image_cache.h"
@@ -34,9 +35,11 @@ extern const lv_image_dsc_t worldcam_map;
 #define WIFI_SETUP BIT1
 #define WIFI_FAILED BIT2
 #define NAME_BYTES 192
+#define STREAM_URL_BYTES 256
 #define MAX_SOURCE_BYTES (4u * 1024u * 1024u)
 #define USAP_METADATA_BYTES 4096u
 #define WC_HTTP_TIMEOUT_MS 6500
+#define WC_MJPEG_TIMEOUT_MS 3500
 #define WC_REFRESH_US 45000000LL
 #define WC_RETRY_US 12000000LL
 #define WC_RANDOM_RETRIES 3u
@@ -46,7 +49,7 @@ extern const lv_image_dsc_t worldcam_map;
 
 typedef enum { PAGE_MAP, PAGE_VIEW, PAGE_SETUP } page_t;
 typedef struct { bsp_btn_t btn; bsp_btn_ev_t event; } input_t;
-typedef struct { unsigned generation; uint16_t index; bool full; } job_t;
+typedef struct { unsigned generation; uint16_t index; bool full; bool stream_test; } job_t;
 typedef struct {
     job_t job;
     uint8_t *pixels;
@@ -54,6 +57,8 @@ typedef struct {
     uint16_t height;
     const char *error;
     bool source_failure;
+    bool streaming;
+    uint32_t frame_no;
 } result_t;
 
 typedef struct {
@@ -77,12 +82,14 @@ static EventGroupHandle_t s_wifi;
 static TaskHandle_t s_worker;
 static nvs_handle_t s_nvs;
 static char s_ap_name[32], s_ap_password[9];
+static char s_test_stream_url[STREAM_URL_BYTES];
 static httpd_handle_t s_httpd;
 static page_t s_page;
 static size_t s_selected;
 static unsigned s_generation;
 static int64_t s_next_refresh;
 static bool s_busy, s_full, s_capitals_only;
+static bool s_stream_test_pending, s_stream_mode;
 static unsigned s_random_retries;
 static uint8_t s_camera_failures[WC_CAMERA_COUNT];
 static char s_name[NAME_BYTES], s_country[96];
@@ -292,6 +299,7 @@ static void queue_frame(void)
         .generation = ++s_generation,
         .index = (uint16_t)s_selected,
         .full = s_full,
+        .stream_test = false,
     };
     s_busy = true;
     s_next_refresh = esp_timer_get_time() + WC_REFRESH_US;
@@ -299,10 +307,32 @@ static void queue_frame(void)
     draw(s_pixels ? "正在切换实时画面… · 保留上一帧" : "正在获取实时画面…");
 }
 
+static void queue_stream_test(void)
+{
+    if (!s_test_stream_url[0]) {
+        draw("未配置MJPEG测试地址");
+        return;
+    }
+    job_t job = {
+        .generation = ++s_generation,
+        .index = (uint16_t)s_selected,
+        .full = s_full,
+        .stream_test = true,
+    };
+    s_stream_mode = true;
+    s_busy = true;
+    s_page = PAGE_VIEW;
+    snprintf(s_name, sizeof(s_name), "%s", "MJPEG实时测试");
+    snprintf(s_country, sizeof(s_country), "%s", "实验流");
+    xQueueOverwrite(s_jobs, &job);
+    draw(s_pixels ? "正在重连MJPEG流… · 保留上一帧" : "正在连接MJPEG实时流…");
+}
+
 static void select_location(size_t index, bool watch)
 {
     size_t next = index % WC_LOCATION_COUNT;
     bool changed = next != s_selected;
+    s_stream_mode = false;
     s_selected = next;
     load_selected_labels();
     s_page = watch ? PAGE_VIEW : PAGE_MAP;
