@@ -742,9 +742,12 @@ static esp_err_t setup_page(httpd_req_t *req)
         "<title>世界之窗网络配置</title><style>body{font:16px system-ui;max-width:480px;margin:40px auto;"
         "padding:20px;background:#071820;color:#eef7f9}input,button{box-sizing:border-box;width:100%;"
         "padding:12px;margin:10px 0}button{background:#4de4bd;border:0}</style>"
-        "<h1>世界之窗网络配置</h1><p>连接2.4GHz无线网络。</p>"
+        "<h1>世界之窗网络配置</h1><p>连接2.4GHz无线网络。实验分支可同时测试HTTP(S) MJPEG。</p>"
         "<form><label>2.4GHz Wi-Fi 名称<input name='ssid' maxlength='32' required></label>"
         "<label>密码<input name='password' type='password' maxlength='63'></label>"
+        "<label>MJPEG测试地址（可选）<input name='stream' maxlength='255' "
+        "placeholder='http://192.168.1.10:8080/stream.mjpg'></label>"
+        "<small>填写后保存，本次联网成功会直接进入MJPEG实时测试。</small>"
         "<button>保存并连接</button></form><p id='status'></p><script>"
         "document.querySelector('form').onsubmit=async e=>{e.preventDefault();try{const r=await fetch('/setup',"
         "{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))})"
@@ -756,9 +759,9 @@ static esp_err_t setup_page(httpd_req_t *req)
 
 static esp_err_t save_setup(httpd_req_t *req)
 {
-    if (req->content_len <= 0 || req->content_len >= 256)
+    if (req->content_len <= 0 || req->content_len >= 640)
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "配置长度无效");
-    char body[256];
+    char body[640];
     size_t read = 0;
     while (read < (size_t)req->content_len) {
         int n = httpd_req_recv(req, body + read, req->content_len - read);
@@ -769,18 +772,31 @@ static esp_err_t save_setup(httpd_req_t *req)
     cJSON *root = cJSON_Parse(body);
     cJSON *ssid = cJSON_GetObjectItemCaseSensitive(root, "ssid");
     cJSON *password = cJSON_GetObjectItemCaseSensitive(root, "password");
-    if (!cJSON_IsString(ssid) || !cJSON_IsString(password) ||
+    cJSON *stream = cJSON_GetObjectItemCaseSensitive(root, "stream");
+    if (!cJSON_IsString(ssid) || !cJSON_IsString(password) || !cJSON_IsString(stream) ||
         !ssid->valuestring[0] || strlen(ssid->valuestring) > 32 ||
         strlen(password->valuestring) > 63 ||
         (strlen(password->valuestring) > 0 && strlen(password->valuestring) < 8)) {
         cJSON_Delete(root);
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "请检查 Wi-Fi 名称和密码");
     }
+    size_t stream_len = strlen(stream->valuestring);
+    bool stream_scheme_ok =
+        stream_len == 0 ||
+        strncmp(stream->valuestring, "http://", 7) == 0 ||
+        strncmp(stream->valuestring, "https://", 8) == 0;
+    if (stream_len >= STREAM_URL_BYTES || !stream_scheme_ok) {
+        cJSON_Delete(root);
+        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "MJPEG地址必须是HTTP或HTTPS");
+    }
 
     esp_err_t err = nvs_set_str(s_nvs, "ssid", ssid->valuestring);
     if (err == ESP_OK) err = nvs_set_str(s_nvs, "password", password->valuestring);
+    if (err == ESP_OK) err = nvs_set_str(s_nvs, "mjpeg_url", stream->valuestring);
     if (err == ESP_OK) (void)nvs_erase_key(s_nvs, "gateway");
     if (err == ESP_OK) err = nvs_commit(s_nvs);
+    snprintf(s_test_stream_url, sizeof(s_test_stream_url), "%s", stream->valuestring);
+    s_stream_test_pending = s_test_stream_url[0] != 0;
     cJSON_Delete(root);
     if (err != ESP_OK) return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "无法保存配置");
     xEventGroupSetBits(s_wifi, WIFI_SETUP);
@@ -810,6 +826,7 @@ static void start_setup(void)
     }
     s_page = PAGE_SETUP;
     s_busy = false;
+    s_stream_mode = false;
     ++s_generation;
     draw(s_httpd ? "网络配置" : "配置服务失败，请重启");
 }
@@ -822,6 +839,9 @@ static void connect_saved(void)
     nvs_get_str(s_nvs, "ssid", ssid, &size);
     size = sizeof(password);
     nvs_get_str(s_nvs, "password", password, &size);
+    size = sizeof(s_test_stream_url);
+    if (nvs_get_str(s_nvs, "mjpeg_url", s_test_stream_url, &size) != ESP_OK)
+        s_test_stream_url[0] = 0;
     if (!ssid[0]) {
         start_setup();
         return;
@@ -855,15 +875,18 @@ static void handle_input(input_t input)
                 start_setup();
                 return;
             }
+            s_stream_mode = false;
             s_page = PAGE_MAP;
             clear_pixels();
+            load_selected_labels();
             draw(location_status());
         } else if (input.btn == BSP_BTN_UP && s_page != PAGE_SETUP) {
             random_tour(false);
         } else if (input.btn == BSP_BTN_DOWN && s_page != PAGE_SETUP) {
             if (s_page == PAGE_VIEW) {
                 s_full = !s_full;
-                queue_frame();
+                if (s_stream_mode) queue_stream_test();
+                else queue_frame();
             } else {
                 s_capitals_only = !s_capitals_only;
                 if (s_capitals_only && !(current_location()->flags & WC_FLAG_CAPITAL))
@@ -882,6 +905,10 @@ static void handle_input(input_t input)
         select_location(next_filtered(s_selected, direction), s_page == PAGE_VIEW);
     } else if (input.btn == BSP_BTN_OK) {
         s_random_retries = 0;
+        if (s_stream_mode) {
+            queue_stream_test();
+            return;
+        }
         if (!(current_location()->flags & WC_FLAG_HAS_SOURCE)) {
             draw("尚未找到公开可用画面");
             return;
@@ -895,10 +922,14 @@ static void apply_result(result_t *result)
 {
     bool retry_random = false;
     if (result->job.generation != s_generation) goto release;
-    s_busy = false;
     const wc_location_t *loc =
         result->job.index < WC_LOCATION_COUNT ? &wc_locations[result->job.index] : NULL;
     if (result->error) {
+        s_busy = false;
+        if (result->streaming) {
+            draw(s_pixels ? "MJPEG流中断 · 保留上一帧" : result->error);
+            goto release;
+        }
         if (result->source_failure && loc && loc->camera < WC_CAMERA_COUNT &&
             s_camera_failures[loc->camera] < UINT8_MAX)
             ++s_camera_failures[loc->camera];
@@ -911,7 +942,8 @@ static void apply_result(result_t *result)
         goto release;
     }
 
-    if (loc && loc->camera < WC_CAMERA_COUNT) s_camera_failures[loc->camera] = 0;
+    if (!result->streaming && loc && loc->camera < WC_CAMERA_COUNT)
+        s_camera_failures[loc->camera] = 0;
     if (!bsp_lvgl_lock(-1)) goto release;
     lv_image_set_src(s_image, NULL);
     lv_image_cache_drop(&s_image_desc);
@@ -931,9 +963,18 @@ static void apply_result(result_t *result)
     };
     lv_image_set_src(s_image, &s_image_desc);
     bsp_lvgl_unlock();
-    draw("LIVE · 45秒自动刷新");
-    s_random_retries = 0;
-    s_next_refresh = esp_timer_get_time() + WC_REFRESH_US;
+    if (result->streaming) {
+        char status[64];
+        snprintf(status, sizeof(status), "LIVE · MJPEG · 帧%lu",
+                 (unsigned long)result->frame_no);
+        s_busy = true;
+        draw(status);
+    } else {
+        s_busy = false;
+        draw("LIVE · 45秒自动刷新");
+        s_random_retries = 0;
+        s_next_refresh = esp_timer_get_time() + WC_REFRESH_US;
+    }
 release:
     free(result->pixels);
     xTaskNotifyGive(s_worker);
@@ -968,6 +1009,12 @@ static void input_task(void *arg)
             esp_wifi_set_mode(WIFI_MODE_STA);
             if (s_page == PAGE_SETUP) s_page = PAGE_MAP;
             draw("无线网络已连接");
+            if (s_stream_test_pending && s_test_stream_url[0]) {
+                s_stream_test_pending = false;
+                s_full = false;
+                clear_pixels();
+                queue_stream_test();
+            }
         }
         was_ready = ready;
 
@@ -978,7 +1025,7 @@ static void input_task(void *arg)
             if (s_page == PAGE_SETUP) draw("连接失败，请修改配置");
             else if (!s_busy) draw("无线网络已断开");
         }
-        if (s_page == PAGE_VIEW && !s_busy &&
+        if (s_page == PAGE_VIEW && !s_stream_mode && !s_busy &&
             (current_location()->flags & WC_FLAG_HAS_SOURCE) &&
             now >= s_next_refresh) {
             s_next_refresh = now + WC_REFRESH_US;
