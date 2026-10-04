@@ -70,6 +70,10 @@ run_static_checks() {
         tests/test_worldcam_protocol.c main/worldcam_protocol.c \
         -o "${test_dir}/test_worldcam_protocol"
     "${test_dir}/test_worldcam_protocol"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_worldcam_mjpeg.c main/worldcam_mjpeg.c \
+        -o "${test_dir}/test_worldcam_mjpeg"
+    "${test_dir}/test_worldcam_mjpeg"
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_worldcam_gateway.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_worldcam_catalog.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_worldcam_font.py
