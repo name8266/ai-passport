@@ -38,6 +38,20 @@ class ProbeTests(unittest.TestCase):
         Image.new('RGB', (20, 10), 'red').save(buffer, 'PNG')
         result = probe.probe_camera(self.camera, opener=OfflineOpener(buffer.getvalue()))
         self.assertEqual((result['status'], result['width'], result['height']), ('image_decoded', 20, 10))
+        self.assertFalse(result['device_compatible'])
+
+        baseline = BytesIO()
+        Image.new('RGB', (20, 10), 'blue').save(baseline, 'JPEG')
+        result = probe.probe_camera(self.camera, opener=OfflineOpener(baseline.getvalue()))
+        self.assertTrue(result['device_compatible'])
+        self.assertFalse(result['progressive'])
+
+        progressive = BytesIO()
+        Image.new('RGB', (20, 10), 'green').save(progressive, 'JPEG', progressive=True)
+        result = probe.probe_camera(self.camera, opener=OfflineOpener(progressive.getvalue()))
+        self.assertFalse(result['device_compatible'])
+        self.assertTrue(result['progressive'])
+
         for malformed in [b'<html>Access denied</html>', buffer.getvalue()[:45]]:
             result = probe.probe_camera(self.camera, opener=OfflineOpener(malformed))
             self.assertEqual(result['status'], 'image_decode_error')
