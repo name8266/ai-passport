@@ -44,6 +44,14 @@ jobs:
             --workers 8 --timeout 6 --attempts 2 --max-ms 4500 --min-passed 80
           .worldcam-venv/bin/python tools/generate_worldcam_catalog.py
 
+      - name: Regenerate WorldCam font subset
+        if: github.ref_name == 'worldcam2'
+        run: |
+          .worldcam-venv/bin/pip install fonttools
+          npm install --prefix /tmp/worldcam-font-conv --no-save --no-package-lock lv_font_conv@1.5.3
+          .worldcam-venv/bin/python tools/generate_worldcam_font.py \
+            --converter /tmp/worldcam-font-conv/node_modules/.bin/lv_font_conv
+
       - name: Validate repository and host tests
         if: github.ref_name == 'worldcam2'
         run: |
@@ -53,10 +61,10 @@ jobs:
       - name: Commit verified source catalogue
         if: github.ref_name == 'worldcam2'
         run: |
-          if ! git diff --quiet -- gateway/cameras.json gateway/capital-coverage.json gateway/source-audit.json main/worldcam_catalog.c; then
+          if ! git diff --quiet -- gateway/cameras.json gateway/capital-coverage.json gateway/source-audit.json main/worldcam_catalog.c assets/fonts/worldcam_chars.txt assets/fonts/worldcam_font_16.c assets/fonts/worldcam_font_manifest.json; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add gateway/cameras.json gateway/capital-coverage.json gateway/source-audit.json main/worldcam_catalog.c
+            git add gateway/cameras.json gateway/capital-coverage.json gateway/source-audit.json main/worldcam_catalog.c assets/fonts/worldcam_chars.txt assets/fonts/worldcam_font_16.c assets/fonts/worldcam_font_manifest.json
             git commit -m "chore(worldcam): refresh verified snapshots [skip ci]"
             git push origin "HEAD:$GITHUB_REF_NAME"
           fi
