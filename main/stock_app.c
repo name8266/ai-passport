@@ -152,9 +152,8 @@ static void chart_draw(lv_event_t *event) {
         d.bg_opa = LV_OPA_COVER;
         lv_draw_rect(layer, &d, &rect);
     }
-    if (cursor >= bar_count)
-        cursor = bar_count - 1;
-    int x = left + (int)((cursor * 2 + 1) * width / (bar_count * 2));
+    unsigned active = cursor < bar_count ? cursor : bar_count - 1;
+    int x = left + (int)((active * 2 + 1) * width / (bar_count * 2));
     line.color = lv_color_hex(ACCENT);
     line.dash_width = 2;
     line.dash_gap = 3;
@@ -410,8 +409,11 @@ static void connect_saved(void) {
 static void select_detail(const char *code) {
     memcpy(detail_code, code, 7);
     detail_quote = (stock_quote_t){0};
-    bar_count = 0;
-    cursor = 0;
+    if (bsp_lvgl_lock(-1)) {
+        bar_count = 0;
+        cursor = 0;
+        bsp_lvgl_unlock();
+    }
     page = DETAIL;
     request(true);
 }
@@ -485,11 +487,14 @@ static void handle(stock_key_t key) {
         } else if (page == DETAIL) {
             if (key.key == BSP_BTN_OK)
                 request(true);
-            else if (bar_count) {
-                if (key.key == BSP_BTN_UP)
-                    cursor = cursor ? cursor - 1 : 0;
-                else if (cursor + 1 < bar_count)
-                    cursor++;
+            else if (bsp_lvgl_lock(-1)) {
+                if (bar_count) {
+                    if (key.key == BSP_BTN_UP)
+                        cursor = cursor ? cursor - 1 : 0;
+                    else if (cursor + 1 < bar_count)
+                        cursor++;
+                }
+                bsp_lvgl_unlock();
             }
         }
     }
@@ -510,10 +515,11 @@ static void ui_task(void *arg) {
             if (r.detail) {
                 if (r.quote.valid)
                     detail_quote = r.quote;
-                if (r.ok) {
+                if (r.ok && bsp_lvgl_lock(-1)) {
                     memcpy(bars, r.bars, r.count * sizeof(*bars));
                     bar_count = r.count;
                     cursor = bar_count - 1;
+                    bsp_lvgl_unlock();
                 }
             } else
                 for (unsigned i = 0; i < watch.count; i++)
