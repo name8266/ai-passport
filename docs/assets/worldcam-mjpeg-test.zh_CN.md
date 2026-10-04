@@ -1,3 +1,5 @@
+<p align="right"><a href="worldcam-mjpeg-test.md">English</a> · <strong>简体中文</strong></p>
+
 # AI Passport MJPEG 实验分支测试
 
 分支：`feature/worldcam-mjpeg`
