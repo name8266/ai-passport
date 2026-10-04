@@ -34,8 +34,14 @@ extern const lv_image_dsc_t worldcam_map;
 #define WIFI_SETUP BIT1
 #define WIFI_FAILED BIT2
 #define NAME_BYTES 192
-#define MAX_SOURCE_BYTES (8u * 1024u * 1024u)
+#define MAX_SOURCE_BYTES (4u * 1024u * 1024u)
 #define USAP_METADATA_BYTES 4096u
+#define WC_HTTP_TIMEOUT_MS 6500
+#define WC_REFRESH_US 45000000LL
+#define WC_RETRY_US 12000000LL
+#define WC_RANDOM_RETRIES 5u
+#define WC_CAMERA_FAILURE_LIMIT 2u
+#define JPEG_SNIFF_BYTES 1024u
 
 typedef enum { PAGE_MAP, PAGE_VIEW, PAGE_SETUP } page_t;
 typedef struct { bsp_btn_t btn; bsp_btn_ev_t event; } input_t;
@@ -46,6 +52,7 @@ typedef struct {
     uint16_t width;
     uint16_t height;
     const char *error;
+    bool source_failure;
 } result_t;
 
 typedef struct {
@@ -53,6 +60,9 @@ typedef struct {
     size_t total;
     size_t limit;
     bool over_limit;
+    uint8_t prefix[JPEG_SNIFF_BYTES];
+    size_t prefix_len;
+    size_t prefix_pos;
 } http_stream_t;
 
 typedef struct {
@@ -73,6 +83,7 @@ static unsigned s_generation;
 static int64_t s_next_refresh;
 static bool s_busy, s_full, s_capitals_only;
 static unsigned s_random_retries;
+static uint8_t s_camera_failures[WC_CAMERA_COUNT];
 static char s_name[NAME_BYTES], s_country[96];
 static uint8_t *s_pixels;
 static lv_image_dsc_t s_image_desc;
@@ -120,6 +131,45 @@ static const wc_location_t *current_location(void)
     return &wc_locations[s_selected % WC_LOCATION_COUNT];
 }
 
+static bool camera_is_scenic(uint16_t camera)
+{
+    if (camera >= WC_CAMERA_COUNT) return false;
+    const char *url = wc_cameras[camera].snapshot;
+    if (!url) return false;
+    return strstr(url, "foto-webcam.eu/") ||
+           strstr(url, "nps.gov/webcams-") ||
+           strstr(url, "geonet.org.nz/volcano/") ||
+           strstr(url, "usap.gov/");
+}
+
+static bool location_runtime_healthy(size_t index)
+{
+    if (index >= WC_LOCATION_COUNT) return false;
+    const wc_location_t *loc = &wc_locations[index];
+    if (!(loc->flags & WC_FLAG_AVAILABLE) ||
+        loc->camera == WC_CAMERA_NONE ||
+        loc->camera >= WC_CAMERA_COUNT) return false;
+    return s_camera_failures[loc->camera] < WC_CAMERA_FAILURE_LIMIT;
+}
+
+static bool choose_scenic_location(size_t *chosen)
+{
+    if (!chosen) return false;
+    size_t start = esp_random() % WC_LOCATION_COUNT;
+    for (unsigned pass = 0; pass < 2; ++pass) {
+        for (size_t offset = 0; offset < WC_LOCATION_COUNT; ++offset) {
+            size_t index = (start + offset) % WC_LOCATION_COUNT;
+            if (index == s_selected || !location_runtime_healthy(index)) continue;
+            const wc_location_t *loc = &wc_locations[index];
+            if (!pass && !camera_is_scenic(loc->camera)) continue;
+            *chosen = index;
+            return true;
+        }
+        start = (start + WC_LOCATION_COUNT / 3 + 1) % WC_LOCATION_COUNT;
+    }
+    return false;
+}
+
 static void load_selected_labels(void)
 {
     const wc_location_t *loc = current_location();
@@ -131,7 +181,10 @@ static const char *location_status(void)
 {
     const wc_location_t *loc = current_location();
     if (!(loc->flags & WC_FLAG_HAS_SOURCE)) return "尚未找到公开可用画面";
-    if (loc->flags & WC_FLAG_AVAILABLE) return "公开快照";
+    if (loc->camera < WC_CAMERA_COUNT &&
+        s_camera_failures[loc->camera] >= WC_CAMERA_FAILURE_LIMIT)
+        return "该实时源暂不可用，可按OK重试";
+    if (loc->flags & WC_FLAG_AVAILABLE) return "LIVE实时快照 · 45秒刷新";
     return "来源暂不可用，可重试";
 }
 
@@ -168,13 +221,13 @@ static void draw(const char *status)
         wc_map_project(loc->lat, loc->lon, &x, &y);
         lv_obj_set_pos(s_marker, 12 + x - 5, 53 + y - 5);
         lv_label_set_text(s_body, s_name);
-        lv_label_set_text(s_help, "前后选 · OK查看 · 长上随机\n长下筛首都 · 长OK设置");
+        lv_label_set_text(s_help, "前后选 · OK查看 · 长上精选\n长下筛首都 · 长OK设置");
     } else if (s_page == PAGE_VIEW) {
         lv_label_set_text(s_title, s_name[0] ? s_name : "地点画面");
         lv_obj_set_pos(s_country_label, 18, 52);
         lv_label_set_text(s_country_label, s_country);
         lv_obj_set_pos(s_image, s_full ? 0 : 24, s_full ? 80 : 84);
-        lv_label_set_text(s_help, "OK刷新 · 长OK返回地图\n长下全屏 · 长上随机游览");
+        lv_label_set_text(s_help, "OK刷新 · 长OK返回地图\n长下全屏 · 长上精选风景");
     } else {
         lv_label_set_text(s_title, "连接世界之窗");
         lv_obj_set_pos(s_body, 18, 64);
@@ -223,18 +276,19 @@ static void queue_frame(void)
         .full = s_full,
     };
     s_busy = true;
-    s_next_refresh = esp_timer_get_time() + 60000000;
-    clear_pixels();
+    s_next_refresh = esp_timer_get_time() + WC_REFRESH_US;
     xQueueOverwrite(s_jobs, &job);
-    draw("正在获取画面…");
+    draw(s_pixels ? "正在刷新实时画面…" : "正在获取实时画面…");
 }
 
 static void select_location(size_t index, bool watch)
 {
-    s_selected = index % WC_LOCATION_COUNT;
+    size_t next = index % WC_LOCATION_COUNT;
+    bool changed = next != s_selected;
+    s_selected = next;
     load_selected_labels();
     s_page = watch ? PAGE_VIEW : PAGE_MAP;
-    clear_pixels();
+    if (changed) clear_pixels();
     if (watch) queue_frame();
     else draw(location_status());
 }
@@ -242,11 +296,14 @@ static void select_location(size_t index, bool watch)
 static void random_tour(bool retry)
 {
     size_t chosen;
-    if (!wc_random_index(wc_locations, WC_LOCATION_COUNT, esp_random(), s_selected, &chosen)) {
-        draw("暂无可游览的公开画面");
-        return;
+    if (!choose_scenic_location(&chosen)) {
+        memset(s_camera_failures, 0, sizeof(s_camera_failures));
+        if (!choose_scenic_location(&chosen)) {
+            draw("暂无可游览的实时画面");
+            return;
+        }
     }
-    if (!retry) s_random_retries = 3;
+    if (!retry) s_random_retries = WC_RANDOM_RETRIES;
     select_location(chosen, true);
 }
 
@@ -254,25 +311,27 @@ static esp_http_client_handle_t open_https(const char *url, int64_t *content_len
 {
     esp_http_client_config_t config = {
         .url = url,
-        .timeout_ms = 12000,
+        .timeout_ms = WC_HTTP_TIMEOUT_MS,
         .buffer_size = 2048,
         .buffer_size_tx = 512,
         .crt_bundle_attach = esp_crt_bundle_attach,
         .disable_auto_redirect = false,
-        .user_agent = "PassportWorldCam/3.0",
+        .user_agent = "PassportWorldCam/4.0",
     };
     esp_http_client_handle_t client = esp_http_client_init(&config);
     if (!client) {
         *error = "内存不足";
         return NULL;
     }
-    esp_http_client_set_header(client, "Accept", "image/jpeg,image/*;q=0.8,*/*;q=0.1");
+    esp_http_client_set_header(client, "Accept", "image/jpeg,image/jpg;q=0.9,*/*;q=0.1");
+    esp_http_client_set_header(client, "Cache-Control", "no-cache");
+    esp_http_client_set_header(client, "Pragma", "no-cache");
     if (esp_http_client_open(client, 0) != ESP_OK) {
         *error = "无法连接公开摄像机";
         esp_http_client_cleanup(client);
         return NULL;
     }
-    esp_http_client_set_timeout_ms(client, 12000);
+    esp_http_client_set_timeout_ms(client, WC_HTTP_TIMEOUT_MS);
     int64_t length = esp_http_client_fetch_headers(client);
     int status = esp_http_client_get_status_code(client);
     if (status != 200) {
@@ -339,6 +398,15 @@ static size_t http_read_cb(uint8_t *dst, size_t max, void *vctx)
         return 0;
     }
 
+    if (ctx->prefix_pos < ctx->prefix_len) {
+        size_t available = ctx->prefix_len - ctx->prefix_pos;
+        size_t n = max < available ? max : available;
+        if (dst) memcpy(dst, ctx->prefix + ctx->prefix_pos, n);
+        ctx->prefix_pos += n;
+        ctx->total += n;
+        return n;
+    }
+
     if (dst) {
         int n = esp_http_client_read(ctx->client, (char *)dst, max);
         if (n <= 0) return 0;
@@ -352,6 +420,30 @@ static size_t http_read_cb(uint8_t *dst, size_t max, void *vctx)
     if (n <= 0) return 0;
     ctx->total += (size_t)n;
     return (size_t)n;
+}
+
+static int jpeg_scan_type(const uint8_t *data, size_t length)
+{
+    if (!data || length < 2 || data[0] != 0xff || data[1] != 0xd8) return -1;
+    size_t i = 2;
+    while (i + 3 < length) {
+        if (data[i] != 0xff) {
+            ++i;
+            continue;
+        }
+        while (i < length && data[i] == 0xff) ++i;
+        if (i >= length) break;
+        uint8_t marker = data[i++];
+        if (marker == 0xd9 || marker == 0xda) break;
+        if (marker == 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+        if (i + 2 > length) break;
+        size_t segment = ((size_t)data[i] << 8) | data[i + 1];
+        if (segment < 2 || i + segment > length) break;
+        if (marker == 0xc0) return 1;
+        if (marker == 0xc2) return 2;
+        i += segment;
+    }
+    return 0;
 }
 
 static bool jpeg_on_chunk(const jpeg_chunk_event_t *evt)
@@ -378,6 +470,8 @@ static bool decode_camera_jpeg(esp_http_client_handle_t client, uint16_t width, 
         .total = 0,
         .limit = MAX_SOURCE_BYTES,
         .over_limit = false,
+        .prefix_len = 0,
+        .prefix_pos = 0,
     };
     frame_sink_t sink = {
         .pixels = pixels,
@@ -385,6 +479,23 @@ static bool decode_camera_jpeg(esp_http_client_handle_t client, uint16_t width, 
         .height = height,
     };
     memset(pixels, 0, (size_t)width * height * 2u);
+
+    int prefetched = esp_http_client_read(
+        client, (char *)stream.prefix, sizeof(stream.prefix));
+    if (prefetched <= 0) {
+        *error = "实时画面读取超时";
+        return false;
+    }
+    stream.prefix_len = (size_t)prefetched;
+    int jpeg_type = jpeg_scan_type(stream.prefix, stream.prefix_len);
+    if (jpeg_type < 0) {
+        *error = "源站返回的不是JPEG画面";
+        return false;
+    }
+    if (jpeg_type == 2) {
+        *error = "渐进JPEG不兼容，请换一个画面";
+        return false;
+    }
 
     jpeg_view_intent_t view = jpeg_view_default(width, height);
     view.reader = (jpeg_reader_t){ .cb = http_read_cb, .ctx = &stream };
@@ -418,7 +529,7 @@ static void worker(void *arg)
         /* TLS certificate dates require a real clock after a cold boot.
          * Wait in the network worker so buttons and rendering stay responsive. */
         if (time(NULL) < 1704067200 &&
-            esp_netif_sntp_sync_wait(pdMS_TO_TICKS(15000)) != ESP_OK) {
+            esp_netif_sntp_sync_wait(pdMS_TO_TICKS(8000)) != ESP_OK) {
             result.error = "NTP未连接，按OK重试";
             goto done;
         }
@@ -439,6 +550,7 @@ static void worker(void *arg)
         if (camera->resolver == WC_RESOLVER_USAP) {
             if (!fetch_usap_url(camera->snapshot, resolved, sizeof(resolved), &error)) {
                 result.error = error ? error : "南极站来源不可用";
+                result.source_failure = true;
                 goto done;
             }
             source_url = resolved;
@@ -448,6 +560,7 @@ static void worker(void *arg)
         esp_http_client_handle_t client = open_https(source_url, &content_length, &error);
         if (!client) {
             result.error = error ? error : "源站连接失败";
+            result.source_failure = true;
             goto done;
         }
         result.width = job.full ? WC_FULL_WIDTH : WC_WIDTH;
@@ -464,6 +577,7 @@ static void worker(void *arg)
             free(result.pixels);
             result.pixels = NULL;
             result.error = error ? error : "画面格式不正确";
+            result.source_failure = true;
         }
         esp_http_client_close(client);
         esp_http_client_cleanup(client);
@@ -650,8 +764,14 @@ static void apply_result(result_t *result)
     bool retry_random = false;
     if (result->job.generation != s_generation) goto release;
     s_busy = false;
+    const wc_location_t *loc =
+        result->job.index < WC_LOCATION_COUNT ? &wc_locations[result->job.index] : NULL;
     if (result->error) {
-        draw(result->error);
+        if (result->source_failure && loc && loc->camera < WC_CAMERA_COUNT &&
+            s_camera_failures[loc->camera] < UINT8_MAX)
+            ++s_camera_failures[loc->camera];
+        draw(s_pixels ? "刷新失败 · 保留上一帧" : result->error);
+        s_next_refresh = esp_timer_get_time() + WC_RETRY_US;
         if (s_page == PAGE_VIEW && s_random_retries > 0) {
             --s_random_retries;
             retry_random = true;
@@ -659,6 +779,7 @@ static void apply_result(result_t *result)
         goto release;
     }
 
+    if (loc && loc->camera < WC_CAMERA_COUNT) s_camera_failures[loc->camera] = 0;
     if (!bsp_lvgl_lock(-1)) goto release;
     lv_image_set_src(s_image, NULL);
     lv_image_cache_drop(&s_image_desc);
@@ -678,9 +799,9 @@ static void apply_result(result_t *result)
     };
     lv_image_set_src(s_image, &s_image_desc);
     bsp_lvgl_unlock();
-    draw("获取画面 · 公开快照");
+    draw("LIVE · 45秒自动刷新");
     s_random_retries = 0;
-    s_next_refresh = esp_timer_get_time() + 60000000;
+    s_next_refresh = esp_timer_get_time() + WC_REFRESH_US;
 release:
     free(result->pixels);
     xTaskNotifyGive(s_worker);
@@ -728,7 +849,7 @@ static void input_task(void *arg)
         if (s_page == PAGE_VIEW && !s_busy &&
             (current_location()->flags & WC_FLAG_HAS_SOURCE) &&
             now >= s_next_refresh) {
-            s_next_refresh = now + 60000000;
+            s_next_refresh = now + WC_REFRESH_US;
             queue_frame();
         }
         if (now >= next_battery) {
