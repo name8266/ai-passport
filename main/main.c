@@ -39,9 +39,10 @@ extern const lv_image_dsc_t worldcam_map;
 #define WC_HTTP_TIMEOUT_MS 6500
 #define WC_REFRESH_US 45000000LL
 #define WC_RETRY_US 12000000LL
-#define WC_RANDOM_RETRIES 5u
+#define WC_RANDOM_RETRIES 3u
 #define WC_CAMERA_FAILURE_LIMIT 2u
-#define JPEG_SNIFF_BYTES 1024u
+#define WC_MAX_REDIRECTS 4u
+#define JPEG_SNIFF_BYTES 2048u
 
 typedef enum { PAGE_MAP, PAGE_VIEW, PAGE_SETUP } page_t;
 typedef struct { bsp_btn_t btn; bsp_btn_ev_t event; } input_t;
@@ -131,15 +132,29 @@ static const wc_location_t *current_location(void)
     return &wc_locations[s_selected % WC_LOCATION_COUNT];
 }
 
-static bool camera_is_scenic(uint16_t camera)
+static unsigned camera_scenic_tier(uint16_t camera)
 {
-    if (camera >= WC_CAMERA_COUNT) return false;
+    if (camera >= WC_CAMERA_COUNT) return 3u;
     const char *url = wc_cameras[camera].snapshot;
-    if (!url) return false;
-    return strstr(url, "foto-webcam.eu/") ||
-           strstr(url, "nps.gov/webcams-") ||
-           strstr(url, "geonet.org.nz/volcano/") ||
-           strstr(url, "usap.gov/");
+    if (!url) return 3u;
+
+    /* Tier 0 is deliberately conservative: these endpoints are either small
+     * still-image feeds or official public webcam snapshots and have behaved
+     * best with the ESP32-C3 baseline-JPEG decoder. */
+    if (strstr(url, "foto-webcam.eu/") ||
+        strstr(url, "nps.gov/webcams-") ||
+        strstr(url, "geonet.org.nz/volcano/") ||
+        strstr(url, "hko.gov.hk/") ||
+        strstr(url, "usap.gov/"))
+        return 0u;
+
+    /* Skyline has excellent scenery coverage, but individual cameras can
+     * occasionally change JPEG encoding or CDN behaviour. Keep it as the
+     * second choice for random touring rather than the first. */
+    if (strstr(url, "cdn.skylinewebcams.com/"))
+        return 1u;
+
+    return 2u;
 }
 
 static bool location_runtime_healthy(size_t index)
@@ -156,12 +171,15 @@ static bool choose_scenic_location(size_t *chosen)
 {
     if (!chosen) return false;
     size_t start = esp_random() % WC_LOCATION_COUNT;
-    for (unsigned pass = 0; pass < 2; ++pass) {
+
+    /* Prefer sources that are both scenic and friendly to the constrained
+     * decoder. Only fall back to broader catalog providers when needed. */
+    for (unsigned tier = 0; tier < 3; ++tier) {
         for (size_t offset = 0; offset < WC_LOCATION_COUNT; ++offset) {
             size_t index = (start + offset) % WC_LOCATION_COUNT;
             if (index == s_selected || !location_runtime_healthy(index)) continue;
             const wc_location_t *loc = &wc_locations[index];
-            if (!pass && !camera_is_scenic(loc->camera)) continue;
+            if (camera_scenic_tier(loc->camera) != tier) continue;
             *chosen = index;
             return true;
         }
@@ -278,7 +296,7 @@ static void queue_frame(void)
     s_busy = true;
     s_next_refresh = esp_timer_get_time() + WC_REFRESH_US;
     xQueueOverwrite(s_jobs, &job);
-    draw(s_pixels ? "正在刷新实时画面…" : "正在获取实时画面…");
+    draw(s_pixels ? "正在切换实时画面… · 保留上一帧" : "正在获取实时画面…");
 }
 
 static void select_location(size_t index, bool watch)
@@ -288,7 +306,9 @@ static void select_location(size_t index, bool watch)
     s_selected = next;
     load_selected_labels();
     s_page = watch ? PAGE_VIEW : PAGE_MAP;
-    if (changed) clear_pixels();
+    /* While switching cameras, keep the previous successful frame visible.
+     * This avoids a blank screen during slow TLS/CDN responses. */
+    if (changed && !watch) clear_pixels();
     if (watch) queue_frame();
     else draw(location_status());
 }
@@ -315,39 +335,74 @@ static esp_http_client_handle_t open_https(const char *url, int64_t *content_len
         .buffer_size = 2048,
         .buffer_size_tx = 512,
         .crt_bundle_attach = esp_crt_bundle_attach,
-        .disable_auto_redirect = false,
-        .user_agent = "PassportWorldCam/4.0",
+        /* We use the streaming open/fetch/read API, so handle redirects
+         * explicitly instead of relying on esp_http_client_perform(). */
+        .disable_auto_redirect = true,
+        .user_agent = "PassportWorldCam/5.0",
     };
     esp_http_client_handle_t client = esp_http_client_init(&config);
     if (!client) {
         *error = "内存不足";
         return NULL;
     }
+
     esp_http_client_set_header(client, "Accept", "image/jpeg,image/jpg;q=0.9,*/*;q=0.1");
+    /* Do not let a CDN wrap JPEG bytes in gzip/br. The tiny decoder must see
+     * the actual JPEG SOI marker at the start of the response body. */
+    esp_http_client_set_header(client, "Accept-Encoding", "identity");
     esp_http_client_set_header(client, "Cache-Control", "no-cache");
     esp_http_client_set_header(client, "Pragma", "no-cache");
-    if (esp_http_client_open(client, 0) != ESP_OK) {
-        *error = "无法连接公开摄像机";
-        esp_http_client_cleanup(client);
-        return NULL;
+    esp_http_client_set_header(client, "Connection", "close");
+
+    for (unsigned redirect = 0; redirect <= WC_MAX_REDIRECTS; ++redirect) {
+        if (esp_http_client_open(client, 0) != ESP_OK) {
+            *error = "无法连接公开摄像机";
+            esp_http_client_cleanup(client);
+            return NULL;
+        }
+
+        esp_http_client_set_timeout_ms(client, WC_HTTP_TIMEOUT_MS);
+        int64_t length = esp_http_client_fetch_headers(client);
+        if (length < 0) {
+            *error = "源站响应超时，按OK重试";
+            esp_http_client_close(client);
+            esp_http_client_cleanup(client);
+            return NULL;
+        }
+
+        int status = esp_http_client_get_status_code(client);
+        if (status == 301 || status == 302 || status == 303 ||
+            status == 307 || status == 308) {
+            if (redirect == WC_MAX_REDIRECTS ||
+                esp_http_client_set_redirection(client) != ESP_OK) {
+                *error = "源站跳转过多";
+                esp_http_client_close(client);
+                esp_http_client_cleanup(client);
+                return NULL;
+            }
+            esp_http_client_close(client);
+            continue;
+        }
+
+        if (status != 200) {
+            *error = "源站暂不可用，按OK重试";
+            esp_http_client_close(client);
+            esp_http_client_cleanup(client);
+            return NULL;
+        }
+        if (length > (int64_t)MAX_SOURCE_BYTES) {
+            *error = "实时画面文件过大";
+            esp_http_client_close(client);
+            esp_http_client_cleanup(client);
+            return NULL;
+        }
+        if (content_length) *content_length = length;
+        return client;
     }
-    esp_http_client_set_timeout_ms(client, WC_HTTP_TIMEOUT_MS);
-    int64_t length = esp_http_client_fetch_headers(client);
-    int status = esp_http_client_get_status_code(client);
-    if (status != 200) {
-        *error = "源站暂不可用，按OK重试";
-        esp_http_client_close(client);
-        esp_http_client_cleanup(client);
-        return NULL;
-    }
-    if (length > (int64_t)MAX_SOURCE_BYTES) {
-        *error = "地点资料过长";
-        esp_http_client_close(client);
-        esp_http_client_cleanup(client);
-        return NULL;
-    }
-    if (content_length) *content_length = length;
-    return client;
+
+    *error = "源站跳转过多";
+    esp_http_client_cleanup(client);
+    return NULL;
 }
 
 static bool fetch_usap_url(const char *metadata_url, char *resolved, size_t resolved_size, const char **error)
@@ -770,7 +825,7 @@ static void apply_result(result_t *result)
         if (result->source_failure && loc && loc->camera < WC_CAMERA_COUNT &&
             s_camera_failures[loc->camera] < UINT8_MAX)
             ++s_camera_failures[loc->camera];
-        draw(s_pixels ? "刷新失败 · 保留上一帧" : result->error);
+        draw(s_pixels ? "本次加载失败 · 保留上一帧" : result->error);
         s_next_refresh = esp_timer_get_time() + WC_RETRY_US;
         if (s_page == PAGE_VIEW && s_random_retries > 0) {
             --s_random_retries;
