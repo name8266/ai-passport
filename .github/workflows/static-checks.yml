@@ -26,5 +26,11 @@ jobs:
           actionlint_bin="$(./tools/install-actionlint.sh "$RUNNER_TEMP/actionlint")"
           echo "ACTIONLINT_BIN=${actionlint_bin}" >> "$GITHUB_ENV"
 
+      - name: Install WorldCam maintenance dependencies
+        run: |
+          python3 -m venv .worldcam-venv
+          .worldcam-venv/bin/pip install -r gateway/requirements.txt
+          echo "$GITHUB_WORKSPACE/.worldcam-venv/bin" >> "$GITHUB_PATH"
+
       - name: Validate repository and run host tests
         run: ./tools/validate.sh --static

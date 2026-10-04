@@ -1,0 +1,4465 @@
+[
+  {
+    "country_code": "BT",
+    "country": "Bhutan",
+    "country_zh": "不丹",
+    "capital": "Thimphu",
+    "capital_zh": "廷布",
+    "lat": 27.46609,
+    "lon": 89.64191,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Thimphu",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972022,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "TL",
+    "country": "Timor-Leste",
+    "country_zh": "东帝汶",
+    "capital": "Dili",
+    "capital_zh": "帝力",
+    "lat": -8.55861,
+    "lon": 125.57361,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Dili",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972024,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "CN",
+    "country": "China",
+    "country_zh": "中国",
+    "capital": "Beijing",
+    "capital_zh": "北京",
+    "lat": 39.9075,
+    "lon": 116.39723,
+    "camera_ids": [
+      "galore-37048"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Beijing",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972025,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-37048"
+    ]
+  },
+  {
+    "country_code": "CF",
+    "country": "Central African Republic",
+    "country_zh": "中非共和国",
+    "capital": "Bangui",
+    "capital_zh": "班基",
+    "lat": 4.36122,
+    "lon": 18.55496,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Bangui",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972027,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "DK",
+    "country": "Denmark",
+    "country_zh": "丹麦",
+    "capital": "Copenhagen",
+    "capital_zh": "哥本哈根",
+    "lat": 55.67594,
+    "lon": 12.56553,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Copenhagen",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972029,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "UA",
+    "country": "Ukraine",
+    "country_zh": "乌克兰",
+    "capital": "Kyiv",
+    "capital_zh": "基輔",
+    "lat": 50.45466,
+    "lon": 30.5238,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Kyiv",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972029,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "UZ",
+    "country": "Uzbekistan",
+    "country_zh": "乌兹别克斯坦",
+    "capital": "Tashkent",
+    "capital_zh": "塔什干",
+    "lat": 41.26465,
+    "lon": 69.21627,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Tashkent",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972030,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "UG",
+    "country": "Uganda",
+    "country_zh": "乌干达",
+    "capital": "Kampala",
+    "capital_zh": "坎帕拉",
+    "lat": 0.31628,
+    "lon": 32.58219,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Kampala",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972031,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "UY",
+    "country": "Uruguay",
+    "country_zh": "乌拉圭",
+    "capital": "Montevideo",
+    "capital_zh": "蒙得维的亚",
+    "lat": -34.90328,
+    "lon": -56.18816,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Montevideo",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972032,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "TD",
+    "country": "Chad",
+    "country_zh": "乍得",
+    "capital": "N'Djamena",
+    "capital_zh": "恩賈梅納",
+    "lat": 12.10672,
+    "lon": 15.0444,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=N%27Djamena",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972033,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "YE",
+    "country": "Yemen",
+    "country_zh": "也门",
+    "capital": "Sana'a",
+    "capital_zh": "萨那",
+    "lat": 15.35452,
+    "lon": 44.20646,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Sana%27a",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972034,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "AM",
+    "country": "Armenia",
+    "country_zh": "亚美尼亚",
+    "capital": "Yerevan",
+    "capital_zh": "葉里溫",
+    "lat": 40.17765,
+    "lon": 44.5126,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Yerevan",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972035,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "IL",
+    "country": "Israel",
+    "country_zh": "以色列",
+    "capital": "Jerusalem",
+    "capital_zh": "耶路撒冷",
+    "lat": 31.76904,
+    "lon": 35.21633,
+    "camera_ids": [
+      "sky-860",
+      "galore-28775"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Jerusalem",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972036,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "sky-860",
+      "galore-28775"
+    ]
+  },
+  {
+    "country_code": "IQ",
+    "country": "Iraq",
+    "country_zh": "伊拉克",
+    "capital": "Baghdad",
+    "capital_zh": "巴格达",
+    "lat": 33.34058,
+    "lon": 44.40088,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Baghdad",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972037,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "IR",
+    "country": "Iran",
+    "country_zh": "伊朗",
+    "capital": "Tehran",
+    "capital_zh": "德黑兰",
+    "lat": 35.69439,
+    "lon": 51.42151,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Tehran",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972038,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "BZ",
+    "country": "Belize",
+    "country_zh": "伯利兹",
+    "capital": "Belmopan",
+    "capital_zh": "貝爾墨邦",
+    "lat": 17.25376,
+    "lon": -88.76401,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Belmopan",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972039,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "CV",
+    "country": "Cape Verde",
+    "country_zh": "佛得角",
+    "capital": "Praia",
+    "capital_zh": "培亞",
+    "lat": 14.93152,
+    "lon": -23.51254,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Praia",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972040,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "RU",
+    "country": "Russia",
+    "country_zh": "俄罗斯",
+    "capital": "Moscow",
+    "capital_zh": "莫斯科",
+    "lat": 55.75204,
+    "lon": 37.61781,
+    "camera_ids": [
+      "galore-657"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Moscow",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972041,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-657"
+    ]
+  },
+  {
+    "country_code": "BG",
+    "country": "Bulgaria",
+    "country_zh": "保加利亚",
+    "capital": "Sofia",
+    "capital_zh": "索菲亞",
+    "lat": 42.69751,
+    "lon": 23.32415,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Sofia",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972042,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "HR",
+    "country": "Croatia",
+    "country_zh": "克罗地亚",
+    "capital": "Zagreb",
+    "capital_zh": "萨格勒布",
+    "lat": 45.81444,
+    "lon": 15.97798,
+    "camera_ids": [
+      "galore-26377"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Zagreb",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972043,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-26377"
+    ]
+  },
+  {
+    "country_code": "GM",
+    "country": "Gambia",
+    "country_zh": "冈比亚",
+    "capital": "Banjul",
+    "capital_zh": "班珠尔",
+    "lat": 13.45274,
+    "lon": -16.57803,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Banjul",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972044,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "IS",
+    "country": "Iceland",
+    "country_zh": "冰岛",
+    "capital": "Reykjavik",
+    "capital_zh": "雷克亞維克",
+    "lat": 64.13548,
+    "lon": -21.89541,
+    "camera_ids": [
+      "sky-2760",
+      "sky-2863",
+      "sky-588",
+      "sky-6007",
+      "galore-32768"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Reykjavik",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972045,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "sky-2760",
+      "sky-2863",
+      "sky-588",
+      "sky-6007",
+      "galore-32768"
+    ]
+  },
+  {
+    "country_code": "GN",
+    "country": "Guinea",
+    "country_zh": "几内亚",
+    "capital": "Conakry",
+    "capital_zh": "科納克里",
+    "lat": 9.53795,
+    "lon": -13.67729,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Conakry",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972047,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "GW",
+    "country": "Guinea-Bissau",
+    "country_zh": "几内亚比绍",
+    "capital": "Bissau",
+    "capital_zh": "比紹",
+    "lat": 11.86357,
+    "lon": -15.59767,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Bissau",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972047,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "LI",
+    "country": "Liechtenstein",
+    "country_zh": "列支敦士登",
+    "capital": "Vaduz",
+    "capital_zh": "瓦都茲",
+    "lat": 47.14151,
+    "lon": 9.52154,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Vaduz",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972048,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "CG",
+    "country": "Congo",
+    "country_zh": "刚果",
+    "capital": "Brazzaville",
+    "capital_zh": "布拉柴维尔",
+    "lat": -4.26613,
+    "lon": 15.28318,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Brazzaville",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972049,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "LY",
+    "country": "Libya",
+    "country_zh": "利比亚",
+    "capital": "Tripoli",
+    "capital_zh": "的黎波里",
+    "lat": 32.88743,
+    "lon": 13.18733,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Tripoli",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972050,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "LR",
+    "country": "Liberia",
+    "country_zh": "利比里亚",
+    "capital": "Monrovia",
+    "capital_zh": "蒙罗维亚",
+    "lat": 6.30054,
+    "lon": -10.7969,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Monrovia",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972051,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "CA",
+    "country": "Canada",
+    "country_zh": "加拿大",
+    "capital": "Ottawa",
+    "capital_zh": "渥太華",
+    "lat": 45.41117,
+    "lon": -75.69812,
+    "camera_ids": [
+      "sky-3702",
+      "sky-3703",
+      "sky-5529",
+      "galore-117"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Ottawa",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972052,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "sky-3702",
+      "sky-3703",
+      "sky-5529",
+      "galore-117"
+    ]
+  },
+  {
+    "country_code": "GH",
+    "country": "Ghana",
+    "country_zh": "加纳",
+    "capital": "Accra",
+    "capital_zh": "阿克拉",
+    "lat": 5.55602,
+    "lon": -0.1969,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Accra",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972053,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "GA",
+    "country": "Gabon",
+    "country_zh": "加蓬",
+    "capital": "Libreville",
+    "capital_zh": "利伯維爾",
+    "lat": 0.39241,
+    "lon": 9.45356,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Libreville",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972054,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "HU",
+    "country": "Hungary",
+    "country_zh": "匈牙利",
+    "capital": "Budapest",
+    "capital_zh": "布达佩斯",
+    "lat": 47.49835,
+    "lon": 19.04045,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Budapest",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972055,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "MK",
+    "country": "North Macedonia",
+    "country_zh": "北馬其頓",
+    "capital": "Skopje",
+    "capital_zh": "斯科普里",
+    "lat": 41.99646,
+    "lon": 21.43141,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Skopje",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972056,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "SS",
+    "country": "South Sudan",
+    "country_zh": "南苏丹",
+    "capital": "Juba",
+    "capital_zh": "Juba",
+    "lat": 4.85165,
+    "lon": 31.58247,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Juba",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972056,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "ZA",
+    "country": "South Africa",
+    "country_zh": "南非",
+    "capital": "Pretoria",
+    "capital_zh": "普利托利亞",
+    "lat": -25.74486,
+    "lon": 28.18783,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Pretoria",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972057,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "BW",
+    "country": "Botswana",
+    "country_zh": "博茨瓦纳",
+    "capital": "Gaborone",
+    "capital_zh": "嘉柏隆里",
+    "lat": -24.65451,
+    "lon": 25.90859,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Gaborone",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972058,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "QA",
+    "country": "Qatar",
+    "country_zh": "卡塔尔",
+    "capital": "Doha",
+    "capital_zh": "多哈",
+    "lat": 25.28545,
+    "lon": 51.53096,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Doha",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972059,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "RW",
+    "country": "Rwanda",
+    "country_zh": "卢旺达",
+    "capital": "Kigali",
+    "capital_zh": "吉佳利",
+    "lat": -1.94995,
+    "lon": 30.05885,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Kigali",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972060,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "LU",
+    "country": "Luxembourg",
+    "country_zh": "卢森堡",
+    "capital": "Luxembourg",
+    "capital_zh": "盧森堡城",
+    "lat": 49.60982,
+    "lon": 6.13268,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Luxembourg",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972061,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "IN",
+    "country": "India",
+    "country_zh": "印度",
+    "capital": "New Delhi",
+    "capital_zh": "德里",
+    "lat": 28.65195,
+    "lon": 77.23149,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=New%20Delhi",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972062,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "ID",
+    "country": "Indonesia",
+    "country_zh": "印度尼西亚",
+    "capital": "Jakarta",
+    "capital_zh": "勿礁維",
+    "lat": -6.21462,
+    "lon": 106.84513,
+    "camera_ids": [
+      "galore-4642"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Jakarta",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972063,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-4642"
+    ]
+  },
+  {
+    "country_code": "GT",
+    "country": "Guatemala",
+    "country_zh": "危地马拉",
+    "capital": "Guatemala City",
+    "capital_zh": "瓜地馬拉市",
+    "lat": 14.64072,
+    "lon": -90.51327,
+    "camera_ids": [
+      "galore-37420"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Guatemala%20City",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972064,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-37420"
+    ]
+  },
+  {
+    "country_code": "EC",
+    "country": "Ecuador",
+    "country_zh": "厄瓜多尔",
+    "capital": "Quito",
+    "capital_zh": "基多",
+    "lat": -0.22985,
+    "lon": -78.52495,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Quito",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972065,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "ER",
+    "country": "Eritrea",
+    "country_zh": "厄立特里亚",
+    "capital": "Asmara",
+    "capital_zh": "阿斯馬拉",
+    "lat": 15.33805,
+    "lon": 38.93184,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Asmara",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972066,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "SY",
+    "country": "Syria",
+    "country_zh": "叙利亚",
+    "capital": "Damascus",
+    "capital_zh": "大馬士革",
+    "lat": 33.5102,
+    "lon": 36.29128,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Damascus",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972067,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "CU",
+    "country": "Cuba",
+    "country_zh": "古巴",
+    "capital": "Havana",
+    "capital_zh": "哈瓦那",
+    "lat": 23.13302,
+    "lon": -82.38304,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Havana",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972068,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "KG",
+    "country": "Kyrgyzstan",
+    "country_zh": "吉尔吉斯斯坦",
+    "capital": "Bishkek",
+    "capital_zh": "比什凯克",
+    "lat": 42.87,
+    "lon": 74.59,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Bishkek",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972069,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "DJ",
+    "country": "Djibouti",
+    "country_zh": "吉布提",
+    "capital": "Djibouti",
+    "capital_zh": "吉布地市",
+    "lat": 11.58901,
+    "lon": 43.14503,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Djibouti",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972069,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "KZ",
+    "country": "Kazakhstan",
+    "country_zh": "哈萨克斯坦",
+    "capital": "Astana",
+    "capital_zh": "阿斯塔纳",
+    "lat": 51.1801,
+    "lon": 71.44598,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Astana",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972070,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "CO",
+    "country": "Colombia",
+    "country_zh": "哥伦比亚",
+    "capital": "Bogotá",
+    "capital_zh": "波哥大",
+    "lat": 4.60971,
+    "lon": -74.08175,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Bogot%C3%A1",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972071,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "CR",
+    "country": "Costa Rica",
+    "country_zh": "哥斯达黎加",
+    "capital": "San José",
+    "capital_zh": "聖荷西",
+    "lat": 9.93388,
+    "lon": -84.08489,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=San%20Jos%C3%A9",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972072,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "CM",
+    "country": "Cameroon",
+    "country_zh": "喀麦隆",
+    "capital": "Yaoundé",
+    "capital_zh": "耶溫得",
+    "lat": 3.86667,
+    "lon": 11.51667,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Yaound%C3%A9",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972073,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "TV",
+    "country": "Tuvalu",
+    "country_zh": "图瓦卢",
+    "capital": "Funafuti",
+    "capital_zh": "Funafuti",
+    "lat": -8.52425,
+    "lon": 179.19417,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Funafuti",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972074,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "TM",
+    "country": "Turkmenistan",
+    "country_zh": "土库曼斯坦",
+    "capital": "Ashgabat",
+    "capital_zh": "阿什哈巴德",
+    "lat": 37.95,
+    "lon": 58.38333,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Ashgabat",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972075,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "TR",
+    "country": "Türkiye",
+    "country_zh": "土耳其",
+    "capital": "Ankara",
+    "capital_zh": "安卡拉",
+    "lat": 39.91987,
+    "lon": 32.85427,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Ankara",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972075,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "LC",
+    "country": "Saint Lucia",
+    "country_zh": "圣卢西亚",
+    "capital": "Castries",
+    "capital_zh": "卡斯特里",
+    "lat": 13.9957,
+    "lon": -61.00614,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Castries",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972076,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "KN",
+    "country": "Saint Kitts and Nevis",
+    "country_zh": "圣基茨和尼维斯",
+    "capital": "Basseterre",
+    "capital_zh": "巴斯特尔",
+    "lat": 17.2955,
+    "lon": -62.72499,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Basseterre",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972077,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "ST",
+    "country": "São Tomé and Príncipe",
+    "country_zh": "圣多美和普林西比",
+    "capital": "São Tomé",
+    "capital_zh": "圣多美",
+    "lat": 0.33756,
+    "lon": 6.7299,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=S%C3%A3o%20Tom%C3%A9",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972078,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "VC",
+    "country": "Saint Vincent and the Grenadines",
+    "country_zh": "圣文森特和格林纳丁斯",
+    "capital": "Kingstown",
+    "capital_zh": "金斯敦",
+    "lat": 13.15527,
+    "lon": -61.22742,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Kingstown",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972079,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "SM",
+    "country": "San Marino",
+    "country_zh": "圣马力诺",
+    "capital": "City of San Marino",
+    "capital_zh": "聖馬力諾",
+    "lat": 43.93667,
+    "lon": 12.44639,
+    "camera_ids": [
+      "sky-1634",
+      "sky-58"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=City%20of%20San%20Marino",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972080,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": [
+      "sky-1634",
+      "sky-58"
+    ]
+  },
+  {
+    "country_code": "GY",
+    "country": "Guyana",
+    "country_zh": "圭亚那",
+    "capital": "Georgetown",
+    "capital_zh": "乔治敦",
+    "lat": 6.80448,
+    "lon": -58.15527,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Georgetown",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972081,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "TZ",
+    "country": "Tanzania",
+    "country_zh": "坦桑尼亚",
+    "capital": "Dodoma",
+    "capital_zh": "多多马",
+    "lat": -6.17221,
+    "lon": 35.73947,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Dodoma",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972082,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "EG",
+    "country": "Egypt",
+    "country_zh": "埃及",
+    "capital": "Cairo",
+    "capital_zh": "开罗",
+    "lat": 30.06263,
+    "lon": 31.24967,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Cairo",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972082,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "ET",
+    "country": "Ethiopia",
+    "country_zh": "埃塞俄比亚",
+    "capital": "Addis Ababa",
+    "capital_zh": "阿迪斯阿貝巴",
+    "lat": 9.02497,
+    "lon": 38.74689,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Addis%20Ababa",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972083,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "KI",
+    "country": "Kiribati",
+    "country_zh": "基里巴斯",
+    "capital": "South Tarawa",
+    "capital_zh": "Tarawa",
+    "lat": 1.3278,
+    "lon": 172.97696,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=South%20Tarawa",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972084,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "TJ",
+    "country": "Tajikistan",
+    "country_zh": "塔吉克斯坦",
+    "capital": "Dushanbe",
+    "capital_zh": "杜尚别",
+    "lat": 38.53575,
+    "lon": 68.77905,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Dushanbe",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972085,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "SN",
+    "country": "Senegal",
+    "country_zh": "塞内加尔",
+    "capital": "Dakar",
+    "capital_zh": "達喀爾",
+    "lat": 14.6937,
+    "lon": -17.44406,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Dakar",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972086,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "RS",
+    "country": "Serbia",
+    "country_zh": "塞尔维亚",
+    "capital": "Belgrade",
+    "capital_zh": "贝尔格莱德",
+    "lat": 44.80401,
+    "lon": 20.46513,
+    "camera_ids": [
+      "galore-500"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Belgrade",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972087,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-500"
+    ]
+  },
+  {
+    "country_code": "SL",
+    "country": "Sierra Leone",
+    "country_zh": "塞拉利昂",
+    "capital": "Freetown",
+    "capital_zh": "弗里敦",
+    "lat": 8.48714,
+    "lon": -13.2356,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Freetown",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972088,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "CY",
+    "country": "Cyprus",
+    "country_zh": "塞浦路斯",
+    "capital": "Nicosia",
+    "capital_zh": "尼科西亚",
+    "lat": 35.17284,
+    "lon": 33.35397,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Nicosia",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972089,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "SC",
+    "country": "Seychelles",
+    "country_zh": "塞舌尔",
+    "capital": "Victoria",
+    "capital_zh": "維多利亞",
+    "lat": -4.62001,
+    "lon": 55.45501,
+    "camera_ids": [
+      "sky-5",
+      "sky-868"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Victoria",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972090,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": [
+      "sky-5",
+      "sky-868"
+    ]
+  },
+  {
+    "country_code": "MX",
+    "country": "Mexico",
+    "country_zh": "墨西哥",
+    "capital": "Mexico City",
+    "capital_zh": "墨西哥城",
+    "lat": 19.42847,
+    "lon": -99.12766,
+    "camera_ids": [
+      "sky-2852",
+      "sky-2853",
+      "sky-3357",
+      "sky-4572",
+      "sky-972",
+      "galore-26261"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Mexico%20City",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972091,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "sky-2852",
+      "sky-2853",
+      "sky-3357",
+      "sky-4572",
+      "sky-972",
+      "galore-26261"
+    ]
+  },
+  {
+    "country_code": "TG",
+    "country": "Togo",
+    "country_zh": "多哥",
+    "capital": "Lomé",
+    "capital_zh": "洛美",
+    "lat": 6.12874,
+    "lon": 1.22154,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Lom%C3%A9",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972092,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "DO",
+    "country": "Dominican Republic",
+    "country_zh": "多明尼加",
+    "capital": "Santo Domingo",
+    "capital_zh": "聖多明哥",
+    "lat": 18.47186,
+    "lon": -69.89232,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Santo%20Domingo",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972093,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "DM",
+    "country": "Dominica",
+    "country_zh": "多米尼加",
+    "capital": "Roseau",
+    "capital_zh": "羅索",
+    "lat": 15.30174,
+    "lon": -61.38808,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Roseau",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972093,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "AT",
+    "country": "Austria",
+    "country_zh": "奥地利",
+    "capital": "Vienna",
+    "capital_zh": "維也納",
+    "lat": 48.20849,
+    "lon": 16.37208,
+    "camera_ids": [
+      "galore-15120"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Vienna",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972094,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-15120"
+    ]
+  },
+  {
+    "country_code": "VE",
+    "country": "Venezuela",
+    "country_zh": "委内瑞拉",
+    "capital": "Caracas",
+    "capital_zh": "卡拉卡斯",
+    "lat": 10.48801,
+    "lon": -66.87919,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Caracas",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972096,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "BD",
+    "country": "Bangladesh",
+    "country_zh": "孟加拉国",
+    "capital": "Dhaka",
+    "capital_zh": "达卡",
+    "lat": 23.7104,
+    "lon": 90.40744,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Dhaka",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972097,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "AO",
+    "country": "Angola",
+    "country_zh": "安哥拉",
+    "capital": "Luanda",
+    "capital_zh": "盧安達",
+    "lat": -8.83682,
+    "lon": 13.23432,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Luanda",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972097,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "AG",
+    "country": "Antigua and Barbuda",
+    "country_zh": "安提瓜和巴布达",
+    "capital": "Saint John's",
+    "capital_zh": "圣约翰",
+    "lat": 17.12096,
+    "lon": -61.84329,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Saint%20John%27s",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972098,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "AD",
+    "country": "Andorra",
+    "country_zh": "安道尔",
+    "capital": "Andorra la Vella",
+    "capital_zh": "安道爾城",
+    "lat": 42.50779,
+    "lon": 1.52109,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Andorra%20la%20Vella",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972099,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "FM",
+    "country": "Micronesia",
+    "country_zh": "密克罗尼西亚",
+    "capital": "Palikir",
+    "capital_zh": "帕利基尔",
+    "lat": 6.92477,
+    "lon": 158.16109,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Palikir",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972100,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "NI",
+    "country": "Nicaragua",
+    "country_zh": "尼加拉瓜",
+    "capital": "Managua",
+    "capital_zh": "馬拿瓜",
+    "lat": 12.13282,
+    "lon": -86.2504,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Managua",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972101,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "NG",
+    "country": "Nigeria",
+    "country_zh": "尼日利亚",
+    "capital": "Abuja",
+    "capital_zh": "阿布賈",
+    "lat": 9.05785,
+    "lon": 7.49508,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Abuja",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972102,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "NE",
+    "country": "Niger",
+    "country_zh": "尼日尔",
+    "capital": "Niamey",
+    "capital_zh": "尼亞美",
+    "lat": 13.51366,
+    "lon": 2.1098,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Niamey",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972103,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "NP",
+    "country": "Nepal",
+    "country_zh": "尼泊尔",
+    "capital": "Kathmandu",
+    "capital_zh": "加德滿都",
+    "lat": 27.70169,
+    "lon": 85.3206,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Kathmandu",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972103,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "PS",
+    "country": "Palestine",
+    "country_zh": "巴勒斯坦",
+    "capital": "Ramallah",
+    "capital_zh": "拉姆安拉",
+    "lat": 31.89964,
+    "lon": 35.20422,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Ramallah",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972104,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "BS",
+    "country": "Bahamas",
+    "country_zh": "巴哈马",
+    "capital": "Nassau",
+    "capital_zh": "拿騷",
+    "lat": 25.05823,
+    "lon": -77.34306,
+    "camera_ids": [
+      "galore-36185"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Nassau",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972105,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-36185"
+    ]
+  },
+  {
+    "country_code": "PK",
+    "country": "Pakistan",
+    "country_zh": "巴基斯坦",
+    "capital": "Islamabad",
+    "capital_zh": "伊斯兰堡",
+    "lat": 33.72148,
+    "lon": 73.04329,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Islamabad",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972107,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "BB",
+    "country": "Barbados",
+    "country_zh": "巴巴多斯",
+    "capital": "Bridgetown",
+    "capital_zh": "布里奇敦",
+    "lat": 13.10732,
+    "lon": -59.62021,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Bridgetown",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972107,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "PG",
+    "country": "Papua New Guinea",
+    "country_zh": "巴布亚新几内亚",
+    "capital": "Port Moresby",
+    "capital_zh": "莫尔兹比港",
+    "lat": -9.47723,
+    "lon": 147.15089,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Port%20Moresby",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972108,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "PY",
+    "country": "Paraguay",
+    "country_zh": "巴拉圭",
+    "capital": "Asunción",
+    "capital_zh": "亞松森",
+    "lat": -25.28646,
+    "lon": -57.647,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Asunci%C3%B3n",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972109,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "PA",
+    "country": "Panama",
+    "country_zh": "巴拿马",
+    "capital": "Panama City",
+    "capital_zh": "巴拿馬城",
+    "lat": 8.9936,
+    "lon": -79.51973,
+    "camera_ids": [
+      "sky-987"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Panama%20City",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972110,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": [
+      "sky-987"
+    ]
+  },
+  {
+    "country_code": "BH",
+    "country": "Bahrain",
+    "country_zh": "巴林",
+    "capital": "Manama",
+    "capital_zh": "麥納瑪",
+    "lat": 26.22787,
+    "lon": 50.58565,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Manama",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972111,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "BR",
+    "country": "Brazil",
+    "country_zh": "巴西",
+    "capital": "Brasília",
+    "capital_zh": "巴西利亚",
+    "lat": -15.77972,
+    "lon": -47.92972,
+    "camera_ids": [
+      "sky-5737"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Bras%C3%ADlia",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972112,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": [
+      "sky-5737"
+    ]
+  },
+  {
+    "country_code": "BF",
+    "country": "Burkina Faso",
+    "country_zh": "布基纳法索",
+    "capital": "Ouagadougou",
+    "capital_zh": "瓦加杜古",
+    "lat": 12.36566,
+    "lon": -1.53388,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Ouagadougou",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972113,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "BI",
+    "country": "Burundi",
+    "country_zh": "布隆迪",
+    "capital": "Gitega",
+    "capital_zh": "Gitega",
+    "lat": -3.42708,
+    "lon": 29.92463,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Gitega",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972113,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "GR",
+    "country": "Greece",
+    "country_zh": "希腊",
+    "capital": "Athens",
+    "capital_zh": "雅典",
+    "lat": 37.98376,
+    "lon": 23.72784,
+    "camera_ids": [
+      "sky-1251",
+      "sky-1546",
+      "sky-1547",
+      "sky-2859",
+      "sky-534",
+      "sky-535",
+      "sky-5375",
+      "sky-552",
+      "sky-553",
+      "sky-5714",
+      "sky-6137",
+      "galore-26130"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Athens",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972114,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "sky-1251",
+      "sky-1546",
+      "sky-1547",
+      "sky-2859",
+      "sky-534",
+      "sky-535",
+      "sky-5375",
+      "sky-552",
+      "sky-553",
+      "sky-5714",
+      "sky-6137",
+      "galore-26130"
+    ]
+  },
+  {
+    "country_code": "PW",
+    "country": "Palau",
+    "country_zh": "帕劳",
+    "capital": "Ngerulmud",
+    "capital_zh": "Ngerulmud",
+    "lat": 7.50077,
+    "lon": 134.6238,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Ngerulmud",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972116,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "DE",
+    "country": "Germany",
+    "country_zh": "德国",
+    "capital": "Berlin",
+    "capital_zh": "柏林",
+    "lat": 52.52437,
+    "lon": 13.41053,
+    "camera_ids": [
+      "galore-38401"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Berlin",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972116,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-38401"
+    ]
+  },
+  {
+    "country_code": "IT",
+    "country": "Italy",
+    "country_zh": "意大利",
+    "capital": "Rome",
+    "capital_zh": "罗马市",
+    "lat": 41.89193,
+    "lon": 12.51133,
+    "camera_ids": [
+      "sky-1151",
+      "sky-1289",
+      "sky-1294",
+      "sky-13",
+      "sky-1528",
+      "sky-1595",
+      "sky-1655",
+      "sky-177",
+      "sky-205",
+      "sky-2488",
+      "sky-286",
+      "sky-4220",
+      "sky-4633",
+      "sky-4688",
+      "sky-4689",
+      "sky-5245",
+      "sky-57",
+      "sky-5760",
+      "sky-597",
+      "sky-599",
+      "sky-607",
+      "sky-619",
+      "sky-661",
+      "sky-682",
+      "sky-685",
+      "sky-692",
+      "sky-707",
+      "sky-733",
+      "sky-991"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Rome",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972118,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": [
+      "sky-1151",
+      "sky-1289",
+      "sky-1294",
+      "sky-13",
+      "sky-1528",
+      "sky-1595",
+      "sky-1655",
+      "sky-177",
+      "sky-205",
+      "sky-2488",
+      "sky-286",
+      "sky-4220",
+      "sky-4633",
+      "sky-4688",
+      "sky-4689",
+      "sky-5245",
+      "sky-57",
+      "sky-5760",
+      "sky-597",
+      "sky-599",
+      "sky-607",
+      "sky-619",
+      "sky-661",
+      "sky-682",
+      "sky-685",
+      "sky-692",
+      "sky-707",
+      "sky-733",
+      "sky-991"
+    ]
+  },
+  {
+    "country_code": "SB",
+    "country": "Solomon Islands",
+    "country_zh": "所罗门群岛",
+    "capital": "Honiara",
+    "capital_zh": "霍尼亚拉",
+    "lat": -9.43333,
+    "lon": 159.95,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Honiara",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972118,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "LV",
+    "country": "Latvia",
+    "country_zh": "拉脱维亚",
+    "capital": "Riga",
+    "capital_zh": "里加",
+    "lat": 56.946,
+    "lon": 24.10589,
+    "camera_ids": [
+      "galore-26376"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Riga",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972119,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-26376"
+    ]
+  },
+  {
+    "country_code": "NO",
+    "country": "Norway",
+    "country_zh": "挪威",
+    "capital": "Oslo",
+    "capital_zh": "奥斯陆",
+    "lat": 59.91273,
+    "lon": 10.74609,
+    "camera_ids": [
+      "galore-25974"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Oslo",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972120,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-25974"
+    ]
+  },
+  {
+    "country_code": "CZ",
+    "country": "Czechia",
+    "country_zh": "捷克",
+    "capital": "Prague",
+    "capital_zh": "布拉格",
+    "lat": 50.08804,
+    "lon": 14.42076,
+    "camera_ids": [
+      "sky-3938",
+      "sky-5733",
+      "sky-732",
+      "sky-964",
+      "galore-35417"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Prague",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972122,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "sky-3938",
+      "sky-5733",
+      "sky-732",
+      "sky-964",
+      "galore-35417"
+    ]
+  },
+  {
+    "country_code": "MD",
+    "country": "Moldova",
+    "country_zh": "摩尔多瓦",
+    "capital": "Chișinău",
+    "capital_zh": "基希讷乌",
+    "lat": 47.00902,
+    "lon": 28.85938,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Chi%C8%99in%C4%83u",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972123,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "MA",
+    "country": "Morocco",
+    "country_zh": "摩洛哥",
+    "capital": "Rabat",
+    "capital_zh": "剌八",
+    "lat": 34.01325,
+    "lon": -6.83255,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Rabat",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972124,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "MC",
+    "country": "Monaco",
+    "country_zh": "摩纳哥",
+    "capital": "Monaco",
+    "capital_zh": "Monaco",
+    "lat": 43.73718,
+    "lon": 7.42145,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Monaco",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972125,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "BN",
+    "country": "Brunei",
+    "country_zh": "文莱",
+    "capital": "Bandar Seri Begawan",
+    "capital_zh": "斯里巴加湾市",
+    "lat": 4.89035,
+    "lon": 114.94006,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Bandar%20Seri%20Begawan",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972126,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "FJ",
+    "country": "Fiji",
+    "country_zh": "斐济",
+    "capital": "Suva",
+    "capital_zh": "蘇瓦",
+    "lat": -18.13683,
+    "lon": 178.42531,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Suva",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972127,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "SZ",
+    "country": "Eswatini",
+    "country_zh": "斯威士兰",
+    "capital": "Lobamba",
+    "capital_zh": "洛班巴",
+    "lat": -26.46667,
+    "lon": 31.2,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Lobamba",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972128,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "SK",
+    "country": "Slovakia",
+    "country_zh": "斯洛伐克",
+    "capital": "Bratislava",
+    "capital_zh": "布拉迪斯拉发",
+    "lat": 48.14816,
+    "lon": 17.10674,
+    "camera_ids": [
+      "galore-20526"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Bratislava",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972128,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-20526"
+    ]
+  },
+  {
+    "country_code": "SI",
+    "country": "Slovenia",
+    "country_zh": "斯洛文尼亚",
+    "capital": "Ljubljana",
+    "capital_zh": "卢布尔雅那",
+    "lat": 46.05108,
+    "lon": 14.50513,
+    "camera_ids": [
+      "galore-34352"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Ljubljana",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972130,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-34352"
+    ]
+  },
+  {
+    "country_code": "LK",
+    "country": "Sri Lanka",
+    "country_zh": "斯里兰卡",
+    "capital": "Colombo",
+    "capital_zh": "可倫坡",
+    "lat": 6.93548,
+    "lon": 79.84868,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Colombo",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972131,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "SG",
+    "country": "Singapore",
+    "country_zh": "新加坡",
+    "capital": "Singapore",
+    "capital_zh": "新加坡",
+    "lat": 1.28967,
+    "lon": 103.85007,
+    "camera_ids": [
+      "galore-38289"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Singapore",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972132,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-38289"
+    ]
+  },
+  {
+    "country_code": "NZ",
+    "country": "New Zealand",
+    "country_zh": "新西兰",
+    "capital": "Wellington",
+    "capital_zh": "威靈頓",
+    "lat": -41.28664,
+    "lon": 174.77557,
+    "camera_ids": [
+      "galore-37414"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Wellington",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972133,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-37414"
+    ]
+  },
+  {
+    "country_code": "JP",
+    "country": "Japan",
+    "country_zh": "日本",
+    "capital": "Tokyo",
+    "capital_zh": "东京",
+    "lat": 35.6895,
+    "lon": 139.69171,
+    "camera_ids": [
+      "galore-263"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Tokyo",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972134,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-263"
+    ]
+  },
+  {
+    "country_code": "CL",
+    "country": "Chile",
+    "country_zh": "智利",
+    "capital": "Santiago",
+    "capital_zh": "圣地亚哥",
+    "lat": -33.45694,
+    "lon": -70.64827,
+    "camera_ids": [
+      "sky-3262"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Santiago",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972136,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": [
+      "sky-3262"
+    ]
+  },
+  {
+    "country_code": "KP",
+    "country": "North Korea",
+    "country_zh": "朝鲜",
+    "capital": "Pyongyang",
+    "capital_zh": "平壌",
+    "lat": 39.03385,
+    "lon": 125.75432,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Pyongyang",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972137,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "KH",
+    "country": "Cambodia",
+    "country_zh": "柬埔寨",
+    "capital": "Phnom Penh",
+    "capital_zh": "金边",
+    "lat": 11.56245,
+    "lon": 104.91601,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Phnom%20Penh",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972138,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "GD",
+    "country": "Grenada",
+    "country_zh": "格林纳达",
+    "capital": "St. George's",
+    "capital_zh": "Saint George's",
+    "lat": 12.05288,
+    "lon": -61.75226,
+    "camera_ids": [
+      "sky-6019",
+      "sky-629"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=St.%20George%27s",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972138,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": [
+      "sky-6019",
+      "sky-629"
+    ]
+  },
+  {
+    "country_code": "GE",
+    "country": "Georgia",
+    "country_zh": "格鲁吉亚",
+    "capital": "Tbilisi",
+    "capital_zh": "第比利斯",
+    "lat": 41.69143,
+    "lon": 44.83412,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Tbilisi",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972139,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "VA",
+    "country": "Vatican City",
+    "country_zh": "梵蒂冈",
+    "capital": "Vatican City",
+    "capital_zh": "Vatican City",
+    "lat": 41.90268,
+    "lon": 12.45414,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Vatican%20City",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972140,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "BE",
+    "country": "Belgium",
+    "country_zh": "比利时",
+    "capital": "Brussels",
+    "capital_zh": "布魯塞爾",
+    "lat": 50.85045,
+    "lon": 4.34878,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Brussels",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972141,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "MR",
+    "country": "Mauritania",
+    "country_zh": "毛里塔尼亚",
+    "capital": "Nouakchott",
+    "capital_zh": "努瓦克肖特",
+    "lat": 18.08581,
+    "lon": -15.9785,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Nouakchott",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972142,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "MU",
+    "country": "Mauritius",
+    "country_zh": "毛里求斯",
+    "capital": "Port Louis",
+    "capital_zh": "路易港",
+    "lat": -20.16194,
+    "lon": 57.49889,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Port%20Louis",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972143,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "CD",
+    "country": "DR Congo",
+    "country_zh": "民主刚果",
+    "capital": "Kinshasa",
+    "capital_zh": "金夏沙",
+    "lat": -4.32758,
+    "lon": 15.31357,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Kinshasa",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972144,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "TO",
+    "country": "Tonga",
+    "country_zh": "汤加",
+    "capital": "Nuku'alofa",
+    "capital_zh": "努库阿洛法",
+    "lat": -21.13683,
+    "lon": -175.20114,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Nuku%27alofa",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972145,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "SA",
+    "country": "Saudi Arabia",
+    "country_zh": "沙特阿拉伯",
+    "capital": "Riyadh",
+    "capital_zh": "利雅得",
+    "lat": 24.68773,
+    "lon": 46.72185,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Riyadh",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972145,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "FR",
+    "country": "France",
+    "country_zh": "法国",
+    "capital": "Paris",
+    "capital_zh": "巴黎",
+    "lat": 48.85341,
+    "lon": 2.3488,
+    "camera_ids": [
+      "sky-2490",
+      "sky-955"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Paris",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972146,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": [
+      "sky-2490",
+      "sky-955"
+    ]
+  },
+  {
+    "country_code": "PL",
+    "country": "Poland",
+    "country_zh": "波兰",
+    "capital": "Warsaw",
+    "capital_zh": "华沙",
+    "lat": 52.22977,
+    "lon": 21.01178,
+    "camera_ids": [
+      "galore-37910"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Warsaw",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972147,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-37910"
+    ]
+  },
+  {
+    "country_code": "BA",
+    "country": "Bosnia and Herzegovina",
+    "country_zh": "波斯尼亚和黑塞哥维那",
+    "capital": "Sarajevo",
+    "capital_zh": "塞拉耶佛",
+    "lat": 43.84864,
+    "lon": 18.35644,
+    "camera_ids": [
+      "sky-2124",
+      "galore-5212"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Sarajevo",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972149,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "sky-2124",
+      "galore-5212"
+    ]
+  },
+  {
+    "country_code": "TH",
+    "country": "Thailand",
+    "country_zh": "泰国",
+    "capital": "Bangkok",
+    "capital_zh": "曼谷",
+    "lat": 13.75398,
+    "lon": 100.50144,
+    "camera_ids": [
+      "sky-2998",
+      "sky-3767",
+      "sky-5185"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Bangkok",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972150,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": [
+      "sky-2998",
+      "sky-3767",
+      "sky-5185"
+    ]
+  },
+  {
+    "country_code": "ZW",
+    "country": "Zimbabwe",
+    "country_zh": "津巴布韦",
+    "capital": "Harare",
+    "capital_zh": "哈拉雷",
+    "lat": -17.82772,
+    "lon": 31.05337,
+    "camera_ids": [
+      "galore-34256"
+    ],
+    "status": "listed_but_unavailable",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Harare",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972151,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "HN",
+    "country": "Honduras",
+    "country_zh": "洪都拉斯",
+    "capital": "Tegucigalpa",
+    "capital_zh": "德古斯加巴",
+    "lat": 14.0818,
+    "lon": -87.20681,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Tegucigalpa",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972152,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "HT",
+    "country": "Haiti",
+    "country_zh": "海地",
+    "capital": "Port-au-Prince",
+    "capital_zh": "太子港",
+    "lat": 18.54349,
+    "lon": -72.33881,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Port-au-Prince",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972153,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "AU",
+    "country": "Australia",
+    "country_zh": "澳大利亚",
+    "capital": "Canberra",
+    "capital_zh": "坎培拉",
+    "lat": -35.28346,
+    "lon": 149.12807,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Canberra",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972154,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "IE",
+    "country": "Ireland",
+    "country_zh": "爱尔兰",
+    "capital": "Dublin",
+    "capital_zh": "都柏林",
+    "lat": 53.33306,
+    "lon": -6.24889,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Dublin",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972155,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "EE",
+    "country": "Estonia",
+    "country_zh": "爱沙尼亚",
+    "capital": "Tallinn",
+    "capital_zh": "塔林",
+    "lat": 59.43696,
+    "lon": 24.75353,
+    "camera_ids": [
+      "galore-94"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Tallinn",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972155,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-94"
+    ]
+  },
+  {
+    "country_code": "JM",
+    "country": "Jamaica",
+    "country_zh": "牙买加",
+    "capital": "Kingston",
+    "capital_zh": "京斯敦",
+    "lat": 17.99702,
+    "lon": -76.79358,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Kingston",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972157,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "TT",
+    "country": "Trinidad and Tobago",
+    "country_zh": "特立尼达和多巴哥",
+    "capital": "Port of Spain",
+    "capital_zh": "西班牙港",
+    "lat": 10.66668,
+    "lon": -61.51889,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Port%20of%20Spain",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972158,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "BO",
+    "country": "Bolivia",
+    "country_zh": "玻利维亚",
+    "capital": "Sucre",
+    "capital_zh": "苏克雷",
+    "lat": -19.03332,
+    "lon": -65.26274,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Sucre",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972158,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "NR",
+    "country": "Nauru",
+    "country_zh": "瑙鲁",
+    "capital": "Yaren",
+    "capital_zh": "亞倫區",
+    "lat": -0.55085,
+    "lon": 166.9252,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Yaren",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972159,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "SE",
+    "country": "Sweden",
+    "country_zh": "瑞典",
+    "capital": "Stockholm",
+    "capital_zh": "斯德哥尔摩",
+    "lat": 59.32938,
+    "lon": 18.06871,
+    "camera_ids": [
+      "galore-1463"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Stockholm",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972160,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-1463"
+    ]
+  },
+  {
+    "country_code": "CH",
+    "country": "Switzerland",
+    "country_zh": "瑞士",
+    "capital": "Bern",
+    "capital_zh": "伯尔尼",
+    "lat": 46.94809,
+    "lon": 7.44744,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Bern",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972161,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "VU",
+    "country": "Vanuatu",
+    "country_zh": "瓦努阿图",
+    "capital": "Port Vila",
+    "capital_zh": "維拉港",
+    "lat": -17.73648,
+    "lon": 168.31366,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Port%20Vila",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972162,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "BY",
+    "country": "Belarus",
+    "country_zh": "白俄罗斯",
+    "capital": "Minsk",
+    "capital_zh": "明斯克",
+    "lat": 53.90019,
+    "lon": 27.56653,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Minsk",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972163,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "KW",
+    "country": "Kuwait",
+    "country_zh": "科威特",
+    "capital": "Kuwait City",
+    "capital_zh": "科威特市",
+    "lat": 29.367,
+    "lon": 47.97429,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Kuwait%20City",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972164,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "KM",
+    "country": "Comoros",
+    "country_zh": "科摩罗",
+    "capital": "Moroni",
+    "capital_zh": "莫洛尼",
+    "lat": -11.70216,
+    "lon": 43.25506,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Moroni",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972165,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "CI",
+    "country": "Ivory Coast",
+    "country_zh": "科特迪瓦",
+    "capital": "Yamoussoukro",
+    "capital_zh": "亚穆苏克罗",
+    "lat": 6.82055,
+    "lon": -5.27674,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Yamoussoukro",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972166,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "PE",
+    "country": "Peru",
+    "country_zh": "秘鲁",
+    "capital": "Lima",
+    "capital_zh": "利馬",
+    "lat": -12.04318,
+    "lon": -77.02824,
+    "camera_ids": [
+      "sky-3115",
+      "sky-3942",
+      "sky-5485"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Lima",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972166,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": [
+      "sky-3115",
+      "sky-3942",
+      "sky-5485"
+    ]
+  },
+  {
+    "country_code": "TN",
+    "country": "Tunisia",
+    "country_zh": "突尼斯",
+    "capital": "Tunis",
+    "capital_zh": "突尼斯",
+    "lat": 36.81897,
+    "lon": 10.16579,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Tunis",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972167,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "LT",
+    "country": "Lithuania",
+    "country_zh": "立陶宛",
+    "capital": "Vilnius",
+    "capital_zh": "维尔纽斯",
+    "lat": 54.68916,
+    "lon": 25.2798,
+    "camera_ids": [
+      "galore-32623"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Vilnius",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972168,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-32623"
+    ]
+  },
+  {
+    "country_code": "SO",
+    "country": "Somalia",
+    "country_zh": "索马里",
+    "capital": "Mogadishu",
+    "capital_zh": "摩加迪休",
+    "lat": 2.03711,
+    "lon": 45.34375,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Mogadishu",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972170,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "JO",
+    "country": "Jordan",
+    "country_zh": "约旦",
+    "capital": "Amman",
+    "capital_zh": "安曼",
+    "lat": 31.95522,
+    "lon": 35.94503,
+    "camera_ids": [
+      "sky-829"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Amman",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972170,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": [
+      "sky-829"
+    ]
+  },
+  {
+    "country_code": "NA",
+    "country": "Namibia",
+    "country_zh": "纳米比亚",
+    "capital": "Windhoek",
+    "capital_zh": "温得和克",
+    "lat": -22.55941,
+    "lon": 17.08323,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Windhoek",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972171,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "MM",
+    "country": "Myanmar",
+    "country_zh": "缅甸",
+    "capital": "Naypyidaw",
+    "capital_zh": "Nay Pyi Taw",
+    "lat": 19.745,
+    "lon": 96.12972,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Naypyidaw",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972172,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "RO",
+    "country": "Romania",
+    "country_zh": "罗马尼亚",
+    "capital": "Bucharest",
+    "capital_zh": "布加勒斯特",
+    "lat": 44.43225,
+    "lon": 26.10626,
+    "camera_ids": [
+      "galore-2783"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Bucharest",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972173,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-2783"
+    ]
+  },
+  {
+    "country_code": "US",
+    "country": "United States",
+    "country_zh": "美国",
+    "capital": "Washington D.C.",
+    "capital_zh": "华盛顿特区",
+    "lat": 38.89511,
+    "lon": -77.03637,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Washington%20D.C.",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972174,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "LA",
+    "country": "Laos",
+    "country_zh": "老挝",
+    "capital": "Vientiane",
+    "capital_zh": "万象",
+    "lat": 17.96667,
+    "lon": 102.6,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Vientiane",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972175,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "KE",
+    "country": "Kenya",
+    "country_zh": "肯尼亚",
+    "capital": "Nairobi",
+    "capital_zh": "內羅比",
+    "lat": -1.28333,
+    "lon": 36.81667,
+    "camera_ids": [
+      "galore-10891"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Nairobi",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972176,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-10891"
+    ]
+  },
+  {
+    "country_code": "FI",
+    "country": "Finland",
+    "country_zh": "芬兰",
+    "capital": "Helsinki",
+    "capital_zh": "赫尔辛基",
+    "lat": 60.16952,
+    "lon": 24.93545,
+    "camera_ids": [
+      "galore-6007"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Helsinki",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972177,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-6007"
+    ]
+  },
+  {
+    "country_code": "SD",
+    "country": "Sudan",
+    "country_zh": "苏丹",
+    "capital": "Khartoum",
+    "capital_zh": "喀土穆",
+    "lat": 15.55177,
+    "lon": 32.53241,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Khartoum",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972178,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "SR",
+    "country": "Suriname",
+    "country_zh": "苏里南",
+    "capital": "Paramaribo",
+    "capital_zh": "巴拉馬利波",
+    "lat": 5.86638,
+    "lon": -55.16682,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Paramaribo",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972179,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "GB",
+    "country": "United Kingdom",
+    "country_zh": "英国",
+    "capital": "London",
+    "capital_zh": "伦敦",
+    "lat": 51.50853,
+    "lon": -0.12574,
+    "camera_ids": [
+      "galore-29128"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=London",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972180,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-29128"
+    ]
+  },
+  {
+    "country_code": "NL",
+    "country": "Netherlands",
+    "country_zh": "荷兰",
+    "capital": "Amsterdam",
+    "capital_zh": "阿姆斯特丹",
+    "lat": 52.37403,
+    "lon": 4.88969,
+    "camera_ids": [
+      "sky-1794",
+      "sky-1992",
+      "sky-2364",
+      "sky-5055",
+      "sky-5798",
+      "galore-4360"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Amsterdam",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972181,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "sky-1794",
+      "sky-1992",
+      "sky-2364",
+      "sky-5055",
+      "sky-5798",
+      "galore-4360"
+    ]
+  },
+  {
+    "country_code": "MZ",
+    "country": "Mozambique",
+    "country_zh": "莫桑比克",
+    "capital": "Maputo",
+    "capital_zh": "马普托",
+    "lat": -25.96553,
+    "lon": 32.58322,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Maputo",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972183,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "LS",
+    "country": "Lesotho",
+    "country_zh": "莱索托",
+    "capital": "Maseru",
+    "capital_zh": "馬些盧",
+    "lat": -29.31667,
+    "lon": 27.48333,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Maseru",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972184,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "PH",
+    "country": "Philippines",
+    "country_zh": "菲律宾",
+    "capital": "Manila",
+    "capital_zh": "馬尼拉",
+    "lat": 14.6042,
+    "lon": 120.9822,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Manila",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972185,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "SV",
+    "country": "El Salvador",
+    "country_zh": "萨尔瓦多",
+    "capital": "San Salvador",
+    "capital_zh": "聖薩爾瓦多",
+    "lat": 13.68935,
+    "lon": -89.18718,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=San%20Salvador",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972185,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "WS",
+    "country": "Samoa",
+    "country_zh": "萨摩亚",
+    "capital": "Apia",
+    "capital_zh": "阿皮亚",
+    "lat": -13.83333,
+    "lon": -171.76666,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Apia",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972186,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "PT",
+    "country": "Portugal",
+    "country_zh": "葡萄牙",
+    "capital": "Lisbon",
+    "capital_zh": "里斯本",
+    "lat": 38.72509,
+    "lon": -9.1498,
+    "camera_ids": [
+      "galore-37045"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Lisbon",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972187,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-37045"
+    ]
+  },
+  {
+    "country_code": "MN",
+    "country": "Mongolia",
+    "country_zh": "蒙古",
+    "capital": "Ulan Bator",
+    "capital_zh": "乌兰巴托",
+    "lat": 47.90771,
+    "lon": 106.88324,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Ulan%20Bator",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972188,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "ES",
+    "country": "Spain",
+    "country_zh": "西班牙",
+    "capital": "Madrid",
+    "capital_zh": "馬德里",
+    "lat": 40.4165,
+    "lon": -3.70256,
+    "camera_ids": [
+      "sky-314",
+      "sky-566",
+      "galore-26227"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Madrid",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972189,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "sky-314",
+      "sky-566",
+      "galore-26227"
+    ]
+  },
+  {
+    "country_code": "BJ",
+    "country": "Benin",
+    "country_zh": "贝宁",
+    "capital": "Porto-Novo",
+    "capital_zh": "新港",
+    "lat": 6.49646,
+    "lon": 2.60359,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Porto-Novo",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972190,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "ZM",
+    "country": "Zambia",
+    "country_zh": "赞比亚",
+    "capital": "Lusaka",
+    "capital_zh": "盧薩卡",
+    "lat": -15.40669,
+    "lon": 28.28713,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Lusaka",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972191,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "GQ",
+    "country": "Equatorial Guinea",
+    "country_zh": "赤道几内亚",
+    "capital": "Malabo",
+    "capital_zh": "馬拉博",
+    "lat": 3.75578,
+    "lon": 8.78166,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Malabo",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972192,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "VN",
+    "country": "Vietnam",
+    "country_zh": "越南",
+    "capital": "Hanoi",
+    "capital_zh": "河內",
+    "lat": 21.0245,
+    "lon": 105.84117,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Hanoi",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972193,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "AZ",
+    "country": "Azerbaijan",
+    "country_zh": "阿塞拜疆",
+    "capital": "Baku",
+    "capital_zh": "巴库",
+    "lat": 40.37767,
+    "lon": 49.89201,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Baku",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972194,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "AF",
+    "country": "Afghanistan",
+    "country_zh": "阿富汗",
+    "capital": "Kabul",
+    "capital_zh": "喀布尔",
+    "lat": 34.52813,
+    "lon": 69.17233,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Kabul",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972195,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "DZ",
+    "country": "Algeria",
+    "country_zh": "阿尔及利亚",
+    "capital": "Algiers",
+    "capital_zh": "阿爾及爾",
+    "lat": 36.73225,
+    "lon": 3.08746,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Algiers",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972195,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "AL",
+    "country": "Albania",
+    "country_zh": "阿尔巴尼亚",
+    "capital": "Tirana",
+    "capital_zh": "地拉那",
+    "lat": 41.32744,
+    "lon": 19.81866,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Tirana",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972196,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "AE",
+    "country": "United Arab Emirates",
+    "country_zh": "阿拉伯联合酋长国",
+    "capital": "Abu Dhabi",
+    "capital_zh": "阿布扎比",
+    "lat": 24.45118,
+    "lon": 54.39696,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Abu%20Dhabi",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972197,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "OM",
+    "country": "Oman",
+    "country_zh": "阿曼",
+    "capital": "Muscat",
+    "capital_zh": "馬斯喀特",
+    "lat": 23.58413,
+    "lon": 58.40778,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Muscat",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972198,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "AR",
+    "country": "Argentina",
+    "country_zh": "阿根廷",
+    "capital": "Buenos Aires",
+    "capital_zh": "布宜諾斯艾利斯",
+    "lat": -34.61315,
+    "lon": -58.37723,
+    "camera_ids": [
+      "sky-5458",
+      "sky-5666",
+      "sky-5854",
+      "galore-274"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Buenos%20Aires",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972199,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "sky-5458",
+      "sky-5666",
+      "sky-5854",
+      "galore-274"
+    ]
+  },
+  {
+    "country_code": "KR",
+    "country": "South Korea",
+    "country_zh": "韩国",
+    "capital": "Seoul",
+    "capital_zh": "首尔",
+    "lat": 37.566,
+    "lon": 126.9784,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Seoul",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972201,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "MV",
+    "country": "Maldives",
+    "country_zh": "马尔代夫",
+    "capital": "Malé",
+    "capital_zh": "瑪律",
+    "lat": 4.17521,
+    "lon": 73.50916,
+    "camera_ids": [
+      "sky-1066",
+      "sky-5535",
+      "galore-21938"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Mal%C3%A9",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972203,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "sky-1066",
+      "sky-5535",
+      "galore-21938"
+    ]
+  },
+  {
+    "country_code": "MW",
+    "country": "Malawi",
+    "country_zh": "马拉维",
+    "capital": "Lilongwe",
+    "capital_zh": "利隆圭",
+    "lat": -13.96692,
+    "lon": 33.78725,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Lilongwe",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972205,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "MY",
+    "country": "Malaysia",
+    "country_zh": "马来西亚",
+    "capital": "Kuala Lumpur",
+    "capital_zh": "吉隆坡",
+    "lat": 3.1412,
+    "lon": 101.68653,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Kuala%20Lumpur",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972206,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "MH",
+    "country": "Marshall Islands",
+    "country_zh": "马绍尔群岛",
+    "capital": "Majuro",
+    "capital_zh": "Majuro",
+    "lat": 7.08971,
+    "lon": 171.38027,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Majuro",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972208,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "MT",
+    "country": "Malta",
+    "country_zh": "马耳他",
+    "capital": "Valletta",
+    "capital_zh": "瓦莱塔",
+    "lat": 35.89968,
+    "lon": 14.5148,
+    "camera_ids": [
+      "sky-1211",
+      "sky-207",
+      "sky-4000",
+      "sky-4454",
+      "sky-4455",
+      "sky-4456",
+      "sky-4479",
+      "sky-695",
+      "galore-26857"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Valletta",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972209,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "sky-1211",
+      "sky-207",
+      "sky-4000",
+      "sky-4454",
+      "sky-4455",
+      "sky-4456",
+      "sky-4479",
+      "sky-695",
+      "galore-26857"
+    ]
+  },
+  {
+    "country_code": "MG",
+    "country": "Madagascar",
+    "country_zh": "马达加斯加",
+    "capital": "Antananarivo",
+    "capital_zh": "塔那那利佛",
+    "lat": -18.91368,
+    "lon": 47.53613,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Antananarivo",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972211,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "ML",
+    "country": "Mali",
+    "country_zh": "马里",
+    "capital": "Bamako",
+    "capital_zh": "巴馬科",
+    "lat": 12.60915,
+    "lon": -7.97522,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Bamako",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972212,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  },
+  {
+    "country_code": "LB",
+    "country": "Lebanon",
+    "country_zh": "黎巴嫩",
+    "capital": "Beirut",
+    "capital_zh": "貝魯特",
+    "lat": 33.89332,
+    "lon": 35.50157,
+    "camera_ids": [
+      "galore-37078"
+    ],
+    "status": "snapshot_verified",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Beirut",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972213,
+    "search_outcome": "found_public_listing",
+    "verified_camera_ids": [
+      "galore-37078"
+    ]
+  },
+  {
+    "country_code": "ME",
+    "country": "Montenegro",
+    "country_zh": "黑山",
+    "capital": "Podgorica",
+    "capital_zh": "波德戈里察",
+    "lat": 42.44124,
+    "lon": 19.26309,
+    "camera_ids": [],
+    "status": "no_verified_source",
+    "directory_search": "https://www.webcamgalore.com/search.php?s=Podgorica",
+    "checked_sources": [
+      "SkylineWebcams country catalogue",
+      "Foto-Webcam.eu public metadata",
+      "GeoNames city/capital matching",
+      "Webcam Galore exact-country capital search"
+    ],
+    "checked_at": 1790972214,
+    "search_outcome": "no_matching_capital_listing",
+    "verified_camera_ids": []
+  }
+]

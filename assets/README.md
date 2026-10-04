@@ -41,3 +41,37 @@ Store reusable music and sound-effect sources in `music/`.
 - Prefer 16 kHz, 16-bit mono PCM when it matches the current BSP audio path.
 - Check Flash and internal-RAM cost before embedding audio; stream or chunk long recordings.
 - Do not commit media without redistribution permission.
+
+## WorldCam fonts and map
+
+- `fonts/NotoSansCJKsc-Regular.otf`: Noto Sans CJK SC Regular from
+  [notofonts/noto-cjk](https://github.com/notofonts/noto-cjk), SIL Open Font License
+  1.1, retained as `fonts/OFL.txt`. The 16 MB original is an optional local
+  regeneration dependency, fetched by `tools/fetch_worldcam_font_source.py`
+  from pinned commit `f8d157532fbfaeda587e826d4cd5b21a49186f7c` with SHA256
+  verification. The generator downloads it when absent. Normal firmware builds
+  compile the committed subset and do not download the original.
+- `fonts/NotoSans-Regular.ttf`: Noto Sans Regular from
+  [notofonts/noto-fonts](https://github.com/notofonts/noto-fonts), SIL Open Font
+  License 1.1, retained as `fonts/NotoSans-OFL.txt`. Supplies extended Latin
+  characters absent from the CJK source.
+- `fonts/worldcam_font_16.c`: uncompressed 16px, 4bpp application subset generated
+  with `lv_font_conv` 1.5.3. Actual code points and provenance are recorded in
+  `fonts/worldcam_chars.txt` and `fonts/worldcam_font_manifest.json`. Regenerate
+  with `tools/generate_worldcam_font.py`; the main component compiles this font.
+- `maps/world.geo.json`: country outlines from
+  [natural-earth-vector](https://github.com/nvkelso/natural-earth-vector), based on
+  public-domain [Natural Earth](https://www.naturalearthdata.com/about/terms-of-use/)
+  geography. `tools/generate_worldcam_map.py` generates the Flash-resident
+  `maps/world_map.c` and companion `gateway/world-map.svg`.
+- City/capital location matching uses [GeoNames](https://www.geonames.org/),
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); country names use
+  [mledoze/countries](https://github.com/mledoze/countries), ODbL 1.0. All 195 capital registry coordinates match GeoNames cities.
+  The adapted catalogue preserves source URLs, coordinate precision, and
+  capital-source gaps. Geography is approximate and does not imply source
+  availability. See the [WorldCam guide](../docs/assets/worldcam.md).
+
+- `images/worldcam-phone-check.png`: application-owned 390px browser screenshot
+  of the phone checker after a 30-source cloud sample passed. It contains no
+  camera photograph or private device details and does not establish hardware
+  or mainland-network operation.

@@ -1,0 +1,2 @@
+dependencies:
+  embedblocks/jpeg-roi-decoder: "^0.5.3"
