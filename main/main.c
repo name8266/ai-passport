@@ -4,6 +4,7 @@
 #include "worldcam_catalog.h"
 #include "worldcam_protocol.h"
 #include "worldcam_stream.h"
+#include "worldcam_live_sources.h"
 #include "jpeg_roi_decoder.h"
 #include "lvgl.h"
 #include "src/misc/cache/instance/lv_image_cache.h"
@@ -35,7 +36,6 @@ extern const lv_image_dsc_t worldcam_map;
 #define WIFI_SETUP BIT1
 #define WIFI_FAILED BIT2
 #define NAME_BYTES 192
-#define STREAM_URL_BYTES 256
 #define MAX_SOURCE_BYTES (4u * 1024u * 1024u)
 #define USAP_METADATA_BYTES 4096u
 #define WC_HTTP_TIMEOUT_MS 6500
@@ -82,14 +82,15 @@ static EventGroupHandle_t s_wifi;
 static TaskHandle_t s_worker;
 static nvs_handle_t s_nvs;
 static char s_ap_name[32], s_ap_password[9];
-static char s_test_stream_url[STREAM_URL_BYTES];
 static httpd_handle_t s_httpd;
 static page_t s_page;
 static size_t s_selected;
 static unsigned s_generation;
 static int64_t s_next_refresh;
 static bool s_busy, s_full, s_capitals_only;
-static bool s_stream_test_pending, s_stream_mode;
+static bool s_stream_mode;
+static size_t s_live_selected;
+static unsigned s_live_failovers;
 static unsigned s_random_retries;
 static uint8_t s_camera_failures[WC_CAMERA_COUNT];
 static char s_name[NAME_BYTES], s_country[96];
@@ -307,25 +308,45 @@ static void queue_frame(void)
     draw(s_pixels ? "正在切换实时画面… · 保留上一帧" : "正在获取实时画面…");
 }
 
-static void queue_stream_test(void)
+static void queue_live_source(void)
 {
-    if (!s_test_stream_url[0]) {
-        draw("未配置MJPEG测试地址");
+    if (!wc_live_source_count) {
+        draw("No live sources");
         return;
     }
+    s_live_selected %= wc_live_source_count;
+    const wc_live_source_t *source = &wc_live_sources[s_live_selected];
     job_t job = {
         .generation = ++s_generation,
-        .index = (uint16_t)s_selected,
+        .index = (uint16_t)s_live_selected,
         .full = s_full,
         .stream_test = true,
     };
     s_stream_mode = true;
     s_busy = true;
     s_page = PAGE_VIEW;
-    snprintf(s_name, sizeof(s_name), "%s", "MJPEG实时测试");
-    snprintf(s_country, sizeof(s_country), "%s", "实验流");
+    snprintf(s_name, sizeof(s_name), "%s", source->name);
+    snprintf(s_country, sizeof(s_country), "%s · %s", source->area, source->category);
     xQueueOverwrite(s_jobs, &job);
-    draw(s_pixels ? "正在重连MJPEG流… · 保留上一帧" : "正在连接MJPEG实时流…");
+    draw(s_pixels ? "LIVE switching..." : "Connecting LIVE...");
+}
+
+static void select_live_source(size_t index)
+{
+    if (!wc_live_source_count) return;
+    s_live_selected = index % wc_live_source_count;
+    s_live_failovers = (unsigned)wc_live_source_count;
+    queue_live_source();
+}
+
+static void next_live_source(int direction)
+{
+    if (!wc_live_source_count) return;
+    if (direction < 0)
+        s_live_selected = (s_live_selected + wc_live_source_count - 1) % wc_live_source_count;
+    else
+        s_live_selected = (s_live_selected + 1) % wc_live_source_count;
+    queue_live_source();
 }
 
 static void select_location(size_t index, bool watch)
@@ -622,11 +643,17 @@ static void worker(void *arg)
 
         if (job.stream_test) {
             const char *error = NULL;
+            if (job.index >= wc_live_source_count) {
+                result.streaming = true;
+                result.error = "LIVE source index invalid";
+                goto done;
+            }
+            const wc_live_source_t *source = &wc_live_sources[job.index];
             wc_stream_t *stream = wc_stream_open(
-                s_test_stream_url, WC_MJPEG_TIMEOUT_MS, &error);
+                source->url, WC_MJPEG_TIMEOUT_MS, &error);
             if (!stream) {
                 result.streaming = true;
-                result.error = error ? error : "MJPEG连接失败";
+                result.error = error ? error : "MJPEG connection failed";
                 goto done;
             }
 
@@ -642,7 +669,7 @@ static void worker(void *arg)
                 size_t bytes = (size_t)frame.width * frame.height * 2u;
                 frame.pixels = malloc(bytes);
                 if (!frame.pixels) {
-                    frame.error = "MJPEG帧内存不足";
+                    frame.error = "MJPEG frame memory low";
                     xQueueSend(s_results, &frame, portMAX_DELAY);
                     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
                     break;
@@ -652,7 +679,7 @@ static void worker(void *arg)
                         stream, frame.width, frame.height, frame.pixels, &error)) {
                     free(frame.pixels);
                     frame.pixels = NULL;
-                    frame.error = error ? error : "MJPEG帧解码失败";
+                    frame.error = error ? error : "MJPEG decode failed";
                     xQueueSend(s_results, &frame, portMAX_DELAY);
                     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
                     break;
@@ -742,12 +769,9 @@ static esp_err_t setup_page(httpd_req_t *req)
         "<title>世界之窗网络配置</title><style>body{font:16px system-ui;max-width:480px;margin:40px auto;"
         "padding:20px;background:#071820;color:#eef7f9}input,button{box-sizing:border-box;width:100%;"
         "padding:12px;margin:10px 0}button{background:#4de4bd;border:0}</style>"
-        "<h1>世界之窗网络配置</h1><p>连接2.4GHz无线网络。实验分支可同时测试HTTP(S) MJPEG。</p>"
+        "<h1>世界之窗网络配置</h1><p>连接2.4GHz无线网络。联网后自动播放内置公开实时摄像头。</p>"
         "<form><label>2.4GHz Wi-Fi 名称<input name='ssid' maxlength='32' required></label>"
         "<label>密码<input name='password' type='password' maxlength='63'></label>"
-        "<label>MJPEG测试地址（可选）<input name='stream' maxlength='255' "
-        "placeholder='http://192.168.1.10:8080/stream.mjpg'></label>"
-        "<small>填写后保存，本次联网成功会直接进入MJPEG实时测试。</small>"
         "<button>保存并连接</button></form><p id='status'></p><script>"
         "document.querySelector('form').onsubmit=async e=>{e.preventDefault();try{const r=await fetch('/setup',"
         "{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(new FormData(e.target)))})"
@@ -772,31 +796,18 @@ static esp_err_t save_setup(httpd_req_t *req)
     cJSON *root = cJSON_Parse(body);
     cJSON *ssid = cJSON_GetObjectItemCaseSensitive(root, "ssid");
     cJSON *password = cJSON_GetObjectItemCaseSensitive(root, "password");
-    cJSON *stream = cJSON_GetObjectItemCaseSensitive(root, "stream");
-    if (!cJSON_IsString(ssid) || !cJSON_IsString(password) || !cJSON_IsString(stream) ||
+    if (!cJSON_IsString(ssid) || !cJSON_IsString(password) ||
         !ssid->valuestring[0] || strlen(ssid->valuestring) > 32 ||
         strlen(password->valuestring) > 63 ||
         (strlen(password->valuestring) > 0 && strlen(password->valuestring) < 8)) {
         cJSON_Delete(root);
         return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "请检查 Wi-Fi 名称和密码");
     }
-    size_t stream_len = strlen(stream->valuestring);
-    bool stream_scheme_ok =
-        stream_len == 0 ||
-        strncmp(stream->valuestring, "http://", 7) == 0 ||
-        strncmp(stream->valuestring, "https://", 8) == 0;
-    if (stream_len >= STREAM_URL_BYTES || !stream_scheme_ok) {
-        cJSON_Delete(root);
-        return httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "MJPEG地址必须是HTTP或HTTPS");
-    }
-
     esp_err_t err = nvs_set_str(s_nvs, "ssid", ssid->valuestring);
     if (err == ESP_OK) err = nvs_set_str(s_nvs, "password", password->valuestring);
-    if (err == ESP_OK) err = nvs_set_str(s_nvs, "mjpeg_url", stream->valuestring);
+    if (err == ESP_OK) (void)nvs_erase_key(s_nvs, "mjpeg_url");
     if (err == ESP_OK) (void)nvs_erase_key(s_nvs, "gateway");
     if (err == ESP_OK) err = nvs_commit(s_nvs);
-    snprintf(s_test_stream_url, sizeof(s_test_stream_url), "%s", stream->valuestring);
-    s_stream_test_pending = s_test_stream_url[0] != 0;
     cJSON_Delete(root);
     if (err != ESP_OK) return httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "无法保存配置");
     xEventGroupSetBits(s_wifi, WIFI_SETUP);
@@ -839,9 +850,6 @@ static void connect_saved(void)
     nvs_get_str(s_nvs, "ssid", ssid, &size);
     size = sizeof(password);
     nvs_get_str(s_nvs, "password", password, &size);
-    size = sizeof(s_test_stream_url);
-    if (nvs_get_str(s_nvs, "mjpeg_url", s_test_stream_url, &size) != ESP_OK)
-        s_test_stream_url[0] = 0;
     if (!ssid[0]) {
         start_setup();
         return;
@@ -881,11 +889,15 @@ static void handle_input(input_t input)
             load_selected_labels();
             draw(location_status());
         } else if (input.btn == BSP_BTN_UP && s_page != PAGE_SETUP) {
-            random_tour(false);
+            if (s_stream_mode && wc_live_source_count) {
+                select_live_source(esp_random() % wc_live_source_count);
+            } else {
+                random_tour(false);
+            }
         } else if (input.btn == BSP_BTN_DOWN && s_page != PAGE_SETUP) {
             if (s_page == PAGE_VIEW) {
                 s_full = !s_full;
-                if (s_stream_mode) queue_stream_test();
+                if (s_stream_mode) queue_live_source();
                 else queue_frame();
             } else {
                 s_capitals_only = !s_capitals_only;
@@ -902,11 +914,13 @@ static void handle_input(input_t input)
     if (input.btn == BSP_BTN_UP || input.btn == BSP_BTN_DOWN) {
         s_random_retries = 0;
         int direction = input.btn == BSP_BTN_UP ? -1 : 1;
-        select_location(next_filtered(s_selected, direction), s_page == PAGE_VIEW);
+        if (s_stream_mode) next_live_source(direction);
+        else select_location(next_filtered(s_selected, direction), s_page == PAGE_VIEW);
     } else if (input.btn == BSP_BTN_OK) {
         s_random_retries = 0;
         if (s_stream_mode) {
-            queue_stream_test();
+            s_live_failovers = (unsigned)wc_live_source_count;
+            queue_live_source();
             return;
         }
         if (!(current_location()->flags & WC_FLAG_HAS_SOURCE)) {
@@ -1009,11 +1023,12 @@ static void input_task(void *arg)
             esp_wifi_set_mode(WIFI_MODE_STA);
             if (s_page == PAGE_SETUP) s_page = PAGE_MAP;
             draw("无线网络已连接");
-            if (s_stream_test_pending && s_test_stream_url[0]) {
-                s_stream_test_pending = false;
+            if (wc_live_source_count) {
                 s_full = false;
+                s_live_selected %= wc_live_source_count;
+                s_live_failovers = (unsigned)wc_live_source_count;
                 clear_pixels();
-                queue_stream_test();
+                queue_live_source();
             }
         }
         was_ready = ready;
