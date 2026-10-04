@@ -54,9 +54,19 @@ def decode_image(raw):
     with Image.open(BytesIO(raw)) as image:
         if image.width * image.height > MAX_PIXELS:
             raise OverflowError('Source image exceeds pixel limit')
+        image_format = image.format
+        progressive = bool(image.info.get('progressive') or image.info.get('progression'))
         image.load()
         image.convert('RGB').load()
-        return {'width': image.width, 'height': image.height, 'format': image.format}
+        return {
+            'width': image.width,
+            'height': image.height,
+            'format': image_format,
+            'progressive': progressive,
+            # The ESP32-C3 firmware uses a tiny baseline-JPEG decoder. A file
+            # being decodable by Pillow is not enough to call it device-safe.
+            'device_compatible': image_format == 'JPEG' and not progressive,
+        }
 
 
 def network_failure(error):
