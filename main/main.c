@@ -253,7 +253,10 @@ static void draw(const char *status)
         lv_obj_set_pos(s_country_label, 18, 52);
         lv_label_set_text(s_country_label, s_country);
         lv_obj_set_pos(s_image, s_full ? 0 : 24, s_full ? 80 : 84);
-        lv_label_set_text(s_help, "OK刷新 · 长OK返回地图\n长下全屏 · 长上精选风景");
+        if (s_stream_mode)
+            lv_label_set_text(s_help, "UP/DOWN source · OK reconnect\nLong DOWN full · Long OK map");
+        else
+            lv_label_set_text(s_help, "OK刷新 · 长OK返回地图\n长下全屏 · 长上精选风景");
     } else {
         lv_label_set_text(s_title, "连接世界之窗");
         lv_obj_set_pos(s_body, 18, 64);
@@ -935,13 +938,21 @@ static void handle_input(input_t input)
 static void apply_result(result_t *result)
 {
     bool retry_random = false;
+    bool retry_live = false;
     if (result->job.generation != s_generation) goto release;
     const wc_location_t *loc =
         result->job.index < WC_LOCATION_COUNT ? &wc_locations[result->job.index] : NULL;
     if (result->error) {
         s_busy = false;
         if (result->streaming) {
-            draw(s_pixels ? "MJPEG流中断 · 保留上一帧" : result->error);
+            if (s_stream_mode && wc_live_source_count && s_live_failovers > 1) {
+                --s_live_failovers;
+                s_live_selected = (s_live_selected + 1) % wc_live_source_count;
+                draw(s_pixels ? "LIVE source lost · trying next" : "LIVE source failed · trying next");
+                retry_live = true;
+            } else {
+                draw(s_pixels ? "LIVE source lost · OK retry" : result->error);
+            }
             goto release;
         }
         if (result->source_failure && loc && loc->camera < WC_CAMERA_COUNT &&
@@ -979,8 +990,12 @@ static void apply_result(result_t *result)
     bsp_lvgl_unlock();
     if (result->streaming) {
         char status[64];
-        snprintf(status, sizeof(status), "LIVE · MJPEG · 帧%lu",
+        const wc_live_source_t *source =
+            result->job.index < wc_live_source_count ? &wc_live_sources[result->job.index] : NULL;
+        snprintf(status, sizeof(status), "LIVE · %s · frame %lu",
+                 source ? source->category : "MJPEG",
                  (unsigned long)result->frame_no);
+        s_live_failovers = (unsigned)wc_live_source_count;
         s_busy = true;
         draw(status);
     } else {
@@ -992,7 +1007,8 @@ static void apply_result(result_t *result)
 release:
     free(result->pixels);
     xTaskNotifyGive(s_worker);
-    if (retry_random) random_tour(true);
+    if (retry_live) queue_live_source();
+    else if (retry_random) random_tour(true);
 }
 
 static void input_task(void *arg)
