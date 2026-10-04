@@ -64,3 +64,5 @@
 
 - `images/worldcam-phone-check.png`：应用自有手机检测页的390px浏览器截图，展示云端30源抽测通过。
   不包含摄像机照片或私人设备信息，不代表硬件或大陆网络已经验证。
+
+股票看板字体：`fonts/stock_font_16.c`，同目录保存字符清单和清单文件。来自 Noto Sans CJK SC / Noto Sans Regular，SIL OFL 1.1，许可位于 `fonts/`。使用 16px、2bpp、不压缩字体覆盖支持的 GBK 股票名称和界面文字。参见[股票看板](../docs/apps/stock-quotes.zh_CN.md)。

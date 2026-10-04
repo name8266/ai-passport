@@ -75,3 +75,5 @@ Store reusable music and sound-effect sources in `music/`.
   of the phone checker after a 30-source cloud sample passed. It contains no
   camera photograph or private device details and does not establish hardware
   or mainland-network operation.
+
+Stock board font: `fonts/stock_font_16.c`, with inventory and manifest alongside it. Noto Sans CJK SC / Noto Sans Regular, SIL OFL 1.1 (licenses in `fonts/`). A 16px, 2bpp uncompressed subset covers supported GBK stock names and UI text. See [stock board](../docs/apps/stock-quotes.md).
