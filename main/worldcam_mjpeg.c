@@ -72,13 +72,16 @@ bool wc_mjpeg_begin_frame(wc_mjpeg_reader_t *reader)
 size_t wc_mjpeg_read_frame(uint8_t *dst, size_t max_bytes, void *ctx)
 {
     wc_mjpeg_reader_t *reader = (wc_mjpeg_reader_t *)ctx;
-    if (!reader || !dst || !max_bytes || !reader->frame_open ||
+    if (!reader || !max_bytes || !reader->frame_open ||
         reader->frame_done || reader->overflow)
         return 0;
 
     size_t written = 0;
-    while (written < max_bytes && reader->prefix_pos < reader->prefix_len)
-        dst[written++] = reader->prefix[reader->prefix_pos++];
+    while (written < max_bytes && reader->prefix_pos < reader->prefix_len) {
+        uint8_t b = reader->prefix[reader->prefix_pos++];
+        if (dst) dst[written] = b;
+        ++written;
+    }
 
     while (written < max_bytes && !reader->frame_done && !reader->overflow) {
         uint8_t b = 0;
@@ -87,7 +90,8 @@ size_t wc_mjpeg_read_frame(uint8_t *dst, size_t max_bytes, void *ctx)
             reader->overflow = true;
             break;
         }
-        dst[written++] = b;
+        if (dst) dst[written] = b;
+        ++written;
         ++reader->frame_bytes;
 
         if (reader->previous_ff && b == 0xd9) {
