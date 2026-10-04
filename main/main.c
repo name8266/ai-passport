@@ -36,11 +36,11 @@ extern const lv_image_dsc_t worldcam_map;
 #define NAME_BYTES 192
 #define MAX_SOURCE_BYTES (4u * 1024u * 1024u)
 #define USAP_METADATA_BYTES 4096u
-#define WC_HTTP_TIMEOUT_MS 6500
-#define WC_REFRESH_US 45000000LL
-#define WC_RETRY_US 12000000LL
-#define WC_RANDOM_RETRIES 5u
-#define WC_CAMERA_FAILURE_LIMIT 2u
+#define WC_HTTP_TIMEOUT_MS 4500
+#define WC_REFRESH_US 10000000LL
+#define WC_RETRY_US 3000000LL
+#define WC_RANDOM_RETRIES 3u
+#define WC_CAMERA_FAILURE_LIMIT 1u
 #define JPEG_SNIFF_BYTES 1024u
 
 typedef enum { PAGE_MAP, PAGE_VIEW, PAGE_SETUP } page_t;
@@ -184,7 +184,7 @@ static const char *location_status(void)
     if (loc->camera < WC_CAMERA_COUNT &&
         s_camera_failures[loc->camera] >= WC_CAMERA_FAILURE_LIMIT)
         return "该实时源暂不可用，可按OK重试";
-    if (loc->flags & WC_FLAG_AVAILABLE) return "LIVE实时快照 · 45秒刷新";
+    if (loc->flags & WC_FLAG_AVAILABLE) return "LIVE实时快照 · 10秒刷新";
     return "来源暂不可用，可重试";
 }
 
@@ -704,12 +704,14 @@ static void connect_saved(void)
 
 static size_t next_filtered(size_t from, int direction)
 {
-    size_t next = from;
+    size_t next = from % WC_LOCATION_COUNT;
     for (size_t i = 0; i < WC_LOCATION_COUNT; ++i) {
         next = wc_wrap_index(next, direction, WC_LOCATION_COUNT);
-        if (!s_capitals_only || (wc_locations[next].flags & WC_FLAG_CAPITAL)) break;
+        if (s_capitals_only && !(wc_locations[next].flags & WC_FLAG_CAPITAL)) continue;
+        if (!location_runtime_healthy(next)) continue;
+        return next;
     }
-    return next;
+    return from % WC_LOCATION_COUNT;
 }
 
 static void handle_input(input_t input)
@@ -772,9 +774,12 @@ static void apply_result(result_t *result)
             ++s_camera_failures[loc->camera];
         draw(s_pixels ? "刷新失败 · 保留上一帧" : result->error);
         s_next_refresh = esp_timer_get_time() + WC_RETRY_US;
-        if (s_page == PAGE_VIEW && s_random_retries > 0) {
-            --s_random_retries;
-            retry_random = true;
+        if (s_page == PAGE_VIEW && result->source_failure && !s_pixels) {
+            if (s_random_retries == 0) s_random_retries = WC_RANDOM_RETRIES;
+            if (s_random_retries > 0) {
+                --s_random_retries;
+                retry_random = true;
+            }
         }
         goto release;
     }
@@ -799,7 +804,7 @@ static void apply_result(result_t *result)
     };
     lv_image_set_src(s_image, &s_image_desc);
     bsp_lvgl_unlock();
-    draw("LIVE · 45秒自动刷新");
+    draw("LIVE · 10秒自动刷新");
     s_random_retries = 0;
     s_next_refresh = esp_timer_get_time() + WC_REFRESH_US;
 release:
@@ -936,7 +941,7 @@ void app_main(void)
     visible(s_image, false);
     bsp_lvgl_unlock();
 
-    s_selected = 0;
+    s_selected = next_filtered(WC_LOCATION_COUNT - 1, 1);
     load_selected_labels();
     if (xTaskCreate(worker, "cam_net", 16384, NULL, 4, &s_worker) != pdPASS) abort();
 
