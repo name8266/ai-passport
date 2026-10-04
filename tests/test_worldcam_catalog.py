@@ -15,6 +15,13 @@ assert re.search(r"#define WC_CAMERA_COUNT 825\b", CATALOG_H)
 assert re.search(r"#define WC_LOCATION_COUNT 1020\b", CATALOG_H)
 for forbidden in ("/api/index", "/api/location", "/api/frame-location", "s_gateway", "wc_gateway_valid"):
     assert forbidden not in MAIN, forbidden
+for expected in (
+    'Accept-Encoding", "identity"',
+    ".disable_auto_redirect = true",
+    "camera_scenic_tier",
+    "保留上一帧",
+):
+    assert expected in MAIN, expected
 assert "No PC, Raspberry Pi, proxy service, or local gateway server is required." in README
 assert "gateway address" not in MAIN.lower()
 print("WorldCam direct-device contract: PASS")
