@@ -4,12 +4,13 @@ on:
   push:
     branches:
       - "feature/worldcam"
+      - "worldcam2"
     tags:
       - "**"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: build-${{ github.ref }}
@@ -22,6 +23,8 @@ jobs:
       artifact_name: ${{ steps.artifact_name.outputs.name }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
 
       - name: Restore ccache
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
@@ -31,6 +34,41 @@ jobs:
           restore-keys: |
             ccache-${{ github.ref_type }}-${{ github.ref_name }}-
             ccache-
+
+      - name: Verify live snapshots for Passport
+        if: github.ref_name == 'worldcam2'
+        run: |
+          python3 -m venv .worldcam-venv
+          .worldcam-venv/bin/pip install -r gateway/requirements.txt
+          .worldcam-venv/bin/python tools/audit_worldcam_sources.py \
+            --workers 8 --timeout 6 --attempts 2 --max-ms 4500 --min-passed 80
+          .worldcam-venv/bin/python tools/generate_worldcam_catalog.py
+
+      - name: Validate repository and host tests
+        if: github.ref_name == 'worldcam2'
+        run: |
+          export PATH="$PWD/.worldcam-venv/bin:$PATH"
+          ./tools/validate.sh --static
+
+      - name: Commit verified source catalogue
+        if: github.ref_name == 'worldcam2'
+        run: |
+          if ! git diff --quiet -- gateway/cameras.json gateway/capital-coverage.json gateway/source-audit.json main/worldcam_catalog.c; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add gateway/cameras.json gateway/capital-coverage.json gateway/source-audit.json main/worldcam_catalog.c
+            git commit -m "chore(worldcam): refresh verified snapshots [skip ci]"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
+
+      - name: Upload source verification report
+        if: github.ref_name == 'worldcam2'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: worldcam-source-audit-${{ github.run_id }}
+          path: gateway/source-audit.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Build firmware (ESP-IDF 5.5.3 / esp32c3)
         uses: espressif/esp-idf-ci-action@9d38657f3d789ca759b2b37aaf5ceffbc42c4f0d # v1
