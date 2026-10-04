@@ -31,8 +31,21 @@ jobs:
           .worldcam-venv/bin/pip install -r gateway/requirements.txt
           echo "$GITHUB_WORKSPACE/.worldcam-venv/bin" >> "$GITHUB_PATH"
 
-      - name: Run repository and host tests
-        run: ./tools/validate.sh --static
+      - name: Run repository and MJPEG host tests
+        run: |
+          python3 tools/check_repo.py
+          test_dir="$(mktemp -d)"
+          cc -std=c11 -Wall -Wextra -Werror -Imain \
+            tests/test_worldcam_protocol.c main/worldcam_protocol.c \
+            -o "$test_dir/test_worldcam_protocol"
+          "$test_dir/test_worldcam_protocol"
+          cc -std=c11 -Wall -Wextra -Werror -Imain \
+            tests/test_worldcam_mjpeg.c main/worldcam_mjpeg.c \
+            -o "$test_dir/test_worldcam_mjpeg"
+          "$test_dir/test_worldcam_mjpeg"
+          python3 tools/generate_worldcam_catalog.py --check
+          python3 tests/test_worldcam_catalog.py
+          rm -rf "$test_dir"
 
       - name: Restore ccache
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
