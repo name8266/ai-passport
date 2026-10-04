@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07151d">
+  <meta name="description" content="WorldCam 世界之窗：直接浏览 AI Passport 项目收录的公开摄像头快照。">
+  <title>WorldCam · 世界之窗</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo" aria-hidden="true">◎</div>
+        <div><strong>WorldCam</strong><span>世界之窗 · AI Passport</span></div>
+      </div>
+      <div class="top-actions">
+        <button id="randomTop" class="ghost">随机一处</button>
+        <button id="fullscreenTop" class="ghost">全屏</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <div>
+          <div class="eyebrow">PUBLIC WEBCAM DIRECTORY</div>
+          <h1>直接看看世界此刻的画面</h1>
+          <p>浏览器直接连接公开摄像头图片源。无需 Passport、NAS 或本地网关。</p>
+        </div>
+        <div class="stats">
+          <div><b id="cameraCount">—</b><span>摄像源</span></div>
+          <div><b id="countryCount">—</b><span>国家 / 地区</span></div>
+          <div><b id="providerCount">—</b><span>发布方</span></div>
+        </div>
+      </section>
+
+      <section class="controls panel">
+        <label class="search">
+          <span>⌕</span>
+          <input id="query" type="search" placeholder="搜索地点、国家或发布方，例如：北京 / Japan / NPS" autocomplete="off">
+        </label>
+        <select id="country" aria-label="国家筛选"><option value="">全部国家 / 地区</option></select>
+        <select id="provider" aria-label="发布方筛选"><option value="">全部发布方</option></select>
+        <button id="random" class="primary">随机浏览</button>
+      </section>
+
+      <section class="content">
+        <aside class="panel list-panel">
+          <div class="panel-head">
+            <div><strong>摄像头目录</strong><span id="resultCount">加载中…</span></div>
+            <button id="favoriteFilter" class="icon-btn" title="只看收藏">☆</button>
+          </div>
+          <div id="list" class="camera-list" role="listbox" aria-label="摄像头列表"></div>
+        </aside>
+
+        <section class="viewer panel" id="viewer">
+          <div class="viewer-head">
+            <div class="place">
+              <div class="live"><i></i><span>公开快照</span></div>
+              <h2 id="name">正在加载目录…</h2>
+              <p id="meta">—</p>
+            </div>
+            <button id="favorite" class="favorite" title="收藏">☆</button>
+          </div>
+
+          <div class="frame-wrap">
+            <div id="loading" class="loading">
+              <div class="spinner"></div>
+              <span>正在连接公开图片源…</span>
+            </div>
+            <img id="frame" alt="" referrerpolicy="no-referrer">
+            <div id="error" class="error" hidden>
+              <strong>这个来源暂时无法显示</strong>
+              <span>可能是源站停机、访问限制或当前网络无法连接。</span>
+              <button id="retry">重新加载</button>
+            </div>
+          </div>
+
+          <div class="viewer-foot">
+            <div class="status">
+              <strong id="status">尚未获取画面</strong>
+              <span id="refreshHint">每 60 秒自动刷新</span>
+            </div>
+            <div class="actions">
+              <button id="prev">← 上一个</button>
+              <button id="refresh">刷新</button>
+              <button id="next">下一个 →</button>
+              <button id="fullscreen">全屏</button>
+              <a id="source" href="#" target="_blank" rel="noopener noreferrer">官方来源 ↗</a>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="notice">
+        <strong>说明</strong>
+        <p>本站只展示项目已收录的公开摄像头图片地址，不保存、转播或重新编码画面。图片的拍摄时间由源站决定；“刷新成功”只表示当前图片可加载，不代表绝对实时。部分来源会因地区网络、反盗链或临时停机而不可用。</p>
+      </section>
+    </main>
+  </div>
+  <script src="./app.js"></script>
+</body>
+</html>
