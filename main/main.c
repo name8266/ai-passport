@@ -607,6 +607,7 @@ static void worker(void *arg)
     for (;;) {
         xQueueReceive(s_jobs, &job, portMAX_DELAY);
         result_t result = {.job = job};
+
         if (!(xEventGroupGetBits(s_wifi) & WIFI_READY)) {
             result.error = "无线网络未连接";
             goto done;
@@ -618,6 +619,52 @@ static void worker(void *arg)
             result.error = "NTP未连接，按OK重试";
             goto done;
         }
+
+        if (job.stream_test) {
+            const char *error = NULL;
+            wc_stream_t *stream = wc_stream_open(
+                s_test_stream_url, WC_MJPEG_TIMEOUT_MS, &error);
+            if (!stream) {
+                result.streaming = true;
+                result.error = error ? error : "MJPEG连接失败";
+                goto done;
+            }
+
+            uint32_t frame_no = 0;
+            while (job.generation == s_generation && s_stream_mode) {
+                result_t frame = {
+                    .job = job,
+                    .streaming = true,
+                    .frame_no = ++frame_no,
+                    .width = job.full ? WC_FULL_WIDTH : WC_WIDTH,
+                    .height = job.full ? WC_FULL_HEIGHT : WC_HEIGHT,
+                };
+                size_t bytes = (size_t)frame.width * frame.height * 2u;
+                frame.pixels = malloc(bytes);
+                if (!frame.pixels) {
+                    frame.error = "MJPEG帧内存不足";
+                    xQueueSend(s_results, &frame, portMAX_DELAY);
+                    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+                    break;
+                }
+
+                if (!wc_stream_next_frame(
+                        stream, frame.width, frame.height, frame.pixels, &error)) {
+                    free(frame.pixels);
+                    frame.pixels = NULL;
+                    frame.error = error ? error : "MJPEG帧解码失败";
+                    xQueueSend(s_results, &frame, portMAX_DELAY);
+                    ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+                    break;
+                }
+
+                xQueueSend(s_results, &frame, portMAX_DELAY);
+                ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+            }
+            wc_stream_close(stream);
+            continue;
+        }
+
         if (job.index >= WC_LOCATION_COUNT) {
             result.error = "地点坐标不正确";
             goto done;
