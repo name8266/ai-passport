@@ -81,7 +81,7 @@ static QueueHandle_t s_inputs, s_jobs, s_results;
 static EventGroupHandle_t s_wifi;
 static TaskHandle_t s_worker;
 static nvs_handle_t s_nvs;
-static char s_ap_name[32], s_ap_password[9];
+static char s_ap_name[32];
 static httpd_handle_t s_httpd;
 static page_t s_page;
 static size_t s_selected;
@@ -263,8 +263,8 @@ static void draw(const char *status)
         lv_obj_set_height(s_body, 182);
         lv_label_set_long_mode(s_body, LV_LABEL_LONG_WRAP);
         snprintf(text, sizeof(text),
-                 "手机连接热点：\n%s\n密码：%s\n\n浏览器打开：\n192.168.4.1\n配置2.4GHz Wi-Fi",
-                 s_ap_name, s_ap_password);
+                 "手机连接热点：\n%s\n无需密码\n\n浏览器打开：\n192.168.4.1\n配置2.4GHz Wi-Fi",
+                 s_ap_name);
         lv_label_set_text(s_body, text);
         lv_label_set_text(s_help, "需要2.4GHz无线网络\n长按OK返回地图");
     }
@@ -821,8 +821,7 @@ static void start_setup(void)
 {
     wifi_config_t config = {0};
     snprintf((char *)config.ap.ssid, sizeof(config.ap.ssid), "%s", s_ap_name);
-    snprintf((char *)config.ap.password, sizeof(config.ap.password), "%s", s_ap_password);
-    config.ap.authmode = WIFI_AUTH_WPA2_PSK;
+    config.ap.authmode = WIFI_AUTH_OPEN;
     config.ap.max_connection = 1;
     config.ap.channel = 1;
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
@@ -1105,7 +1104,6 @@ void app_main(void)
     clock_config.start = false;
     ESP_ERROR_CHECK(esp_netif_sntp_init(&clock_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-    snprintf(s_ap_password, sizeof(s_ap_password), "%08lx", (unsigned long)esp_random());
 
     if (!bsp_lvgl_lock(-1)) return;
     lv_obj_t *screen = lv_obj_create(NULL);
