@@ -484,10 +484,7 @@
     "checked_at": 1790972045,
     "search_outcome": "found_public_listing",
     "verified_camera_ids": [
-      "sky-2760",
-      "sky-2863",
       "sky-588",
-      "sky-6007",
       "galore-32768"
     ]
   },
@@ -642,9 +639,6 @@
     "checked_at": 1790972052,
     "search_outcome": "found_public_listing",
     "verified_camera_ids": [
-      "sky-3702",
-      "sky-3703",
-      "sky-5529",
       "galore-117"
     ]
   },
@@ -890,7 +884,7 @@
     "camera_ids": [
       "galore-4642"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Jakarta",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -900,9 +894,7 @@
     ],
     "checked_at": 1790972063,
     "search_outcome": "found_public_listing",
-    "verified_camera_ids": [
-      "galore-4642"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "GT",
@@ -1471,7 +1463,7 @@
     "camera_ids": [
       "galore-500"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Belgrade",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -1481,9 +1473,7 @@
     ],
     "checked_at": 1790972087,
     "search_outcome": "found_public_listing",
-    "verified_camera_ids": [
-      "galore-500"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "SL",
@@ -1581,11 +1571,6 @@
     "checked_at": 1790972091,
     "search_outcome": "found_public_listing",
     "verified_camera_ids": [
-      "sky-2852",
-      "sky-2853",
-      "sky-3357",
-      "sky-4572",
-      "sky-972",
       "galore-26261"
     ]
   },
@@ -2336,7 +2321,7 @@
     "camera_ids": [
       "galore-26376"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Riga",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -2346,9 +2331,7 @@
     ],
     "checked_at": 1790972119,
     "search_outcome": "found_public_listing",
-    "verified_camera_ids": [
-      "galore-26376"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "NO",
@@ -2361,7 +2344,7 @@
     "camera_ids": [
       "galore-25974"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Oslo",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -2371,9 +2354,7 @@
     ],
     "checked_at": 1790972120,
     "search_outcome": "found_public_listing",
-    "verified_camera_ids": [
-      "galore-25974"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "CZ",
@@ -2401,10 +2382,7 @@
     "checked_at": 1790972122,
     "search_outcome": "found_public_listing",
     "verified_camera_ids": [
-      "sky-3938",
-      "sky-5733",
       "sky-732",
-      "sky-964",
       "galore-35417"
     ]
   },
@@ -2545,7 +2523,7 @@
     "camera_ids": [
       "galore-20526"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Bratislava",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -2555,9 +2533,7 @@
     ],
     "checked_at": 1790972128,
     "search_outcome": "found_public_listing",
-    "verified_camera_ids": [
-      "galore-20526"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "SI",
@@ -2616,7 +2592,7 @@
     "camera_ids": [
       "galore-38289"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Singapore",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -2626,9 +2602,7 @@
     ],
     "checked_at": 1790972132,
     "search_outcome": "found_public_listing",
-    "verified_camera_ids": [
-      "galore-38289"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "NZ",
@@ -2666,7 +2640,7 @@
     "camera_ids": [
       "galore-263"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Tokyo",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -2676,9 +2650,7 @@
     ],
     "checked_at": 1790972134,
     "search_outcome": "found_public_listing",
-    "verified_camera_ids": [
-      "galore-263"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "CL",
@@ -2691,7 +2663,7 @@
     "camera_ids": [
       "sky-3262"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Santiago",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -2701,9 +2673,7 @@
     ],
     "checked_at": 1790972136,
     "search_outcome": "no_matching_capital_listing",
-    "verified_camera_ids": [
-      "sky-3262"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "KP",
@@ -3017,7 +2987,6 @@
     "checked_at": 1790972149,
     "search_outcome": "found_public_listing",
     "verified_camera_ids": [
-      "sky-2124",
       "galore-5212"
     ]
   },
@@ -3034,7 +3003,7 @@
       "sky-3767",
       "sky-5185"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Bangkok",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -3044,11 +3013,7 @@
     ],
     "checked_at": 1790972150,
     "search_outcome": "no_matching_capital_listing",
-    "verified_camera_ids": [
-      "sky-2998",
-      "sky-3767",
-      "sky-5185"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "ZW",
@@ -3277,7 +3242,7 @@
     "camera_ids": [
       "galore-1463"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Stockholm",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -3287,9 +3252,7 @@
     ],
     "checked_at": 1790972160,
     "search_outcome": "found_public_listing",
-    "verified_camera_ids": [
-      "galore-1463"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "CH",
@@ -3591,7 +3554,7 @@
     "camera_ids": [
       "galore-2783"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Bucharest",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -3601,9 +3564,7 @@
     ],
     "checked_at": 1790972173,
     "search_outcome": "found_public_listing",
-    "verified_camera_ids": [
-      "galore-2783"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "US",
@@ -3791,11 +3752,6 @@
     "checked_at": 1790972181,
     "search_outcome": "found_public_listing",
     "verified_camera_ids": [
-      "sky-1794",
-      "sky-1992",
-      "sky-2364",
-      "sky-5055",
-      "sky-5798",
       "galore-4360"
     ]
   },
@@ -3915,7 +3871,7 @@
     "camera_ids": [
       "galore-37045"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Lisbon",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -3925,9 +3881,7 @@
     ],
     "checked_at": 1790972187,
     "search_outcome": "found_public_listing",
-    "verified_camera_ids": [
-      "galore-37045"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "MN",
@@ -4203,7 +4157,7 @@
       "sky-5854",
       "galore-274"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Buenos%20Aires",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -4213,12 +4167,7 @@
     ],
     "checked_at": 1790972199,
     "search_outcome": "found_public_listing",
-    "verified_camera_ids": [
-      "sky-5458",
-      "sky-5666",
-      "sky-5854",
-      "galore-274"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "KR",
@@ -4427,7 +4376,7 @@
     "camera_ids": [
       "galore-37078"
     ],
-    "status": "snapshot_verified",
+    "status": "listed_but_unavailable",
     "directory_search": "https://www.webcamgalore.com/search.php?s=Beirut",
     "checked_sources": [
       "SkylineWebcams country catalogue",
@@ -4437,9 +4386,7 @@
     ],
     "checked_at": 1790972213,
     "search_outcome": "found_public_listing",
-    "verified_camera_ids": [
-      "galore-37078"
-    ]
+    "verified_camera_ids": []
   },
   {
     "country_code": "ME",
