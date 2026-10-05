@@ -212,3 +212,128 @@ bool stock_watch_decode(stock_watch_t *w, const void *data, size_t bytes) {
     *w = clean;
     return true;
 }
+
+bool stock_volume(const char *text, uint64_t *out) {
+    if (!text || !out || *text < '0' || *text > '9')
+        return false;
+    uint64_t n = 0;
+    while (*text >= '0' && *text <= '9') {
+        unsigned d = (unsigned)(*text++ - '0');
+        if (n > (UINT64_MAX - d) / 10)
+            return false;
+        n = n * 10 + d;
+    }
+    if (*text == '.') {
+        text++;
+        if (*text < '0' || *text > '9')
+            return false;
+        while (*text >= '0' && *text <= '9')
+            text++;
+    }
+    if (*text)
+        return false;
+    *out = n;
+    return true;
+}
+bool stock_parse_minute(const char *line, stock_minute_t *out) {
+    if (!line || !out || strlen(line) > 96)
+        return false;
+    char time[5], price[32], volume[32];
+    if (sscanf(line, "%4s %31s %31s", time, price, volume) != 3 || strlen(time) != 4)
+        return false;
+    for (int i = 0; i < 4; i++)
+        if (time[i] < '0' || time[i] > '9')
+            return false;
+    unsigned t = (unsigned)atoi(time), hour = t / 100, minute = t % 100;
+    if (hour > 23 || minute > 59 || t < 930 || t > 1500 || (t > 1130 && t < 1300))
+        return false;
+    stock_minute_t m = {.hhmm = (uint16_t)t};
+    if (!stock_decimal(price, &m.price) || m.price <= 0 || !stock_volume(volume, &m.volume))
+        return false;
+    *out = m;
+    return true;
+}
+int32_t stock_ma(const stock_bar_t *b, unsigned n, unsigned at, unsigned period) {
+    if (!b || !period || at >= n || at + 1 < period)
+        return 0;
+    int64_t sum = 0;
+    for (unsigned i = at + 1 - period; i <= at; i++)
+        sum += b[i].close;
+    return (int32_t)(sum / period);
+}
+void stock_order(const stock_watch_t *w, const stock_quote_t q[STOCK_MAX], stock_sort_t sort,
+                 uint8_t order[STOCK_MAX]) {
+    for (unsigned i = 0; i < w->count; i++)
+        order[i] = (uint8_t)i;
+    if (sort == STOCK_SORT_MANUAL)
+        return;
+    for (unsigned i = 1; i < w->count; i++) {
+        uint8_t key = order[i];
+        unsigned j = i;
+        while (j) {
+            unsigned prev = order[j - 1];
+            int compare = strcmp(w->codes[prev], w->codes[key]);
+            if (sort == STOCK_SORT_CHANGE) {
+                if (q[prev].valid != q[key].valid)
+                    compare = q[prev].valid ? -1 : 1;
+                else if (q[prev].valid && q[prev].change_bp != q[key].change_bp)
+                    compare = q[prev].change_bp > q[key].change_bp ? -1 : 1;
+            }
+            if (compare <= 0)
+                break;
+            order[j] = order[j - 1];
+            j--;
+        }
+        order[j] = key;
+    }
+}
+bool stock_alert_valid(const stock_alert_t *a) {
+    if (!a || !memchr(a->code, 0, sizeof(a->code)) || !stock_symbol(a->code, NULL) ||
+        a->kind > STOCK_PERCENT_BELOW)
+        return false;
+    if (a->kind == STOCK_ALERT_OFF)
+        return true;
+    if (a->kind <= STOCK_PRICE_BELOW)
+        return a->target > 0 && a->target <= 9999990;
+    return a->target > 0 && a->target <= 10000;
+}
+bool stock_alert_evaluate(stock_alert_t *a, const stock_quote_t *q, bool fresh) {
+    if (!fresh || !q || !q->valid || !stock_alert_valid(a) || a->kind == STOCK_ALERT_OFF ||
+        strcmp(a->code, q->code) || strlen(q->stamp) != 14)
+        return false;
+    uint32_t date = 0;
+    for (unsigned i = 0; i < 8; i++) {
+        if (q->stamp[i] < '0' || q->stamp[i] > '9')
+            return false;
+        date = date * 10 + (uint32_t)(q->stamp[i] - '0');
+    }
+    if (!date || date <= a->fired_date)
+        return false;
+    bool hit = a->kind == STOCK_PRICE_ABOVE     ? q->price >= a->target
+               : a->kind == STOCK_PRICE_BELOW   ? q->price <= a->target
+               : a->kind == STOCK_PERCENT_ABOVE ? q->change_bp >= a->target
+                                                : q->change_bp <= -a->target;
+    if (hit)
+        a->fired_date = date;
+    return hit;
+}
+unsigned stock_refresh_seconds(bool saving, uint32_t idle, bool alerts) {
+    return saving && idle >= 60 && !alerts ? 120 : 30;
+}
+bool stock_config_valid(const stock_config_t *c) {
+    stock_watch_t check;
+    if (!c || !stock_watch_decode(&check, &c->watch, sizeof(c->watch)) || c->prefs.version != 1 ||
+        c->prefs.sort > STOCK_SORT_CHANGE || c->prefs.power_save > 1 || c->prefs.sound > 1)
+        return false;
+    for (unsigned i = 0; i < STOCK_MAX; i++) {
+        const stock_alert_t *a = &c->alerts[i];
+        if (a->kind == STOCK_ALERT_OFF)
+            continue;
+        if (!stock_alert_valid(a) || stock_watch_find(&c->watch, a->code) < 0)
+            return false;
+        for (unsigned j = 0; j < i; j++)
+            if (c->alerts[j].kind && strcmp(c->alerts[j].code, a->code) == 0)
+                return false;
+    }
+    return true;
+}

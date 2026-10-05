@@ -77,3 +77,5 @@ Store reusable music and sound-effect sources in `music/`.
   or mainland-network operation.
 
 Stock board font: `fonts/stock_font_16.c`, with inventory and manifest alongside it. Noto Sans CJK SC / Noto Sans Regular, SIL OFL 1.1 (licenses in `fonts/`). A 16px, 2bpp uncompressed subset covers supported GBK stock names and UI text. See [stock board](../docs/apps/stock-quotes.md).
+
+Stock UI metadata font: `fonts/stock_font_12.c` and `fonts/stock_ui_manifest.json`, Noto Sans CJK SC, SIL OFL 1.1, 12px/2bpp uncompressed. The stock font generator produces both fonts. `web/stock_manager.html` is the application-owned responsive phone manager, embedded in Flash; it contains no third-party images or credentials.

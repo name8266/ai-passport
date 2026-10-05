@@ -83,6 +83,9 @@ run_static_checks() {
         tests/test_stock_core.c main/stock_core.c main/stock_gbk.c \
         -o "${test_dir}/test_stock_core"
     "${test_dir}/test_stock_core"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Itests/stock_stubs -Imain \
+        tests/test_stock_sound.c main/stock_sound.c -o "${test_dir}/test_stock_sound"
+    "${test_dir}/test_stock_sound"
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_stock_font.py
     node gateway/mobile-test/checks/probe.test.cjs
     rm -rf "${test_dir}"
@@ -97,12 +100,43 @@ run_firmware_checks() (
         return 1
     fi
 
+    local stock_test_dir
+    stock_test_dir="$(mktemp -d /tmp/ai-passport-stock-tests.XXXXXX)"
+    # Compile the response/JSON module with a guard against heap allocation.
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Itests/stock_stubs -Imain \
+        -include tests/stock_stubs/no_heap.h -c main/stock_network.c \
+        -o "${stock_test_dir}/stock_network.o"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Itests/stock_stubs -Imain \
+        tests/test_stock_network.c "${stock_test_dir}/stock_network.o" \
+        main/stock_core.c main/stock_gbk.c -o "${stock_test_dir}/test_stock_network"
+    "${stock_test_dir}/test_stock_network"
+    # Exercise the web configuration parser with ESP-IDF's pinned cJSON.
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -ffunction-sections -fdata-sections \
+        -Itests/stock_stubs -Imain -I"${IDF_PATH}/components/json/cJSON" \
+        tests/test_stock_web.c main/stock_web.c main/stock_core.c main/stock_gbk.c \
+        "${IDF_PATH}/components/json/cJSON/cJSON.c" -Wl,--gc-sections -lm \
+        -o "${stock_test_dir}/test_stock_web"
+    "${stock_test_dir}/test_stock_web"
+    rm -rf "${stock_test_dir}"
+
     validation_build_dir="$(mktemp -d /tmp/ai-passport-firmware.XXXXXX)"
     trap 'case "${validation_build_dir}" in /tmp/ai-passport-firmware.*) rm -rf -- "${validation_build_dir}" ;; esac' EXIT
 
     SDKCONFIG_DEFAULTS="${repo_root}/sdkconfig.defaults" \
         idf.py -B "${validation_build_dir}" \
         -D "SDKCONFIG=${validation_build_dir}/sdkconfig" build
+    stock_test_dir="$(mktemp -d /tmp/ai-passport-stock-format.XXXXXX)"
+    python3 - "${validation_build_dir}/config/sdkconfig.h" <<'PYCONFIG'
+import sys
+from pathlib import Path
+assert '#define CONFIG_LV_USE_CLIB_SPRINTF 1' in Path(sys.argv[1]).read_text()
+PYCONFIG
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -DLV_CONF_SKIP \
+        -DLV_KCONFIG_IGNORE -DLV_USE_STDLIB_SPRINTF=1 -Imanaged_components/lvgl__lvgl \
+        tests/test_stock_format.c managed_components/lvgl__lvgl/src/stdlib/clib/lv_sprintf_clib.c \
+        -o "${stock_test_dir}/test_stock_format"
+    "${stock_test_dir}/test_stock_format"
+    rm -rf "${stock_test_dir}"
     idf.py -B "${validation_build_dir}" merge-bin \
         -o "${validation_build_dir}/FoloToy-AI-Passport-full.bin"
     python3 tools/verify_firmware.py "${validation_build_dir}"

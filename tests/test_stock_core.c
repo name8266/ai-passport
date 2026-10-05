@@ -77,7 +77,81 @@ int main(void) {
     assert(!stock_parse_bar("2026-09-30", "12", "10", "11", "9", &bar));
     assert(!stock_parse_bar("bad", "10", "10", "11", "9", &bar));
     assert(!stock_parse_bar("2026-09-30", "10", "10", "9", "11", &bar));
+    uint64_t volume;
+    assert(stock_volume("12345.67", &volume) && volume == 12345);
+    assert(stock_volume("18446744073709551615", &volume) && volume == UINT64_MAX);
+    assert(!stock_volume("18446744073709551616", &volume));
+    assert(!stock_volume("-1", &volume));
+    assert(!stock_volume("1.", &volume));
+    stock_minute_t minute;
+    assert(stock_parse_minute("0930 11.50 1234", &minute) && minute.hhmm == 930 &&
+           minute.price == 11500);
+    assert(stock_parse_minute("1130 11.50 1234", &minute));
+    assert(stock_parse_minute("1300 11.50 1234", &minute));
+    assert(stock_parse_minute("1500 11.50 1234", &minute));
+    assert(!stock_parse_minute("1200 11.50 1234", &minute));
+    assert(!stock_parse_minute("0960 11.50 1234", &minute));
+    assert(!stock_parse_minute("1501 11.50 1234", &minute));
+    assert(!stock_parse_minute("0930 0 1234", &minute));
+    stock_bar_t series[20] = {0};
+    for (unsigned i = 0; i < 20; i++)
+        series[i].close = (i + 1) * 1000;
+    assert(stock_ma(series, 20, 4, 5) == 3000);
+    assert(stock_ma(series, 20, 19, 10) == 15500);
+    assert(stock_ma(series, 20, 19, 20) == 10500);
+    assert(stock_ma(series, 20, 3, 5) == 0);
+    stock_config_t config = {.prefs = {.version = 1, .power_save = 1, .sound = 1}};
+    assert(stock_watch_add(&config.watch, "600519"));
+    assert(stock_watch_add(&config.watch, "000001"));
+    assert(stock_watch_add(&config.watch, "600000"));
+    stock_quote_t sorted[STOCK_MAX] = {{.valid = true, .change_bp = -100},
+                                       {.valid = true, .change_bp = 200}};
+    uint8_t order[STOCK_MAX];
+    stock_order(&config.watch, sorted, STOCK_SORT_MANUAL, order);
+    assert(order[0] == 0 && order[1] == 1);
+    stock_order(&config.watch, sorted, STOCK_SORT_CODE, order);
+    assert(order[0] == 1 && order[1] == 2 && order[2] == 0);
+    stock_order(&config.watch, sorted, STOCK_SORT_CHANGE, order);
+    assert(order[0] == 1 && order[1] == 0 && order[2] == 2);
+    stock_alert_t alert = {.code = "000001", .kind = STOCK_PRICE_ABOVE, .target = 11000};
+    q = (stock_quote_t){.code = "000001",
+                        .stamp = "20260930150000",
+                        .valid = true,
+                        .price = 11500,
+                        .change_bp = 200};
+    assert(!stock_alert_evaluate(&alert, &q, false));
+    assert(stock_alert_evaluate(&alert, &q, true));
+    assert(alert.fired_date == 20260930);
+    assert(!stock_alert_evaluate(&alert, &q, true));
+    strcpy(q.stamp, "20261009150000");
+    assert(stock_alert_evaluate(&alert, &q, true));
+    alert.kind = STOCK_PERCENT_BELOW;
+    alert.target = 100;
+    alert.fired_date = 0;
+    assert(!stock_alert_evaluate(&alert, &q, true));
+    q.change_bp = -100;
+    assert(stock_alert_evaluate(&alert, &q, true));
+    alert.kind = STOCK_PRICE_BELOW;
+    alert.target = 12000;
+    alert.fired_date = 0;
+    assert(stock_alert_evaluate(&alert, &q, true));
+    alert.kind = STOCK_PERCENT_ABOVE;
+    alert.target = 100;
+    alert.fired_date = 0;
+    q.change_bp = 100;
+    assert(stock_alert_evaluate(&alert, &q, true));
+    config.alerts[0] = alert;
+    assert(stock_config_valid(&config));
+    config.alerts[1] = alert;
+    assert(!stock_config_valid(&config));
+    config.alerts[1].kind = STOCK_ALERT_OFF;
+    config.prefs.sort = 3;
+    assert(!stock_config_valid(&config));
+    assert(stock_refresh_seconds(true, 60, false) == 120);
+    assert(stock_refresh_seconds(true, 60, true) == 30);
+    assert(stock_refresh_seconds(true, 59, false) == 30);
+    assert(stock_refresh_seconds(false, 100, false) == 30);
     puts("Stock core: PASS (markets, fixed-point values, wheel, watchlist persistence, GBK, "
-         "quotes, OHLC)");
+         "quotes, OHLC, volume, sessions, MA, sorting, alerts, configuration, power)");
     return 0;
 }

@@ -26,3 +26,11 @@ text+='\n'.join('    '+','.join(str(v) for v in table[i:i+24])+',' for i in rang
 subprocess.run([a.converter,'--font',str(font),'--symbols',''.join(c for c in inventory if ord(c) in cmap),'--font',str(latin),'--symbols',''.join(c for c in inventory if ord(c) not in cmap),'--size','16','--bpp','2','--format','lvgl','--no-compress','--lv-font-name','stock_font_16','--lv-include','lvgl.h','--output',str(R/'assets/fonts/stock_font_16.c')],check=True)
 (R/'assets/fonts/stock_font_manifest.json').write_text(json.dumps({'font':'Noto Sans CJK SC / Noto Sans Regular','license':'SIL OFL 1.1','converter':'lv_font_conv 1.5.3','size':16,'bpp':2,'compressed':False,'codepoints':[ord(c) for c in inventory]},indent=2)+'\n')
 print('Stock font:',len(chars),'verified glyphs')
+
+# Compact UI font keeps metadata readable without shrinking the stock-name font.
+ui=set(chr(i) for i in range(32,127))
+for file in ['main/stock_app.c','main/stock_network.c']:
+ ui.update(c for c in (R/file).read_text() if ord(c)>=128 and c.isprintable())
+ui_inventory=''.join(sorted(ui,key=ord))
+subprocess.run([a.converter,'--font',str(font),'--symbols',ui_inventory,'--size','12','--bpp','2','--format','lvgl','--no-compress','--lv-font-name','stock_font_12','--lv-include','lvgl.h','--output',str(R/'assets/fonts/stock_font_12.c')],check=True)
+(R/'assets/fonts/stock_ui_manifest.json').write_text(json.dumps({'font':'Noto Sans CJK SC','license':'SIL OFL 1.1','converter':'lv_font_conv 1.5.3','size':12,'bpp':2,'compressed':False,'codepoints':[ord(c) for c in ui_inventory]},indent=2)+'\n')

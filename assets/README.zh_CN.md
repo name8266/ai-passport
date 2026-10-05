@@ -66,3 +66,5 @@
   不包含摄像机照片或私人设备信息，不代表硬件或大陆网络已经验证。
 
 股票看板字体：`fonts/stock_font_16.c`，同目录保存字符清单和清单文件。来自 Noto Sans CJK SC / Noto Sans Regular，SIL OFL 1.1，许可位于 `fonts/`。使用 16px、2bpp、不压缩字体覆盖支持的 GBK 股票名称和界面文字。参见[股票看板](../docs/apps/stock-quotes.zh_CN.md)。
+
+股票界面辅助字体：`fonts/stock_font_12.c` 与 `fonts/stock_ui_manifest.json`，Noto Sans CJK SC，SIL OFL 1.1，12px/2bpp 无压缩。股票字体生成器同时生成两种字体。`web/stock_manager.html` 为应用自有的响应式手机管理网页，嵌入 Flash，不包含第三方图片或凭据。
