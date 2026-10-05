@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 3.16)
+project(netsec_ui_host C CXX)
+set(ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+set(LV_BUILD_CONF_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lv_conf.h" CACHE PATH "" FORCE)
+set(CONFIG_LV_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(CONFIG_LV_BUILD_DEMOS OFF CACHE BOOL "" FORCE)
+set(CONFIG_LV_USE_THORVG_INTERNAL OFF CACHE BOOL "" FORCE)
+add_subdirectory("${ROOT}/managed_components/lvgl__lvgl" lvgl)
+add_executable(netsec_ui preview.c "${ROOT}/main/netsec/ui.c" "${ROOT}/main/netsec/core.c"
+    "${ROOT}/assets/fonts/netsec_font_14.c")
+target_compile_definitions(netsec_ui PRIVATE NETSEC_HOST_TEST=1)
+target_include_directories(netsec_ui PRIVATE "${ROOT}/tests/netsec_stubs" "${ROOT}/main/netsec")
+target_link_libraries(netsec_ui PRIVATE lvgl m)

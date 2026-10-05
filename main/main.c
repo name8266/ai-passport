@@ -1,242 +1,294 @@
-// main/main.c —— FoloToy AI Passport BSP 驱动参考示例:初始化 + 菜单 + 按键分发。
-//
-// 按键语义(全局统一):
-//   上/下 短按   菜单中=移动选中项;演示页中=该页自定义
-//   确定  短按   菜单中=进入选中项;演示页中=该页自定义
-//   确定  长按   演示页中=返回菜单(由本文件统一拦截)
+/* Pocket NetSec: a bounded, passive-first diagnostic application. */
+#include "netsec/app.h"
 #include "bsp_i2c.h"
 #include "bsp_display.h"
-#include "bsp_button.h"
-#include "bsp_audio.h"
 #include "bsp_battery.h"
-#include "bsp_pins.h"      // 错误日志里要打印 BSP_LCD_* 引脚号
-#include "demo.h"
-#include "demo_navigation.h"
-#include "ui_pixel.h"
-#include "lvgl.h"
-#include "esp_log.h"
-#include "esp_sleep.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-#include "freertos/task.h"
+#include "driver/usb_serial_jtag.h"
+#include "driver/usb_serial_jtag_vfs.h"
+#include "esp_event.h"
+#include "esp_heap_caps.h"
+#include "esp_random.h"
+#include "esp_timer.h"
+#include "nvs_flash.h"
+#include "nvs.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-static const char *TAG = "main";
-
-static const demo_entry_t DEMOS[] = {
-    { .name = "Display", .enter = demo_display_enter, .exit = demo_display_exit,
-      .key = demo_display_key },
-    { .name = "Button", .enter = demo_button_enter, .exit = demo_button_exit,
-      .key = demo_button_key },
-    { .name = "Audio", .enter = demo_audio_enter, .exit = demo_audio_exit,
-      .key = demo_audio_key, .start = demo_audio_start, .stop = demo_audio_stop },
-    { .name = "Battery", .enter = demo_battery_enter, .exit = demo_battery_exit,
-      .key = demo_battery_key },
-    { .name = "Wi-Fi", .enter = demo_wifi_enter, .exit = demo_wifi_exit,
-      .key = demo_wifi_key, .start = demo_wifi_start, .stop = demo_wifi_stop },
-    { .name = "BLE", .enter = demo_ble_enter, .exit = demo_ble_exit,
-      .key = demo_ble_key, .start = demo_ble_start, .stop = demo_ble_stop },
-    { .name = "Low Power", .enter = demo_low_power_enter, .exit = demo_low_power_exit,
-      .key = demo_low_power_key, .start = demo_low_power_start, .stop = demo_low_power_stop },
-};
-#define DEMO_COUNT (sizeof(DEMOS) / sizeof(DEMOS[0]))
-#define INPUT_QUEUE_DEPTH 8
-
-typedef struct {
-    bsp_btn_t btn;
-    bsp_btn_ev_t event;
-} input_event_t;
-
-// 各外设初始化结果:失败的项在菜单里标 [FAIL] 且不允许进入。
-static bool s_ok[DEMO_COUNT];
-
-static lv_obj_t *s_menu_scr;
-static lv_obj_t *s_cards[DEMO_COUNT];
-static lv_obj_t *s_rows[DEMO_COUNT];
-static lv_obj_t *s_mascot;
-static demo_navigation_t s_navigation;
-static QueueHandle_t s_input_queue;
-static TaskHandle_t s_input_task;
-static volatile bool s_input_ready;
-
-static void menu_refresh(void) {
-    for (size_t i = 0; i < DEMO_COUNT; i++) {
-        lv_label_set_text_fmt(s_rows[i], "%s%s",
-                              DEMOS[i].name,
-                              s_ok[i] ? "" : "  [FAIL]");
-        ui_pixel_set_selected(s_cards[i], i == s_navigation.selected, s_ok[i]);
-        lv_obj_set_style_text_color(s_rows[i],
-            s_ok[i] ? lv_color_hex(UI_INK) : lv_color_hex(0x7A2020), 0);
+ns_app_t ns;
+static uint64_t last_scan,connect_deadline;
+static bool serial_ready;
+static void result(esp_err_t e,const char *success) {
+    snprintf(ns.status,sizeof(ns.status),"%s",e==ESP_OK?success:esp_err_to_name(e));
+}
+static void button(bsp_btn_t btn,bsp_btn_ev_t ev,void *user) {
+    (void)user;if(ev!=BSP_BTN_CLICK && ev!=BSP_BTN_LONG)return;
+    ns_event_t e={.type=NSE_KEY,.key={btn,ev}};(void)xQueueSend(ns.events,&e,0);
+}
+static bool settings_valid(const ns_settings_t *s) {
+    return s->version==1 && s->channel>=1 && s->channel<=13 && s->brightness>=20 &&
+        s->brightness<=100 && s->language<=1 && s->region<=2 && s->hop<=1 &&
+        s->history_enabled<=1 && s->threshold>=5 && s->threshold<=100 &&
+        (s->region || s->channel<=11);
+}
+static void load(void) {
+    ns.settings=(ns_settings_t){.version=1,.channel=1,.hop=0,.brightness=80,
+        .language=1,.region=0,.history_enabled=1,.threshold=10};
+    nvs_handle_t h;
+    if(nvs_open("pocket_netsec",NVS_READONLY,&h)!=ESP_OK)return;
+    ns_settings_t s;size_t len=sizeof(s);
+    if(nvs_get_blob(h,"settings",&s,&len)==ESP_OK && len==sizeof(s) && settings_valid(&s))ns.settings=s;
+    len=sizeof(ns.history);
+    if(nvs_get_blob(h,"history",ns.history,&len)==ESP_OK && len==sizeof(ns.history)) {
+        uint8_t count=0;(void)nvs_get_u8(h,"hist_count",&count);ns.history_count=count>NS_HISTORY_MAX?0:count;
+    }
+    nvs_close(h);
+}
+void ns_persist_settings(void) {
+    nvs_handle_t h;esp_err_t e=nvs_open("pocket_netsec",NVS_READWRITE,&h);
+    if(e==ESP_OK) {e=nvs_set_blob(h,"settings",&ns.settings,sizeof(ns.settings));if(e==ESP_OK)e=nvs_commit(h);
+        nvs_close(h);}
+    result(e,"Settings saved");
+}
+void ns_persist_history(void) {
+    nvs_handle_t h;esp_err_t e=nvs_open("pocket_netsec",NVS_READWRITE,&h);
+    if(e==ESP_OK) {
+        e=nvs_set_blob(h,"history",ns.history,sizeof(ns.history));
+        if(e==ESP_OK)e=nvs_set_u8(h,"hist_count",ns.history_count);
+        if(e==ESP_OK)e=nvs_commit(h);
+        nvs_close(h);
+    }
+    if(e!=ESP_OK)result(e,"");
+}
+void ns_go(ns_page_t page) {
+    /* Keep a connected LAN for the service-discovery page. All other switches
+       stop the previous radio before changing ownership or UI state. */
+    bool keep_lan=(ns.page==NS_LAN || ns.page==NS_SERVICES) && (page==NS_LAN || page==NS_SERVICES);
+    if(!keep_lan) {
+        esp_err_t e=ns_radio_stop();if(e!=ESP_OK) {result(e,"");return;}
+        ns.radio_generation++;
+    }else ns_discovery_stop();
+    if(ns.page==NS_WIFI || ns.page==NS_CHANNELS)ns_persist_history();
+    if(ns.page==NS_MONITOR || ns.page==NS_DETECT || ns.page==NS_CAPTURE)ns_persist_settings();
+    ns.page=page;ns.selected=0;ns.detail=false;ns.paused=false;ns.detail_page=0;
+    snprintf(ns.status,sizeof(ns.status),"Ready");
+    esp_err_t e=ESP_OK;
+    switch(page) {
+    case NS_WIFI:case NS_CHANNELS:
+        e=ns_scan_start();last_scan=esp_timer_get_time();break;
+    case NS_SIGNAL:
+        ns.signal_count=0;
+        if(!ns.target_set) {snprintf(ns.status,sizeof(ns.status),"Select AP in scanner first");return;}
+        ns_stats_clear();e=ns_sniff_start();break;
+    case NS_MONITOR:case NS_DETECT:case NS_CAPTURE:case NS_EAPOL:
+        ns_stats_clear();e=ns_sniff_start();break;
+    case NS_BLE:e=ns_ble_start();break;
+    case NS_LAN:
+        if(!ns.connected)e=ns_lan_connect();
+        connect_deadline=esp_timer_get_time()+15000000;
+        ns_lan_info();break;
+    case NS_SERVICES:
+        if(ns.connected)ns_discovery_start();else snprintf(ns.status,sizeof(ns.status),"Connect in LAN inspector first");break;
+    default:break;
+    }
+    if(e!=ESP_OK)result(e,"");
+}
+static int item_count(void) {
+    switch(ns.page) {
+    case NS_WIFI:return ns.ap_count;
+    case NS_BLE:return ns.ble_count;
+    case NS_CHANNELS:return ns.channel_max;
+    case NS_SERVICES:return ns.service_count;
+    case NS_EAPOL:return NS_SESSION_MAX;
+    case NS_HISTORY:return ns.history_count;
+    case NS_SETTINGS:return 7;
+    default:return 0;
     }
 }
-
-static void menu_build(void) {
-    s_menu_scr = ui_pixel_screen_create("FoloToy");
-
-    for (size_t i = 0; i < DEMO_COUNT; i++) {
-        int x = 11 + (int)(i % 2) * 112;
-        int y = 52 + (int)(i / 2) * 47;
-        s_cards[i] = ui_pixel_panel_create(s_menu_scr, x, y, 102, 40, UI_PAPER);
-        s_rows[i] = lv_label_create(s_cards[i]);
-        lv_obj_set_style_text_font(s_rows[i], &lv_font_montserrat_14, 0);
-        lv_obj_set_style_text_align(s_rows[i], LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_center(s_rows[i]);
+static void key(bsp_btn_t btn,bsp_btn_ev_t ev) {
+    if(ev==BSP_BTN_LONG) {
+        if(btn==BSP_BTN_OK) {
+            if(ns.detail) {ns.detail=false;return;}
+            ns_go(NS_HOME);return;
+        }
+        if(btn==BSP_BTN_UP && ns.page==NS_CAPTURE)ns_capture_export();
+        if(btn==BSP_BTN_DOWN && ns.page==NS_CAPTURE) {ns_capture_enable(false);ns_capture_clear();result(ESP_OK,"Capture cleared");}
+        if(btn==BSP_BTN_DOWN && ns.page==NS_HISTORY) {memset(ns.history,0,sizeof(ns.history));ns.history_count=0;ns_persist_history();}
+        if(btn==BSP_BTN_UP && ns.page==NS_EAPOL) {ns.target_set=false;ns_go(NS_EAPOL);}
+        if(btn==BSP_BTN_UP && ns.page==NS_SERVICES)ns_go(NS_LAN);
+        return;
     }
-
-    s_mascot = ui_pixel_mascot_create(s_menu_scr, 101, 242);
-
-    menu_refresh();
-    lv_screen_load(s_menu_scr);
+    if(ns.page==NS_HOME) {
+        if(btn==BSP_BTN_UP)ns.home_selected=(ns.home_selected+11)%12;
+        if(btn==BSP_BTN_DOWN)ns.home_selected=(ns.home_selected+1)%12;
+        if(btn==BSP_BTN_OK)ns_go(ns.home_selected+1);
+        return;
+    }
+    if(ns.page==NS_LAN && btn==BSP_BTN_DOWN) {ns_go(NS_SERVICES);return;}
+    bool sniff=ns.page==NS_MONITOR || ns.page==NS_DETECT || ns.page==NS_CAPTURE;
+    if(sniff) {
+        if(btn==BSP_BTN_OK && ns.page==NS_CAPTURE)ns_capture_enable(!ns.capture_on);
+        else if(btn==BSP_BTN_OK) {ns.paused=!ns.paused;result(esp_wifi_set_promiscuous(!ns.paused),ns.paused?"Paused":"Observing");}
+        else if(ns.wifi_ready) {
+            ns.settings.hop=0;
+            uint8_t c=btn==BSP_BTN_UP?(ns.settings.channel==1?ns.channel_max:ns.settings.channel-1):ns.settings.channel%ns.channel_max+1;
+            result(ns_set_channel(c),"Channel locked");
+        }
+        return;
+    }
+    int count=item_count();
+    if(btn!=BSP_BTN_OK && count) {
+        ns.selected=(ns.selected+(btn==BSP_BTN_UP?count-1:1))%count;return;
+    }
+    if(btn!=BSP_BTN_OK)return;
+    switch(ns.page) {
+    case NS_WIFI:
+        if(!ns.ap_count) {result(ns_scan_start(),"Scanning...");break;}
+        if(!ns.detail)ns.detail=true;
+        else {ns.target=ns.aps[ns.selected];ns.target_set=true;result(ESP_OK,"Target selected: signal / EAPOL");}break;
+    case NS_CHANNELS:result(ns_scan_start(),"Scanning...");break;
+    case NS_SIGNAL:
+        ns.paused=!ns.paused;if(ns.wifi_ready)result(esp_wifi_set_promiscuous(!ns.paused),ns.paused?"Paused":"Tracking");break;
+    case NS_BLE:
+        if(ns.detail)ns.detail_page++;else if(ns.ble_count)ns.detail=true;break;
+    case NS_LAN:
+        ns_go(NS_HOME);ns_go(NS_LAN);break;
+    case NS_SERVICES:
+        if(!ns.detail && ns.service_count)ns.detail=true;else {ns.detail=false;ns_discovery_start();}break;
+    case NS_EAPOL:ns_stats_clear();result(ESP_OK,"Observation counters reset");break;
+    case NS_HISTORY:if(ns.history_count)ns.detail=true;break;
+    case NS_SETTINGS:
+        switch(ns.selected) {
+        case 0:ns.settings.language^=1;break;
+        case 1:ns.settings.brightness=ns.settings.brightness==100?20:ns.settings.brightness+20;bsp_display_backlight(ns.settings.brightness);break;
+        case 2:ns.settings.channel=ns.settings.channel%ns.channel_max+1;break;
+        case 3:ns.settings.hop^=1;break;
+        case 4:ns.settings.threshold=ns.settings.threshold>=100?5:ns.settings.threshold+5;break;
+        case 5:ns.settings.region=(ns.settings.region+1)%3;ns.channel_max=ns.settings.region?13:11;if(ns.settings.channel>ns.channel_max)ns.settings.channel=1;break;
+        case 6:ns.settings.history_enabled^=1;break;
+        }
+        ns_persist_settings();break;
+    default:break;
+    }
 }
-
-static void enter_menu(void) {
-    menu_build();
+void ns_command(char *line) {
+    if(!strcmp(line,"HELP")) {
+        puts("NETSEC commands: HELP, STATUS, SCAN, WIFI <ssid>|<password>, CONNECT, FORGET, PCAP, CLEAR, HISTORY, TARGET <index>, PAGE <1-12>");
+    } else if(!strcmp(line,"STATUS")) {
+        printf("NETSEC page=%d channel=%u aps=%u BLE=%u heap=%lu min=%lu\n",ns.page,ns.settings.channel,(unsigned)ns.ap_count,(unsigned)ns.ble_count,(unsigned long)ns.free_heap,(unsigned long)ns.min_heap);
+    } else if(!strcmp(line,"SCAN")) {
+        ns_go(NS_WIFI);
+    } else if(!strncmp(line,"WIFI ",5)) {
+        char *sep=strchr(line+5,'|');
+        if(!sep) {puts("NETSEC invalid WIFI format");return;}*sep=0;
+        size_t slen=strlen(line+5),plen=strlen(sep+1);
+        if(!slen || slen>32 || plen>64 || (plen && plen<8)) {puts("NETSEC invalid SSID/password length");return;}
+        nvs_handle_t h;esp_err_t e=nvs_open("pocket_netsec",NVS_READWRITE,&h);
+        if(e==ESP_OK) {
+            e=nvs_set_str(h,"ssid",line+5);if(e==ESP_OK)e=nvs_set_str(h,"password",sep+1);
+            if(e==ESP_OK)e=nvs_commit(h);
+            nvs_close(h);
+        }
+        /* Never echo input or credentials. Plain local USB + plaintext NVS. */
+        memset(sep+1,0,plen);result(e,"Network saved; open LAN to connect");puts(e==ESP_OK?"NETSEC network saved":"NETSEC save failed");
+    } else if(!strcmp(line,"CONNECT")) {ns_go(NS_LAN);printf("NETSEC %s\n",ns.status);}
+    else if(!strcmp(line,"FORGET")) {
+        esp_err_t stopped=ns_radio_stop();
+        if(stopped!=ESP_OK) {result(stopped,"");puts("NETSEC radio stop failed; retry FORGET");return;}
+        ns.radio_generation++;ns.page=NS_HOME;
+        nvs_handle_t h;esp_err_t e=nvs_open("pocket_netsec",NVS_READWRITE,&h);
+        if(e==ESP_OK) { (void)nvs_erase_key(h,"ssid");(void)nvs_erase_key(h,"password");e=nvs_commit(h);nvs_close(h); }
+        result(e,"Saved network removed");printf("NETSEC %s\n",ns.status);
+    } else if(!strcmp(line,"PCAP"))ns_capture_export();
+    else if(!strcmp(line,"CLEAR")) {ns_capture_enable(false);ns_capture_clear();ns_stats_clear();}
+    else if(!strcmp(line,"HISTORY")) {
+        for(size_t i=0;i<ns.history_count;i++)printf("HISTORY %u boot=%08lX seconds=%lu aps=%u best=%u\n",(unsigned)i,(unsigned long)ns.history[i].boot,(unsigned long)ns.history[i].seconds,ns.history[i].aps,ns.history[i].best);
+    } else if(!strncmp(line,"TARGET ",7)) {
+        char *end;long i=strtol(line+7,&end,10);
+        if(*end==0 && i>=0 && i<(long)ns.ap_count) {ns.target=ns.aps[i];ns.target_set=true;puts("NETSEC target selected");}
+        else puts("NETSEC invalid target index");
+    } else if(!strncmp(line,"PAGE ",5)) {
+        char *end;long p=strtol(line+5,&end,10);
+        if(*end==0 && p>=1 && p<=12) {ns_go(p);printf("NETSEC %s\n",ns.status);}
+        else puts("NETSEC invalid page");
+    } else puts("NETSEC unknown command; HELP");
 }
-
-static demo_nav_input_t navigation_input(bsp_btn_t btn, bsp_btn_ev_t event) {
-    if (event == BSP_BTN_LONG && btn == BSP_BTN_OK) return DEMO_NAV_INPUT_OK_LONG;
-    if (event != BSP_BTN_CLICK) return DEMO_NAV_INPUT_OTHER;
-    if (btn == BSP_BTN_UP) return DEMO_NAV_INPUT_UP_CLICK;
-    if (btn == BSP_BTN_DOWN) return DEMO_NAV_INPUT_DOWN_CLICK;
-    if (btn == BSP_BTN_OK) return DEMO_NAV_INPUT_OK_CLICK;
-    return DEMO_NAV_INPUT_OTHER;
-}
-
-static void process_input(const input_event_t *input) {
-    demo_nav_input_t nav_input = navigation_input(input->btn, input->event);
-
-    if (s_navigation.active >= 0) {
-        demo_nav_result_t result = demo_navigation_handle(&s_navigation, nav_input, true);
-        const demo_entry_t *demo = &DEMOS[result.index];
-        if (result.action == DEMO_NAV_ACTION_EXIT) {
-            esp_err_t e = demo->stop ? demo->stop() : ESP_OK;
-            if (e != ESP_OK) {
-                ESP_LOGE(TAG, "%s 页面停止失败: %s", demo->name, esp_err_to_name(e));
-                return;
+static void serial_poll(void) {
+    static char line[160];static size_t used;static bool overflow;
+    if(!serial_ready)return;
+    uint8_t bytes[64];int n=usb_serial_jtag_read_bytes(bytes,sizeof(bytes),0);
+    for(int i=0;i<n;i++) {
+        char c=bytes[i];
+        if(c=='\r' || c=='\n') {
+            if(used || overflow) {
+                line[used]=0;if(!overflow)ns_command(line);else puts("NETSEC line too long");
+                memset(line,0,sizeof(line));used=0;overflow=false;
             }
-            if (!bsp_lvgl_lock(500)) return;
-            demo->exit();
-            demo_navigation_complete_exit(&s_navigation);
-            enter_menu();
-            bsp_lvgl_unlock();
-        } else if (result.action == DEMO_NAV_ACTION_FORWARD) {
-            demo->key(input->btn, input->event);
+        } else if(c==8 || c==127) {if(used)used--;}
+        else if((unsigned char)c>=32) {if(used+1<sizeof(line))line[used++]=c;else overflow=true;}
+    }
+    memset(bytes,0,sizeof(bytes));
+}
+static void worker(void *arg) {
+    (void)arg;uint64_t rendered=0;
+    ns_event_t e;
+    for(;;) {
+        uint64_t now=esp_timer_get_time();
+        if(xQueueReceive(ns.events,&e,pdMS_TO_TICKS(25))==pdTRUE) {
+            if(e.type!=NSE_KEY && e.generation!=ns.radio_generation)continue;
+            switch(e.type) {
+            case NSE_KEY:key(e.key.btn,e.key.ev);break;
+            case NSE_SCAN:ns_scan_done();break;
+            case NSE_IP:
+                if(ns.page==NS_LAN || ns.page==NS_SERVICES) {ns.connected=true;ns.lan_connecting=false;ns_lan_info();result(ESP_OK,"LAN connected");}break;
+            case NSE_DISCONNECT:
+                if(ns.page==NS_LAN || ns.page==NS_SERVICES) {
+                    ns.connected=false;ns.lan_connecting=false;ns_discovery_stop();ns_lan_info();
+                    snprintf(ns.status,sizeof(ns.status),"Disconnected reason %d; OK retry",e.code);
+                }break;
+            case NSE_BLE:if(ns.page==NS_BLE && !ns.ble_stopping)ns_ble_event(&e.ble);break;
+            case NSE_BLE_READY:
+                if(ns.page==NS_BLE && ns.ble_initialized && !ns.ble_stopping) {
+                    ns.ble_ready=true;result(ns_ble_resume(),"Passive BLE scan");
+                }break;
+            case NSE_BLE_RESET:if(ns.page==NS_BLE) {ns.ble_ready=false;snprintf(ns.status,sizeof(ns.status),"BLE reset %d",e.code);}break;
+            }
         }
-        return;
-    }
-
-    if (nav_input == DEMO_NAV_INPUT_OTHER || nav_input == DEMO_NAV_INPUT_OK_LONG) return;
-    if (!bsp_lvgl_lock(500)) return;
-    demo_nav_result_t result = demo_navigation_handle(
-        &s_navigation, nav_input, s_ok[s_navigation.selected]);
-    if (result.action == DEMO_NAV_ACTION_REFRESH) {
-        menu_refresh();
-        ui_pixel_mascot_jump(s_mascot);
-    } else if (result.action == DEMO_NAV_ACTION_ENTER) {
-        const demo_entry_t *demo = &DEMOS[result.index];
-        ui_pixel_mascot_jump(s_mascot);
-        lv_obj_delete(s_menu_scr);
-        s_menu_scr = NULL;
-        s_mascot = NULL;
-        demo->enter();
-        bsp_lvgl_unlock();
-
-        esp_err_t e = demo->start ? demo->start() : ESP_OK;
-        if (e != ESP_OK) {
-            ESP_LOGE(TAG, "%s 页面启动失败: %s", demo->name, esp_err_to_name(e));
+        serial_poll();now=esp_timer_get_time();
+        ns_radio_tick(now);ns_discovery_tick(now);
+        if((ns.page==NS_WIFI || ns.page==NS_CHANNELS) && !ns.detail && !ns.scanning && now-last_scan>=6000000) {
+            result(ns_scan_start(),"Passive scan...");last_scan=now;
         }
-        return;
-    }
-    bsp_lvgl_unlock();
-}
-
-static void input_task(void *arg) {
-    (void)arg;
-    input_event_t input;
-    for (;;) {
-        if (xQueueReceive(s_input_queue, &input, portMAX_DELAY) == pdTRUE) {
-            process_input(&input);
+        if(ns.scanning && now-last_scan>=10000000) {
+            esp_wifi_scan_stop();esp_wifi_clear_ap_list();ns.scanning=false;result(ESP_ERR_TIMEOUT,"");last_scan=now;
+        }
+        if(ns.lan_connecting && now>connect_deadline) {
+            esp_wifi_disconnect();ns.lan_connecting=false;result(ESP_ERR_TIMEOUT,"");
+        }
+        if(now-rendered>=250000) {
+            ns_stats_read(&ns.stats);ns.free_heap=esp_get_free_heap_size();ns.min_heap=esp_get_minimum_free_heap_size();
+            if(bsp_lvgl_lock(50)) {ns_ui_render();bsp_lvgl_unlock();}rendered=now;
         }
     }
 }
-
-static esp_err_t input_dispatch_init(void) {
-    s_input_queue = xQueueCreate(INPUT_QUEUE_DEPTH, sizeof(input_event_t));
-    if (!s_input_queue) return ESP_ERR_NO_MEM;
-    if (xTaskCreate(input_task, "demo_input", 4096, NULL, 5, &s_input_task) != pdPASS) {
-        vQueueDelete(s_input_queue);
-        s_input_queue = NULL;
-        return ESP_ERR_NO_MEM;
-    }
-    return ESP_OK;
-}
-
-static void input_dispatch_deinit(void) {
-    s_input_ready = false;
-    if (s_input_task) {
-        vTaskDelete(s_input_task);
-        s_input_task = NULL;
-    }
-    if (s_input_queue) {
-        vQueueDelete(s_input_queue);
-        s_input_queue = NULL;
-    }
-}
-
-// button callbacks run on the shared esp_timer task; enqueue only and return immediately.
-static void on_key(bsp_btn_t btn, bsp_btn_ev_t ev, void *user) {
-    (void)user;
-    if (!s_input_ready || !s_input_queue) return;
-    const input_event_t input = { .btn = btn, .event = ev };
-    (void)xQueueSend(s_input_queue, &input, 0);
-}
-
 void app_main(void) {
-    ESP_LOGI(TAG, "FoloToy AI Passport BSP demo 启动");
-    esp_sleep_wakeup_cause_t wakeup = esp_sleep_get_wakeup_cause();
-    if (wakeup != ESP_SLEEP_WAKEUP_UNDEFINED) {
-        ESP_LOGI(TAG, "休眠唤醒原因: %d", wakeup);
+    ns.boot_id=esp_random();ns.channel_max=11;
+    ns.events=xQueueCreate(32,sizeof(ns_event_t));if(!ns.events)return;
+    esp_err_t e=nvs_flash_init(); /* No automatic erase of unrelated NVS data. */
+    if(e==ESP_OK)load();else ns.settings=(ns_settings_t){.version=1,.channel=1,.brightness=80,.threshold=10,.language=1};
+    ns.channel_max=ns.settings.region?13:11;
+    if(esp_netif_init()!=ESP_OK || esp_event_loop_create_default()!=ESP_OK)return;
+    bsp_i2c_init();(void)bsp_battery_init();
+    if(bsp_display_init()!=ESP_OK || !bsp_lvgl_init())return;
+    bsp_display_backlight(ns.settings.brightness);
+    snprintf(ns.status,sizeof(ns.status),"%s",e==ESP_OK?"Ready":"NVS unavailable; settings not saved");
+    if(bsp_lvgl_lock(1000)) {ns_ui_init();bsp_lvgl_unlock();}else return;
+    usb_serial_jtag_driver_config_t cfg={.rx_buffer_size=256,.tx_buffer_size=1024};
+    serial_ready=usb_serial_jtag_driver_install(&cfg)==ESP_OK;
+    if(serial_ready)usb_serial_jtag_vfs_use_driver();
+    puts("NETSEC ready. HELP for USB commands; input is not echoed.");
+    if(xTaskCreate(worker,"netsec",8192,NULL,4,NULL)!=pdPASS) {
+        snprintf(ns.status,sizeof(ns.status),"Worker allocation failed");return;
     }
-
-    bsp_i2c_init();
-    bsp_i2c_scan();
-
-    // 屏幕是本 demo 的 UI 载体,失败就没有菜单可言 —— 打清楚日志后退出,
-    // 不做"串口菜单"降级(那会让本文件复杂一倍,违背参考示例的初衷)。
-    if (bsp_display_init() != ESP_OK || !bsp_lvgl_init()) {
-        ESP_LOGE(TAG, "显示/LVGL 初始化失败,demo 无法继续。"
-                      "检查 SPI 接线(MOSI=%d SCLK=%d CS=%d DC=%d BL=%d)",
-                 BSP_LCD_MOSI, BSP_LCD_SCLK, BSP_LCD_CS, BSP_LCD_DC, BSP_LCD_BL);
-        return;
-    }
-    bsp_display_backlight(100);
-
-    demo_navigation_init(&s_navigation, DEMO_COUNT);
-
-    // 其余外设单项失败不阻塞:菜单里标 [FAIL],其他项照常可测。
-    s_ok[0] = true;                                   // Display 已确认可用
-    esp_err_t input_err = input_dispatch_init();
-    esp_err_t button_err = input_err == ESP_OK
-                         ? bsp_button_init(on_key, NULL)
-                         : ESP_ERR_INVALID_STATE;
-    s_ok[1] = input_err == ESP_OK && button_err == ESP_OK;
-    if (input_err != ESP_OK) {
-        ESP_LOGE(TAG, "按键事件任务创建失败: %s", esp_err_to_name(input_err));
-    } else if (button_err != ESP_OK) {
-        ESP_LOGE(TAG, "按键初始化失败: %s", esp_err_to_name(button_err));
-        input_dispatch_deinit();
-    }
-    s_ok[2] = (bsp_audio_init() == ESP_OK);
-    s_ok[3] = (bsp_battery_init() == ESP_OK);
-    s_ok[4] = true;                                    // 页面内按需初始化并显示错误
-    s_ok[5] = true;
-    s_ok[6] = true;
-
-    if (bsp_lvgl_lock(1000)) {
-        enter_menu();
-        bsp_lvgl_unlock();
-        s_input_ready = true;
-    }
-
-    ESP_LOGI(TAG, "就绪:Display=%d Button=%d Audio=%d Battery=%d",
-             s_ok[0], s_ok[1], s_ok[2], s_ok[3]);
+    e=bsp_button_init(button,NULL);if(e!=ESP_OK)printf("NETSEC buttons unavailable: %s\n",esp_err_to_name(e));
 }

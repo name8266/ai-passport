@@ -1,0 +1,27 @@
+{
+  "converter": "lv_font_conv 1.5.3",
+  "font": "Noto Sans CJK SC Regular",
+  "size": 14,
+  "bpp": 2,
+  "glyphs": 21231,
+  "ranges": [
+    [
+      32,
+      126
+    ],
+    [
+      12288,
+      12351
+    ],
+    [
+      19968,
+      40943
+    ],
+    [
+      65281,
+      65376
+    ]
+  ],
+  "unassigned_or_missing": [],
+  "generated_sha256": "bea7ac1055b8d3cf2bf3d1504534002e8117347627b831e2bfd4ca26c09b6592"
+}

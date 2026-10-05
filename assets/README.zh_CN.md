@@ -39,3 +39,7 @@
 - 与当前 BSP 音频路径匹配时优先采用 16 kHz、16 位单声道 PCM。
 - 嵌入音频前评估 Flash 与内部 RAM 成本；长录音应流式或分块。
 - 无再分发许可不提交媒体文件。
+
+## Pocket NetSec 字体
+
+[`fonts/netsec_font_14.c`](fonts/netsec_font_14.c) 来源于 Noto Sans CJK SC Regular，使用 SIL OFL 1.1（[`授权文本`](fonts/netsec-OFL.txt)）。14 像素、2bpp、未压缩，共 21,231 字形；涵盖 ASCII、U+3000–303F、U+4E00–9FEF、U+FF01–FF60。生成器为 lv_font_conv 1.5.3，由 `main/CMakeLists.txt` 链接；使用 `tools/netsec_font.py` 重生成和检查。源字体来自 [Noto CJK 官方项目](https://github.com/notofonts/noto-cjk/tree/main/Sans/OTF/SimplifiedChinese)。生成源和字形清单位于 `fonts/`；字形位图驻留 Flash，不分配全屏字体位图到 RAM。
