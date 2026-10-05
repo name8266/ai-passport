@@ -34,6 +34,13 @@ int main(void) {
     ssdp_response(response,strlen(response),inet_addr("192.0.2.31"));assert(ns.service_count==3);
     char injected[]="HTTP/1.1 200 OK\r\nST: Printer\033[2J\r\n\r\n";
     ssdp_response(injected,strlen(injected),inet_addr("192.0.2.32"));assert(!strchr(ns.services[3].name,27));
+    ns_service_t *unicode=service("mDNS","中文实验网络._http._tcp.local");
+    assert(unicode==service("mDNS","中文实验网络._http._tcp.local"));
+    char long_name[192];memset(long_name,0,sizeof(long_name));
+    for(unsigned i=0;i<50;i++)memcpy(long_name+i*3,"中",3);
+    detail_text(unicode,"Host: ",long_name);
+    size_t rendered=strlen(unicode->detail)-6;assert(rendered%3==0);
+    detail_text(unicode,"Host: ","unsafe\033name.local");assert(!strchr(unicode->detail,27));
     /* Compression cycles, large count claims, random datagrams, and every
        truncation are processed without allocating or following remote URLs. */
     uint32_t rnd=1;for(unsigned i=0;i<4000;i++) {

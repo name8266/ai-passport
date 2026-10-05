@@ -22,12 +22,17 @@ static void query_add(const char *name,uint16_t type) {
     snprintf(queries[query_count],sizeof(queries[0]),"%s",name);query_types[query_count++]=type;
 }
 static ns_service_t *service(const char *kind,const char *name) {
+    char display[97];ns_text(display,sizeof(display),(const uint8_t*)name,strlen(name));
     for(size_t i=0;i<ns.service_count;i++)
-        if(!strcmp(ns.services[i].kind,kind) && !strcmp(ns.services[i].name,name))return &ns.services[i];
+        if(!strcmp(ns.services[i].kind,kind) && !strcmp(ns.services[i].name,display))return &ns.services[i];
     if(ns.service_count==NS_SERVICE_MAX)return NULL;
     ns_service_t *s=&ns.services[ns.service_count++];memset(s,0,sizeof(*s));
     snprintf(s->kind,sizeof(s->kind),"%s",kind);
-    ns_text(s->name,sizeof(s->name),(const uint8_t*)name,strlen(name));return s;
+    snprintf(s->name,sizeof(s->name),"%s",display);return s;
+}
+static void detail_text(ns_service_t *s,const char *prefix,const char *wire_name) {
+    char safe[112];ns_text(safe,sizeof(safe),(const uint8_t*)wire_name,strlen(wire_name));
+    snprintf(s->detail,sizeof(s->detail),"%s%s",prefix,safe);
 }
 static bool in_lan(uint32_t ip) {
     esp_netif_ip_info_t info;
@@ -56,13 +61,13 @@ static void dns_response(const uint8_t *p,size_t n,uint32_t ip) {
                 if(!strcmp(owner,"_services._dns-sd._udp.local"))query_add(target,12);
                 else query_add(target,33);
                 s=service("mDNS",target);
-                if(s)snprintf(s->detail,sizeof(s->detail),"PTR: %.110s",owner);
+                if(s)detail_text(s,"PTR: ",owner);
             }
         } else if(type==33 && len>=7) {
             size_t ptr=off+6;
             if(ns_dns_name(p,n,&ptr,target,sizeof(target)) && ptr<=off+len && local_name(target)) {
                 query_add(target,1);s=service("mDNS",owner);
-                if(s) {s->port=be16(p+off+4);snprintf(s->detail,sizeof(s->detail),"Host: %.110s",target);}
+                if(s) {s->port=be16(p+off+4);detail_text(s,"Host: ",target);}
             }
         } else if(type==1 && len==4) {
             uint32_t address;memcpy(&address,p+off,4);
