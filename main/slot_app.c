@@ -251,39 +251,44 @@ static void audio_task(void *arg)
     bsp_audio_set_volume(52);
 
     for (;;) {
-        sfx_t cmd;
-        if (xQueueReceive(s_audio_queue, &cmd, portMAX_DELAY) != pdTRUE) continue;
+        sfx_event_t event;
+        if (xQueueReceive(s_audio_queue, &event, portMAX_DELAY) != pdTRUE) continue;
         if (!s_sound) continue;
-        switch (cmd) {
+
+        uint32_t variant = event.variant;
+        int16_t amp = (int16_t)(2200 + ((uint32_t)event.intensity * 13u));
+        if (amp > 5600) amp = 5600;
+
+        switch (event.type) {
         case SFX_UI:
-            tone(980, 24, 2800);
+            tone(930 + variant * 27u, 20 + variant * 2u, amp);
             break;
         case SFX_START:
-            tone(280, 30, 2500);
-            tone(420, 34, 3000);
+            tone(250 + variant * 18u, 26, amp);
+            tone(390 + variant * 24u, 30, amp);
             break;
         case SFX_TICK:
-            tone(780, 18, 2600);
+            tone(690 + variant * 41u, 12 + event.intensity / 32u, amp);
             break;
         case SFX_STOP:
-            tone(520, 34, 3600);
+            tone(430 + variant * 36u, 24 + event.intensity / 18u, amp);
             break;
         case SFX_PAIR:
-            tone(660, 60, 4200);
-            tone(880, 75, 4600);
+            tone(620 + variant * 17u, 52, amp);
+            tone(850 + variant * 23u, 70, amp);
             break;
         case SFX_SPECIAL:
-            tone(660, 60, 4800);
-            tone(880, 65, 5000);
-            tone(1100, 75, 5200);
-            tone(1320, 110, 5400);
+            tone(640, 58, amp);
+            tone(870, 62, amp);
+            tone(1090, 70, amp);
+            tone(1310, 105, amp);
             break;
         case SFX_BOUNCE:
-            tone(430, 28, 3300);
-            tone(620, 24, 3000);
+            tone(330 + variant * 31u, 18 + event.intensity / 18u, amp);
+            tone(500 + variant * 39u, 14 + event.intensity / 28u, amp - 250);
             break;
         case SFX_PLINK:
-            tone(1000, 18, 2600);
+            tone(820 + variant * 47u, 12 + event.intensity / 28u, amp);
             break;
         default:
             break;
@@ -291,10 +296,20 @@ static void audio_task(void *arg)
     }
 }
 
-static void sfx(sfx_t cmd)
+static void sfx_intensity(sfx_t type, uint8_t intensity)
 {
     if (!s_audio_ready || !s_sound || !s_audio_queue) return;
-    (void)xQueueSend(s_audio_queue, &cmd, 0);
+    sfx_event_t event = {
+        .type = type,
+        .intensity = intensity,
+        .variant = (uint8_t)(esp_random() % 7u),
+    };
+    (void)xQueueSend(s_audio_queue, &event, 0);
+}
+
+static void sfx(sfx_t type)
+{
+    sfx_intensity(type, 128);
 }
 
 static void clear_page_refs(void)
@@ -997,7 +1012,7 @@ void app_main(void)
     (void)bsp_battery_init();
 
     s_input_queue = xQueueCreate(INPUT_QUEUE_DEPTH, sizeof(input_event_t));
-    s_audio_queue = xQueueCreate(AUDIO_QUEUE_DEPTH, sizeof(sfx_t));
+    s_audio_queue = xQueueCreate(AUDIO_QUEUE_DEPTH, sizeof(sfx_event_t));
     if (!s_input_queue) {
         ESP_LOGE(TAG, "input queue allocation failed");
         return;
