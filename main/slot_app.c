@@ -474,8 +474,8 @@ static void set_die(die_view_t *die, uint8_t value)
         {0,0,0,1,0,0,0},
         {1,0,0,0,0,0,1},
         {1,0,0,1,0,0,1},
-        {1,0,1,0,1,0,1},
-        {1,0,1,1,1,0,1},
+        {1,1,0,0,0,1,1},
+        {1,1,0,1,0,1,1},
         {1,1,1,0,1,1,1},
     };
     if (value < 1 || value > 6) value = 1;
@@ -485,16 +485,12 @@ static void set_die(die_view_t *die, uint8_t value)
 static void build_die(die_view_t *die, int x)
 {
     static const uint8_t pip_xy[7][2] = {
-        {13,13}, {36,13}, {13,36}, {36,36}, {13,59}, {36,59}, {59,59},
+        {13,13}, {59,13}, {13,36}, {36,36}, {59,36}, {13,59}, {59,59},
     };
     die->body = box(s_game_frame, x, 27, 82, 82, C_REEL, C_GOLD_DIM, 15);
     for (int i = 0; i < 7; ++i) {
         int px = pip_xy[i][0];
         int py = pip_xy[i][1];
-        if (i == 3) { px = 36; py = 36; }
-        if (i == 4) { px = 13; py = 59; }
-        if (i == 5) { px = 36; py = 59; }
-        if (i == 6) { px = 59; py = 59; }
         die->pips[i] = box(die->body, px - 5, py - 5, 11, 11, C_INK, C_INK, LV_RADIUS_CIRCLE);
     }
     set_die(die, 1);
