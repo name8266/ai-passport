@@ -15,6 +15,7 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "lvgl.h"
+#include "motion_core.h"
 #include "slot_core.h"
 
 #define INPUT_QUEUE_DEPTH 8
@@ -76,6 +77,47 @@ typedef struct {
     lv_obj_t *pips[7];
 } die_view_t;
 
+typedef struct {
+    motion_slot_profile_t profile;
+    uint32_t phase_q8;
+} reel_motion_t;
+
+typedef struct {
+    motion_die_profile_t profile;
+    int32_t x_q8;
+    int32_t y_q8;
+    int32_t vx_q8;
+    int32_t vy_q8;
+    int32_t angle_tenths;
+    int32_t omega_tenths;
+    uint8_t bounces;
+    bool settled;
+} die_motion_t;
+
+typedef struct {
+    motion_plinko_profile_t profile;
+    int32_t x_q8;
+    int32_t y_q8;
+    int32_t vx_q8;
+    int32_t vy_q8;
+    int16_t last_peg;
+    uint8_t collision_cooldown;
+    uint8_t collisions;
+} plinko_motion_t;
+
+typedef struct {
+    motion_roulette_profile_t profile;
+    uint32_t wheel_phase_q8;
+    uint32_t ball_phase_q8;
+    uint8_t last_ball_pos;
+} roulette_motion_t;
+
+typedef struct {
+    sfx_t type;
+    uint8_t intensity;
+    uint8_t variant;
+} sfx_event_t;
+
 static const char *TAG = "odds_arcade";
 static const char *const SPEED_NAMES[] = { "CHILL", "NORMAL", "TURBO" };
 
@@ -107,6 +149,7 @@ static lv_timer_t *s_anim_timer;
 /* slot */
 static reel_view_t s_reels[3];
 static slot_result_t s_slot_result;
+static reel_motion_t s_reel_motion[3];
 
 /* roulette */
 static lv_obj_t *s_wheel_lamps[LAMP_COUNT];
@@ -114,17 +157,19 @@ static lv_obj_t *s_roulette_number;
 static lv_obj_t *s_roulette_color;
 static chance_roulette_result_t s_roulette_result;
 static uint8_t s_roulette_pos;
+static roulette_motion_t s_roulette_motion;
 
 /* dice */
 static die_view_t s_dice[2];
 static uint8_t s_die_result[2];
+static die_motion_t s_die_motion[2];
+static uint32_t s_dice_deadline;
 
 /* plinko */
 static lv_obj_t *s_plinko_ball;
 static lv_obj_t *s_plinko_bins[PLINKO_ROWS + 1];
-static uint16_t s_plinko_path;
 static uint8_t s_plinko_bin;
-static uint8_t s_plinko_row;
+static plinko_motion_t s_plinko_motion;
 
 static lv_obj_t *box(lv_obj_t *parent, int x, int y, int w, int h,
                      uint32_t bg, uint32_t border, int radius)
