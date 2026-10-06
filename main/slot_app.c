@@ -488,6 +488,59 @@ static void reel_translate(reel_view_t *reel, int offset)
     lv_obj_set_style_translate_y(reel->label, offset, 0);
 }
 
+static void apply_reel_lighting(reel_view_t *reel, uint32_t phase_q8)
+{
+    if (!reel || !reel->cell) return;
+    uint32_t cycle = (uint32_t)SLOT_SYMBOL_COUNT << 8;
+    int32_t angle = (int32_t)((phase_q8 % cycle) * 3600u / cycle);
+    light_sample_t sample = light_sample_spinner(angle, 170);
+    uint32_t body = light_shade_rgb(C_REEL, sample, 0);
+    lv_obj_set_style_bg_color(reel->cell, lv_color_hex(body), 0);
+    if (reel->highlight)
+        lv_obj_set_style_bg_opa(reel->highlight, (lv_opa_t)(14u + sample.specular / 3u), 0);
+    if (reel->shade)
+        lv_obj_set_style_bg_opa(reel->shade, (lv_opa_t)(24u + sample.shadow / 4u), 0);
+}
+
+static void apply_die_lighting(die_view_t *die, const die_motion_t *motion)
+{
+    if (!die || !motion || !die->body) return;
+    light_sample_t sample = light_sample_spinner(motion->angle_tenths, 225);
+    uint32_t body = light_shade_rgb(C_REEL, sample, 0);
+    lv_obj_set_style_bg_color(die->body, lv_color_hex(body), 0);
+
+    int x = motion->x_q8 >> 8;
+    int y = motion->y_q8 >> 8;
+    int height = 78 - y;
+    if (height < 0) height = 0;
+    if (height > 78) height = 78;
+
+    if (die->highlight) {
+        lv_obj_set_pos(die->highlight, x + 7, y + 5);
+        lv_obj_set_style_bg_opa(die->highlight,
+            (lv_opa_t)(28u + sample.specular / 2u), 0);
+    }
+    if (die->shadow) {
+        lv_obj_set_pos(die->shadow, x + 7, 136);
+        lv_obj_set_size(die->shadow, 52 + height / 5, 8 + height / 20);
+        lv_obj_set_style_bg_opa(die->shadow,
+            (lv_opa_t)(light_shadow_opacity((uint16_t)height) / 2u), 0);
+    }
+}
+
+static void apply_roulette_lighting(void)
+{
+    if (!s_roulette_wheel) return;
+    int32_t angle = (int32_t)(((s_roulette_motion.wheel_phase_q8 >> 8) % LAMP_COUNT) *
+                              (3600 / LAMP_COUNT));
+    light_sample_t sample = light_sample_spinner(angle, 200);
+    uint32_t wheel = light_shade_rgb(0x171D2A, sample, 110);
+    lv_obj_set_style_bg_color(s_roulette_wheel, lv_color_hex(wheel), 0);
+    if (s_roulette_glint)
+        lv_obj_set_style_bg_opa(s_roulette_glint,
+            (lv_opa_t)(18u + sample.specular / 2u), 0);
+}
+
 static void build_reel(reel_view_t *reel, int x, uint8_t initial)
 {
     reel->cell = box(s_game_frame, x, 20, 58, 92, C_REEL, C_GOLD_DIM, 12);
@@ -762,10 +815,12 @@ static void animate_slot(uint32_t elapsed)
                 offset = ((elapsed / 42u) & 1u) ? bounce : -bounce;
             }
             reel_translate(&s_reels[i], offset);
+            apply_reel_lighting(&s_reels[i], phase);
             lv_obj_set_style_border_color(s_reels[i].cell, lv_color_hex(C_CYAN), 0);
         } else {
             render_symbol(&s_reels[i], s_slot_result.reels[i]);
             reel_translate(&s_reels[i], 0);
+            apply_reel_lighting(&s_reels[i], (uint32_t)s_slot_result.reels[i] << 8);
             lv_obj_set_style_border_color(s_reels[i].cell, lv_color_hex(C_GOLD_DIM), 0);
             if (!s_reels[i].stopped) {
                 s_reels[i].stopped = true;
@@ -831,6 +886,7 @@ static void animate_roulette(uint32_t elapsed)
 
     uint8_t wheel_pos = (uint8_t)((s_roulette_motion.wheel_phase_q8 >> 8) % LAMP_COUNT);
     uint8_t ball_pos = (uint8_t)((s_roulette_motion.ball_phase_q8 >> 8) % LAMP_COUNT);
+    apply_roulette_lighting();
     s_roulette_pos = ball_pos;
 
     if (ball_pos != s_roulette_motion.last_ball_pos) {
@@ -942,6 +998,7 @@ static void animate_dice(uint32_t elapsed)
                                   m->profile.face_phase) % 6u) + 1u;
         set_die(&s_dice[i], face);
         lv_obj_set_pos(s_dice[i].body, m->x_q8 >> 8, m->y_q8 >> 8);
+        apply_die_lighting(&s_dice[i], m);
         int32_t rotation = m->angle_tenths % 3600;
         if (rotation < 0) rotation += 3600;
         lv_obj_set_style_transform_rotation(s_dice[i].body, rotation, 0);
@@ -955,6 +1012,8 @@ static void animate_dice(uint32_t elapsed)
             m->omega_tenths = 0;
             set_die(&s_dice[i], s_die_result[i]);
             lv_obj_set_pos(s_dice[i].body, m->x_q8 >> 8, floor_y >> 8);
+            m->angle_tenths = 0;
+            apply_die_lighting(&s_dice[i], m);
             lv_obj_set_style_transform_rotation(s_dice[i].body, 0, 0);
             sfx_intensity(SFX_STOP, (uint8_t)(120u + m->bounces * 18u));
         }
@@ -995,9 +1054,30 @@ static void animate_dice(uint32_t elapsed)
 
 static void plinko_place_ball(void)
 {
-    lv_obj_set_pos(s_plinko_ball,
-                   s_plinko_motion.x_q8 >> 8,
-                   s_plinko_motion.y_q8 >> 8);
+    int x = s_plinko_motion.x_q8 >> 8;
+    int y = s_plinko_motion.y_q8 >> 8;
+    lv_obj_set_pos(s_plinko_ball, x, y);
+
+    light_vec3_t sphere_normal = { -430, -610, 690 };
+    light_sample_t sample = light_sample_surface(sphere_normal, 245);
+    uint32_t ball = light_shade_rgb(C_MAGENTA, sample, 80);
+    lv_obj_set_style_bg_color(s_plinko_ball, lv_color_hex(ball), 0);
+
+    if (s_plinko_highlight) {
+        lv_obj_set_pos(s_plinko_highlight, x + 2, y + 1);
+        lv_obj_set_style_bg_opa(s_plinko_highlight,
+            (lv_opa_t)(90u + sample.specular / 2u), 0);
+    }
+
+    if (s_plinko_shadow) {
+        int height = 137 - y;
+        if (height < 0) height = 0;
+        if (height > 137) height = 137;
+        lv_obj_set_pos(s_plinko_shadow, x + 5, 142);
+        lv_obj_set_size(s_plinko_shadow, 8 + height / 18, 4 + height / 55);
+        lv_obj_set_style_bg_opa(s_plinko_shadow,
+            (lv_opa_t)(light_shadow_opacity((uint16_t)height) / 2u), 0);
+    }
 }
 
 static void start_plinko(void)
