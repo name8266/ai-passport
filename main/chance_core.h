@@ -16,7 +16,5 @@ typedef struct {
 
 uint8_t chance_die(uint32_t random_value);
 chance_roulette_result_t chance_roulette(uint32_t random_value);
-uint8_t chance_plinko_bin(uint32_t random_value, uint8_t rows);
-uint16_t chance_plinko_path(uint32_t random_value, uint8_t rows);
 bool chance_is_triple(const uint8_t reels[3]);
 bool chance_is_pair(const uint8_t reels[3]);
