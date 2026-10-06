@@ -14,10 +14,10 @@ typedef struct {
 } motion_slot_profile_t;
 
 typedef struct {
-    int16_t x_q8;
-    int16_t y_q8;
-    int16_t vx_q8;
-    int16_t vy_q8;
+    int32_t x_q8;
+    int32_t y_q8;
+    int32_t vx_q8;
+    int32_t vy_q8;
     int16_t angle_tenths;
     int16_t omega_tenths;
     uint8_t restitution;
@@ -25,10 +25,10 @@ typedef struct {
 } motion_die_profile_t;
 
 typedef struct {
-    int16_t x_q8;
-    int16_t y_q8;
-    int16_t vx_q8;
-    int16_t vy_q8;
+    int32_t x_q8;
+    int32_t y_q8;
+    int32_t vx_q8;
+    int32_t vy_q8;
     uint8_t gravity_q8;
     uint8_t peg_kick_q8;
     uint8_t restitution;
