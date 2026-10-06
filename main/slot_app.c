@@ -1,45 +1,39 @@
-// Neon Jackpot: standalone slot-machine game for FoloToy AI Passport.
-// Virtual credits only. Three physical buttons control bet and spin.
+// Odds Arcade: zero-stakes probability toys for FoloToy AI Passport.
+// Four endlessly replayable mini games: slots, roulette, dice and Plinko.
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
-#include <string.h>
 
 #include "bsp_audio.h"
 #include "bsp_battery.h"
 #include "bsp_button.h"
 #include "bsp_display.h"
+#include "chance_core.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "lvgl.h"
-#include "nvs.h"
-#include "nvs_flash.h"
 #include "slot_core.h"
 
 #define INPUT_QUEUE_DEPTH 8
-#define AUDIO_QUEUE_DEPTH 8
-#define STORE_VERSION 1u
-#define STARTING_CREDITS 1000u
-#define REFILL_CREDITS 500u
-#define MIN_BET 10u
-#define MAX_BET 100u
-#define BET_STEP 10u
-#define CREDIT_LIMIT 9999999u
+#define AUDIO_QUEUE_DEPTH 16
+#define LAMP_COUNT 16
+#define PLINKO_ROWS 8
+#define PLINKO_PEGS 36
 
-#define C_BG       0x070913
+#define C_BG       0x060812
 #define C_PANEL    0x11162A
-#define C_PANEL_2  0x1A2140
+#define C_PANEL_2  0x1B2140
 #define C_GOLD     0xFFC857
-#define C_GOLD_DIM 0x765C29
+#define C_GOLD_DIM 0x725A2B
 #define C_CYAN     0x5DE4FF
 #define C_MAGENTA  0xFF4FA3
 #define C_RED      0xFF455D
 #define C_GREEN    0x54E391
 #define C_TEXT     0xF5F7FF
-#define C_MUTED    0x8A94B8
+#define C_MUTED    0x8790AF
 #define C_REEL     0xF7F1E3
 #define C_INK      0x14151B
 
@@ -49,23 +43,23 @@ typedef struct {
 } input_event_t;
 
 typedef enum {
-    SFX_TAP = 1,
-    SFX_REEL_STOP,
-    SFX_WIN,
-    SFX_JACKPOT,
-} sfx_t;
+    PAGE_HOME = 0,
+    PAGE_SLOT,
+    PAGE_ROULETTE,
+    PAGE_DICE,
+    PAGE_PLINKO,
+} page_t;
 
-typedef struct {
-    uint32_t version;
-    uint32_t credits;
-    uint32_t best_credits;
-    uint32_t total_spins;
-    uint32_t total_wins;
-    uint32_t jackpots;
-    uint32_t bet;
-    uint8_t sound_enabled;
-    uint8_t reserved[3];
-} game_store_t;
+typedef enum {
+    SFX_UI = 1,
+    SFX_START,
+    SFX_TICK,
+    SFX_STOP,
+    SFX_PAIR,
+    SFX_SPECIAL,
+    SFX_BOUNCE,
+    SFX_PLINK,
+} sfx_t;
 
 typedef struct {
     lv_obj_t *cell;
@@ -77,35 +71,60 @@ typedef struct {
     bool stopped;
 } reel_view_t;
 
-static const char *TAG = "neon_slot";
+typedef struct {
+    lv_obj_t *body;
+    lv_obj_t *pips[7];
+} die_view_t;
+
+static const char *TAG = "odds_arcade";
+static const char *const SPEED_NAMES[] = { "CHILL", "NORMAL", "TURBO" };
 
 static QueueHandle_t s_input_queue;
 static QueueHandle_t s_audio_queue;
-static nvs_handle_t s_nvs;
-static bool s_nvs_ready;
 static bool s_audio_ready;
+static bool s_sound = true;
 static volatile bool s_input_ready;
-static volatile bool s_save_pending;
 
-static game_store_t s_store;
-static slot_result_t s_result;
-static bool s_spinning;
-static bool s_stats_mode;
-static uint32_t s_spin_started;
+static page_t s_page = PAGE_HOME;
+static uint8_t s_home_index;
+static uint8_t s_speed = 1;
+static bool s_auto;
+static bool s_busy;
+static uint32_t s_started;
+static uint32_t s_next_auto;
 static uint32_t s_flash_until;
 
 static lv_obj_t *s_screen;
-static lv_obj_t *s_machine;
-static lv_obj_t *s_credits_label;
-static lv_obj_t *s_bet_label;
-static lv_obj_t *s_battery_label;
-static lv_obj_t *s_message_label;
-static lv_obj_t *s_submessage_label;
-static lv_obj_t *s_sound_label;
-static lv_obj_t *s_stats_panel;
-static lv_obj_t *s_stats_label;
-static lv_timer_t *s_spin_timer;
+static lv_obj_t *s_title;
+static lv_obj_t *s_status;
+static lv_obj_t *s_hint;
+static lv_obj_t *s_battery;
+static lv_obj_t *s_accent_left;
+static lv_obj_t *s_accent_right;
+static lv_obj_t *s_game_frame;
+static lv_timer_t *s_anim_timer;
+
+/* slot */
 static reel_view_t s_reels[3];
+static slot_result_t s_slot_result;
+
+/* roulette */
+static lv_obj_t *s_wheel_lamps[LAMP_COUNT];
+static lv_obj_t *s_roulette_number;
+static lv_obj_t *s_roulette_color;
+static chance_roulette_result_t s_roulette_result;
+static uint8_t s_roulette_pos;
+
+/* dice */
+static die_view_t s_dice[2];
+static uint8_t s_die_result[2];
+
+/* plinko */
+static lv_obj_t *s_plinko_ball;
+static lv_obj_t *s_plinko_bins[PLINKO_ROWS + 1];
+static uint16_t s_plinko_path;
+static uint8_t s_plinko_bin;
+static uint8_t s_plinko_row;
 
 static lv_obj_t *box(lv_obj_t *parent, int x, int y, int w, int h,
                      uint32_t bg, uint32_t border, int radius)
@@ -135,6 +154,7 @@ static lv_obj_t *label(lv_obj_t *parent, const char *text, const lv_font_t *font
 
 static void visible(lv_obj_t *obj, bool show)
 {
+    if (!obj) return;
     if (show) lv_obj_remove_flag(obj, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(obj, LV_OBJ_FLAG_HIDDEN);
 }
@@ -148,9 +168,177 @@ static void set_rect(lv_obj_t *obj, int x, int y, int w, int h, uint32_t color, 
     lv_obj_set_style_radius(obj, radius, 0);
 }
 
+static uint32_t speed_duration(uint32_t chill, uint32_t normal, uint32_t turbo)
+{
+    if (s_speed == 0) return chill;
+    if (s_speed == 2) return turbo;
+    return normal;
+}
+
+static void tone(uint32_t hz, uint32_t ms, int16_t amplitude)
+{
+    enum { SAMPLE_RATE = 16000, CHUNK = 192 };
+    int16_t pcm[CHUNK];
+    uint32_t period = SAMPLE_RATE / hz;
+    if (period < 2) period = 2;
+    uint32_t total = SAMPLE_RATE * ms / 1000u;
+    uint32_t phase = 0;
+
+    while (total) {
+        uint32_t n = total > CHUNK ? CHUNK : total;
+        for (uint32_t i = 0; i < n; ++i) {
+            pcm[i] = phase < period / 2 ? amplitude : (int16_t)-amplitude;
+            if (++phase >= period) phase = 0;
+        }
+        if (bsp_audio_write(pcm, n * sizeof(pcm[0])) != ESP_OK) return;
+        total -= n;
+    }
+}
+
+static void audio_task(void *arg)
+{
+    (void)arg;
+    if (bsp_audio_set_format(16000, 16, 1) != ESP_OK) {
+        s_audio_ready = false;
+        vTaskDelete(NULL);
+        return;
+    }
+    bsp_audio_set_volume(52);
+
+    for (;;) {
+        sfx_t cmd;
+        if (xQueueReceive(s_audio_queue, &cmd, portMAX_DELAY) != pdTRUE) continue;
+        if (!s_sound) continue;
+        switch (cmd) {
+        case SFX_UI:
+            tone(980, 24, 2800);
+            break;
+        case SFX_START:
+            tone(280, 30, 2500);
+            tone(420, 34, 3000);
+            break;
+        case SFX_TICK:
+            tone(780, 18, 2600);
+            break;
+        case SFX_STOP:
+            tone(520, 34, 3600);
+            break;
+        case SFX_PAIR:
+            tone(660, 60, 4200);
+            tone(880, 75, 4600);
+            break;
+        case SFX_SPECIAL:
+            tone(660, 60, 4800);
+            tone(880, 65, 5000);
+            tone(1100, 75, 5200);
+            tone(1320, 110, 5400);
+            break;
+        case SFX_BOUNCE:
+            tone(430, 28, 3300);
+            tone(620, 24, 3000);
+            break;
+        case SFX_PLINK:
+            tone(1000, 18, 2600);
+            break;
+        default:
+            break;
+        }
+    }
+}
+
+static void sfx(sfx_t cmd)
+{
+    if (!s_audio_ready || !s_sound || !s_audio_queue) return;
+    (void)xQueueSend(s_audio_queue, &cmd, 0);
+}
+
+static void clear_page_refs(void)
+{
+    s_title = NULL;
+    s_status = NULL;
+    s_hint = NULL;
+    s_battery = NULL;
+    s_accent_left = NULL;
+    s_accent_right = NULL;
+    s_game_frame = NULL;
+    for (int i = 0; i < 3; ++i) {
+        s_reels[i].cell = NULL;
+        s_reels[i].shape1 = NULL;
+        s_reels[i].shape2 = NULL;
+        s_reels[i].shape3 = NULL;
+        s_reels[i].label = NULL;
+    }
+    for (int i = 0; i < LAMP_COUNT; ++i) s_wheel_lamps[i] = NULL;
+    s_roulette_number = NULL;
+    s_roulette_color = NULL;
+    for (int d = 0; d < 2; ++d) {
+        s_dice[d].body = NULL;
+        for (int i = 0; i < 7; ++i) s_dice[d].pips[i] = NULL;
+    }
+    s_plinko_ball = NULL;
+    for (int i = 0; i <= PLINKO_ROWS; ++i) s_plinko_bins[i] = NULL;
+}
+
+static void update_battery_unlocked(void)
+{
+    if (!s_battery) return;
+    int soc = bsp_battery_soc();
+    if (soc < 0) lv_label_set_text(s_battery, "BAT --");
+    else lv_label_set_text_fmt(s_battery, "BAT %d%%", soc);
+}
+
+static void build_shell(const char *title_text)
+{
+    clear_page_refs();
+    lv_obj_clean(s_screen);
+    lv_obj_set_style_bg_color(s_screen, lv_color_hex(C_BG), 0);
+
+    s_title = label(s_screen, title_text, &lv_font_montserrat_20, C_GOLD);
+    lv_obj_align(s_title, LV_ALIGN_TOP_MID, 0, 9);
+
+    s_accent_left = box(s_screen, 12, 34, 72, 2, C_MAGENTA, C_MAGENTA, 0);
+    s_accent_right = box(s_screen, 156, 34, 72, 2, C_CYAN, C_CYAN, 0);
+
+    s_battery = label(s_screen, "BAT --", &lv_font_montserrat_14, C_MUTED);
+    lv_obj_align(s_battery, LV_ALIGN_BOTTOM_RIGHT, -10, -4);
+    update_battery_unlocked();
+}
+
+static void set_game_footer(const char *status_text)
+{
+    s_status = label(s_screen, status_text, &lv_font_montserrat_20, C_TEXT);
+    lv_obj_set_width(s_status, 224);
+    lv_obj_set_style_text_align(s_status, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(s_status, LV_ALIGN_TOP_MID, 0, 230);
+
+    s_hint = label(s_screen, "OK PLAY  ·  UP SPEED  ·  DOWN SOUND", &lv_font_montserrat_14, C_MUTED);
+    lv_obj_set_width(s_hint, 224);
+    lv_obj_set_style_text_align(s_hint, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(s_hint, LV_ALIGN_TOP_MID, 0, 258);
+
+    lv_obj_t *home = label(s_screen, "HOLD UP AUTO  ·  HOLD OK HOME", &lv_font_montserrat_14, C_MUTED);
+    lv_obj_set_width(home, 224);
+    lv_obj_set_style_text_align(home, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(home, LV_ALIGN_BOTTOM_MID, 0, -20);
+}
+
+static void refresh_hint(void)
+{
+    if (!s_hint || s_page == PAGE_HOME) return;
+    lv_label_set_text_fmt(s_hint, "%s  ·  %s  ·  %s",
+                          SPEED_NAMES[s_speed],
+                          s_auto ? "AUTO ON" : "AUTO OFF",
+                          s_sound ? "SOUND ON" : "MUTE");
+}
+
+static void flash_machine(uint32_t ms)
+{
+    s_flash_until = lv_tick_get() + ms;
+}
+
 static void render_symbol(reel_view_t *reel, uint8_t symbol)
 {
-    if (reel->shown == symbol) return;
+    if (!reel->cell || reel->shown == symbol) return;
     reel->shown = symbol;
 
     visible(reel->shape1, false);
@@ -213,352 +401,9 @@ static void render_symbol(reel_view_t *reel, uint8_t symbol)
     }
 }
 
-static void update_header(void)
-{
-    lv_label_set_text_fmt(s_credits_label, "CREDITS %lu", (unsigned long)s_store.credits);
-    lv_label_set_text_fmt(s_bet_label, "BET %lu", (unsigned long)s_store.bet);
-    lv_label_set_text(s_sound_label, s_store.sound_enabled ? "SND" : "MUTE");
-}
-
-static void update_stats_panel(void)
-{
-    if (!s_stats_panel || !s_stats_label) return;
-    lv_label_set_text_fmt(s_stats_label,
-        "PLAYER STATS\n\nSPINS   %lu\nWINS    %lu\nJACKPOT %lu\nBEST    %lu\n\nHOLD OK TO CLOSE",
-        (unsigned long)s_store.total_spins,
-        (unsigned long)s_store.total_wins,
-        (unsigned long)s_store.jackpots,
-        (unsigned long)s_store.best_credits);
-}
-
-static void show_stats(bool show)
-{
-    s_stats_mode = show;
-    visible(s_stats_panel, show);
-    if (show) update_stats_panel();
-}
-
-static void game_defaults(void)
-{
-    memset(&s_store, 0, sizeof(s_store));
-    s_store.version = STORE_VERSION;
-    s_store.credits = STARTING_CREDITS;
-    s_store.best_credits = STARTING_CREDITS;
-    s_store.bet = MIN_BET;
-    s_store.sound_enabled = 1;
-}
-
-static void sanitize_store(void)
-{
-    if (s_store.version != STORE_VERSION) {
-        game_defaults();
-        return;
-    }
-    if (s_store.credits > CREDIT_LIMIT) s_store.credits = CREDIT_LIMIT;
-    if (s_store.best_credits < s_store.credits) s_store.best_credits = s_store.credits;
-    if (s_store.best_credits > CREDIT_LIMIT) s_store.best_credits = CREDIT_LIMIT;
-    if (s_store.bet < MIN_BET || s_store.bet > MAX_BET || (s_store.bet % BET_STEP) != 0)
-        s_store.bet = MIN_BET;
-    s_store.sound_enabled = s_store.sound_enabled ? 1 : 0;
-}
-
-static void store_init(void)
-{
-    game_defaults();
-    esp_err_t err = nvs_flash_init();
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "NVS init unavailable: %s; progress will not persist",
-                 esp_err_to_name(err));
-        return;
-    }
-    err = nvs_open("neonslot", NVS_READWRITE, &s_nvs);
-    if (err != ESP_OK) {
-        ESP_LOGW(TAG, "NVS open failed: %s", esp_err_to_name(err));
-        return;
-    }
-
-    size_t size = sizeof(s_store);
-    game_store_t loaded;
-    err = nvs_get_blob(s_nvs, "state", &loaded, &size);
-    if (err == ESP_OK && size == sizeof(loaded)) s_store = loaded;
-    else if (err != ESP_ERR_NVS_NOT_FOUND) ESP_LOGW(TAG, "NVS state read failed: %s", esp_err_to_name(err));
-    sanitize_store();
-    s_nvs_ready = true;
-}
-
-static void save_state(void)
-{
-    if (!s_nvs_ready) return;
-    esp_err_t err = nvs_set_blob(s_nvs, "state", &s_store, sizeof(s_store));
-    if (err == ESP_OK) err = nvs_commit(s_nvs);
-    if (err != ESP_OK) ESP_LOGW(TAG, "NVS save failed: %s", esp_err_to_name(err));
-}
-
-static void tone(uint32_t hz, uint32_t ms, int16_t amplitude)
-{
-    enum { SAMPLE_RATE = 16000, CHUNK = 256 };
-    int16_t pcm[CHUNK];
-    uint32_t period = SAMPLE_RATE / hz;
-    if (period < 2) period = 2;
-    uint32_t total = SAMPLE_RATE * ms / 1000u;
-    uint32_t phase = 0;
-
-    while (total) {
-        uint32_t n = total > CHUNK ? CHUNK : total;
-        for (uint32_t i = 0; i < n; ++i) {
-            pcm[i] = phase < period / 2 ? amplitude : (int16_t)-amplitude;
-            if (++phase >= period) phase = 0;
-        }
-        if (bsp_audio_write(pcm, n * sizeof(pcm[0])) != ESP_OK) return;
-        total -= n;
-    }
-}
-
-static void audio_task(void *arg)
-{
-    (void)arg;
-    if (bsp_audio_set_format(16000, 16, 1) != ESP_OK) {
-        s_audio_ready = false;
-        vTaskDelete(NULL);
-        return;
-    }
-    bsp_audio_set_volume(55);
-
-    for (;;) {
-        sfx_t sfx;
-        if (xQueueReceive(s_audio_queue, &sfx, portMAX_DELAY) != pdTRUE) continue;
-        if (!s_store.sound_enabled) continue;
-        switch (sfx) {
-        case SFX_TAP:
-            tone(900, 25, 3500);
-            break;
-        case SFX_REEL_STOP:
-            tone(620, 35, 4200);
-            break;
-        case SFX_WIN:
-            tone(660, 70, 4500);
-            tone(880, 80, 4500);
-            tone(1100, 110, 5000);
-            break;
-        case SFX_JACKPOT:
-            tone(660, 80, 5200);
-            tone(880, 80, 5200);
-            tone(1100, 90, 5400);
-            tone(1320, 150, 5600);
-            break;
-        default:
-            break;
-        }
-    }
-}
-
-static void sfx(sfx_t command)
-{
-    if (!s_audio_ready || !s_store.sound_enabled || !s_audio_queue) return;
-    (void)xQueueSend(s_audio_queue, &command, 0);
-}
-
-static void update_battery(void)
-{
-    if (!s_battery_label) return;
-    int soc = bsp_battery_soc();
-    if (!bsp_lvgl_lock(250)) return;
-    if (soc < 0) lv_label_set_text(s_battery_label, "BAT --");
-    else lv_label_set_text_fmt(s_battery_label, "BAT %d%%", soc);
-    bsp_lvgl_unlock();
-}
-
-static void settle_spin(void)
-{
-    uint32_t payout = slot_payout(s_store.bet, s_result.reels);
-    uint64_t total = (uint64_t)s_store.credits + payout;
-    s_store.credits = total > CREDIT_LIMIT ? CREDIT_LIMIT : (uint32_t)total;
-
-    if (payout > 0) {
-        ++s_store.total_wins;
-        if (s_result.jackpot) ++s_store.jackpots;
-    }
-    if (s_store.credits > s_store.best_credits) s_store.best_credits = s_store.credits;
-
-    if (s_result.jackpot) {
-        lv_label_set_text_fmt(s_message_label, "JACKPOT! +%lu", (unsigned long)payout);
-        lv_label_set_text(s_submessage_label, "TRIPLE 7 · x50");
-        s_flash_until = lv_tick_get() + 1200;
-        sfx(SFX_JACKPOT);
-    } else if (payout > 0) {
-        lv_label_set_text_fmt(s_message_label, "WIN +%lu", (unsigned long)payout);
-        lv_label_set_text_fmt(s_submessage_label, "PAYOUT x%lu", (unsigned long)s_result.multiplier);
-        s_flash_until = lv_tick_get() + 650;
-        sfx(SFX_WIN);
-    } else if (s_store.credits < MIN_BET) {
-        lv_label_set_text(s_message_label, "OUT OF CHIPS");
-        lv_label_set_text(s_submessage_label, "HOLD OK · FREE 500");
-    } else {
-        lv_label_set_text(s_message_label, "NO WIN");
-        lv_label_set_text(s_submessage_label, "OK TO SPIN AGAIN");
-    }
-    update_header();
-    update_stats_panel();
-    s_save_pending = true;
-}
-
-static void spin_timer(lv_timer_t *timer)
-{
-    (void)timer;
-    uint32_t now = lv_tick_get();
-
-    if (s_flash_until != 0) {
-        bool active = (int32_t)(s_flash_until - now) > 0;
-        lv_obj_set_style_border_color(s_machine,
-            lv_color_hex(active && ((now / 100u) & 1u) ? C_MAGENTA : C_GOLD), 0);
-        if (!active) s_flash_until = 0;
-    }
-
-    if (!s_spinning) return;
-
-    uint32_t elapsed = lv_tick_elaps(s_spin_started);
-    static const uint32_t stop_ms[3] = { 820, 1120, 1420 };
-
-    for (int i = 0; i < 3; ++i) {
-        if (elapsed < stop_ms[i]) {
-            uint8_t rolling = (uint8_t)((elapsed / 55u + (uint32_t)i * 2u) % SLOT_SYMBOL_COUNT);
-            render_symbol(&s_reels[i], rolling);
-            lv_obj_set_style_border_color(s_reels[i].cell, lv_color_hex(C_CYAN), 0);
-        } else {
-            render_symbol(&s_reels[i], s_result.reels[i]);
-            lv_obj_set_style_border_color(s_reels[i].cell, lv_color_hex(C_GOLD_DIM), 0);
-            if (!s_reels[i].stopped) {
-                s_reels[i].stopped = true;
-                sfx(SFX_REEL_STOP);
-            }
-        }
-    }
-
-    if (elapsed >= stop_ms[2]) {
-        s_spinning = false;
-        settle_spin();
-    }
-}
-
-static void begin_spin(void)
-{
-    if (s_stats_mode) {
-        show_stats(false);
-        return;
-    }
-    if (s_spinning) return;
-    if (s_store.credits < s_store.bet) {
-        lv_label_set_text(s_message_label, "NOT ENOUGH CHIPS");
-        lv_label_set_text(s_submessage_label, "LOWER BET OR HOLD OK IF EMPTY");
-        return;
-    }
-
-    s_store.credits -= s_store.bet;
-    ++s_store.total_spins;
-    s_result = slot_make_result(esp_random(), esp_random(), esp_random());
-    s_spinning = true;
-    s_spin_started = lv_tick_get();
-    s_flash_until = 0;
-    for (int i = 0; i < 3; ++i) s_reels[i].stopped = false;
-
-    lv_label_set_text(s_message_label, "GOOD LUCK");
-    lv_label_set_text(s_submessage_label, "REELS SPINNING...");
-    lv_obj_set_style_border_color(s_machine, lv_color_hex(C_CYAN), 0);
-    update_header();
-    sfx(SFX_TAP);
-}
-
-static void change_bet(int direction)
-{
-    if (s_spinning || s_stats_mode) return;
-    int bet = (int)s_store.bet + direction * (int)BET_STEP;
-    if (bet > (int)MAX_BET) bet = (int)MIN_BET;
-    if (bet < (int)MIN_BET) bet = (int)MAX_BET;
-    s_store.bet = (uint32_t)bet;
-    update_header();
-    lv_label_set_text_fmt(s_message_label, "BET %lu", (unsigned long)s_store.bet);
-    lv_label_set_text(s_submessage_label, "OK TO SPIN");
-    s_save_pending = true;
-    sfx(SFX_TAP);
-}
-
-static void handle_input(const input_event_t *input)
-{
-    if (input->event == BSP_BTN_CLICK) {
-        if (!bsp_lvgl_lock(250)) return;
-        if (input->button == BSP_BTN_UP) change_bet(+1);
-        else if (input->button == BSP_BTN_DOWN) change_bet(-1);
-        else if (input->button == BSP_BTN_OK) begin_spin();
-        bsp_lvgl_unlock();
-        return;
-    }
-
-    if (input->event != BSP_BTN_LONG || s_spinning) return;
-    if (!bsp_lvgl_lock(250)) return;
-
-    if (input->button == BSP_BTN_UP) {
-        s_store.bet = MAX_BET;
-        update_header();
-        lv_label_set_text(s_message_label, "MAX BET");
-        lv_label_set_text(s_submessage_label, "100 CREDITS");
-        s_save_pending = true;
-        sfx(SFX_TAP);
-    } else if (input->button == BSP_BTN_DOWN) {
-        s_store.sound_enabled = !s_store.sound_enabled;
-        update_header();
-        lv_label_set_text(s_message_label, s_store.sound_enabled ? "SOUND ON" : "SOUND OFF");
-        lv_label_set_text(s_submessage_label, "HOLD DOWN TO TOGGLE");
-        s_save_pending = true;
-        if (s_store.sound_enabled) sfx(SFX_TAP);
-    } else if (input->button == BSP_BTN_OK) {
-        if (s_store.credits < MIN_BET) {
-            s_store.credits = REFILL_CREDITS;
-            if (s_store.best_credits < s_store.credits) s_store.best_credits = s_store.credits;
-            update_header();
-            lv_label_set_text(s_message_label, "FREE REFILL +500");
-            lv_label_set_text(s_submessage_label, "VIRTUAL CHIPS · HAVE FUN");
-            s_save_pending = true;
-            sfx(SFX_WIN);
-        } else {
-            show_stats(!s_stats_mode);
-        }
-    }
-    bsp_lvgl_unlock();
-}
-
-static void input_task(void *arg)
-{
-    (void)arg;
-    int64_t battery_due = 0;
-    for (;;) {
-        input_event_t input;
-        if (xQueueReceive(s_input_queue, &input, pdMS_TO_TICKS(50)) == pdTRUE)
-            handle_input(&input);
-
-        if (s_save_pending) {
-            s_save_pending = false;
-            save_state();
-        }
-
-        int64_t now = (int64_t)lv_tick_get();
-        if (now >= battery_due) {
-            battery_due = now + 30000;
-            update_battery();
-        }
-    }
-}
-
-static void on_button(bsp_btn_t button, bsp_btn_ev_t event, void *user)
-{
-    (void)user;
-    if (!s_input_ready || !s_input_queue) return;
-    input_event_t input = { .button = button, .event = event };
-    (void)xQueueSend(s_input_queue, &input, 0);
-}
-
 static void build_reel(reel_view_t *reel, int x, uint8_t initial)
 {
-    reel->cell = box(s_machine, x, 21, 58, 88, C_REEL, C_GOLD_DIM, 12);
+    reel->cell = box(s_game_frame, x, 20, 58, 92, C_REEL, C_GOLD_DIM, 12);
     lv_obj_set_style_shadow_color(reel->cell, lv_color_hex(C_CYAN), 0);
     lv_obj_set_style_shadow_opa(reel->cell, LV_OPA_20, 0);
     lv_obj_set_style_shadow_width(reel->cell, 8, 0);
@@ -572,87 +417,536 @@ static void build_reel(reel_view_t *reel, int x, uint8_t initial)
     render_symbol(reel, initial);
 }
 
-static void build_ui(void)
+static void build_slot(void)
 {
-    s_screen = lv_obj_create(NULL);
-    lv_obj_remove_flag(s_screen, LV_OBJ_FLAG_SCROLLABLE);
-    lv_obj_set_style_pad_all(s_screen, 0, 0);
-    lv_obj_set_style_border_width(s_screen, 0, 0);
-    lv_obj_set_style_bg_color(s_screen, lv_color_hex(C_BG), 0);
-    lv_obj_set_style_bg_opa(s_screen, LV_OPA_COVER, 0);
-
-    lv_obj_t *title = label(s_screen, "NEON JACKPOT", &lv_font_montserrat_20, C_GOLD);
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 10);
-
-    lv_obj_t *accent_l = box(s_screen, 14, 34, 63, 2, C_MAGENTA, C_MAGENTA, 0);
-    lv_obj_t *accent_r = box(s_screen, 163, 34, 63, 2, C_CYAN, C_CYAN, 0);
-    (void)accent_l;
-    (void)accent_r;
-
-    lv_obj_t *credit_pill = box(s_screen, 9, 43, 104, 28, C_PANEL, C_GOLD_DIM, 14);
-    s_credits_label = label(credit_pill, "", &lv_font_montserrat_14, C_TEXT);
-    lv_obj_center(s_credits_label);
-
-    lv_obj_t *bet_pill = box(s_screen, 118, 43, 62, 28, C_PANEL, C_GOLD_DIM, 14);
-    s_bet_label = label(bet_pill, "", &lv_font_montserrat_14, C_GOLD);
-    lv_obj_center(s_bet_label);
-
-    lv_obj_t *sound_pill = box(s_screen, 184, 43, 47, 28, C_PANEL, C_GOLD_DIM, 14);
-    s_sound_label = label(sound_pill, "", &lv_font_montserrat_14, C_MUTED);
-    lv_obj_center(s_sound_label);
-
-    s_machine = box(s_screen, 9, 79, 222, 132, C_PANEL_2, C_GOLD, 18);
-    lv_obj_set_style_border_width(s_machine, 2, 0);
-    lv_obj_set_style_shadow_color(s_machine, lv_color_hex(C_MAGENTA), 0);
-    lv_obj_set_style_shadow_opa(s_machine, LV_OPA_20, 0);
-    lv_obj_set_style_shadow_width(s_machine, 12, 0);
+    build_shell("NEON SLOTS");
+    s_game_frame = box(s_screen, 9, 70, 222, 146, C_PANEL_2, C_GOLD, 18);
+    lv_obj_set_style_border_width(s_game_frame, 2, 0);
+    lv_obj_set_style_shadow_color(s_game_frame, lv_color_hex(C_MAGENTA), 0);
+    lv_obj_set_style_shadow_opa(s_game_frame, LV_OPA_20, 0);
+    lv_obj_set_style_shadow_width(s_game_frame, 12, 0);
 
     build_reel(&s_reels[0], 11, SLOT_CHERRY);
     build_reel(&s_reels[1], 82, SLOT_BAR);
     build_reel(&s_reels[2], 153, SLOT_SEVEN);
 
-    lv_obj_t *payline = box(s_machine, 6, 64, 210, 2, C_MAGENTA, C_MAGENTA, 0);
-    lv_obj_set_style_bg_opa(payline, LV_OPA_50, 0);
+    lv_obj_t *line = box(s_game_frame, 6, 66, 210, 2, C_MAGENTA, C_MAGENTA, 0);
+    lv_obj_set_style_bg_opa(line, LV_OPA_50, 0);
+    set_game_footer("PRESS OK TO SPIN");
+    refresh_hint();
+}
 
-    s_message_label = label(s_screen, "READY", &lv_font_montserrat_20, C_TEXT);
-    lv_obj_set_width(s_message_label, 220);
-    lv_obj_set_style_text_align(s_message_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(s_message_label, LV_ALIGN_TOP_MID, 0, 220);
+static void build_roulette(void)
+{
+    static const int8_t lamp_xy[LAMP_COUNT][2] = {
+        {104, 7}, {132, 13}, {153, 29}, {161, 52},
+        {153, 77}, {132, 94}, {104, 100}, {76, 94},
+        {55, 77}, {47, 52}, {55, 29}, {76, 13},
+        {91, 10}, {145, 39}, {118, 96}, {60, 62},
+    };
 
-    s_submessage_label = label(s_screen, "UP/DOWN BET · OK SPIN", &lv_font_montserrat_14, C_MUTED);
-    lv_obj_set_width(s_submessage_label, 220);
-    lv_obj_set_style_text_align(s_submessage_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(s_submessage_label, LV_ALIGN_TOP_MID, 0, 247);
+    build_shell("ROULETTE FLOW");
+    s_game_frame = box(s_screen, 31, 57, 178, 166, C_PANEL_2, C_GOLD, 22);
+    lv_obj_set_style_border_width(s_game_frame, 2, 0);
 
-    lv_obj_t *hint = label(s_screen, "HOLD UP MAX · HOLD DN SOUND · HOLD OK STATS",
-                           &lv_font_montserrat_14, C_MUTED);
-    lv_obj_set_width(hint, 220);
-    lv_label_set_long_mode(hint, LV_LABEL_LONG_WRAP);
-    lv_obj_set_style_text_align(hint, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(hint, LV_ALIGN_BOTTOM_MID, 0, -20);
+    lv_obj_t *wheel = box(s_game_frame, 34, 12, 110, 110, 0x101521, C_GOLD_DIM, LV_RADIUS_CIRCLE);
+    lv_obj_set_style_border_width(wheel, 4, 0);
+    lv_obj_t *inner = box(wheel, 22, 22, 66, 66, 0x071019, C_GREEN, LV_RADIUS_CIRCLE);
+    lv_obj_set_style_border_width(inner, 2, 0);
 
-    s_battery_label = label(s_screen, "BAT --", &lv_font_montserrat_14, C_MUTED);
-    lv_obj_align(s_battery_label, LV_ALIGN_BOTTOM_RIGHT, -12, -4);
+    for (int i = 0; i < LAMP_COUNT; ++i) {
+        s_wheel_lamps[i] = box(s_game_frame, lamp_xy[i][0], lamp_xy[i][1], 10, 10,
+                               (i & 1) ? C_INK : C_RED, C_GOLD_DIM, LV_RADIUS_CIRCLE);
+    }
 
-    s_stats_panel = box(s_screen, 22, 70, 196, 192, C_PANEL, C_GOLD, 18);
-    lv_obj_set_style_border_width(s_stats_panel, 2, 0);
-    s_stats_label = label(s_stats_panel, "", &lv_font_montserrat_14, C_TEXT);
-    lv_obj_set_width(s_stats_label, 164);
-    lv_obj_set_style_text_align(s_stats_label, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_center(s_stats_label);
-    visible(s_stats_panel, false);
+    s_roulette_number = label(inner, "0", &lv_font_montserrat_20, C_TEXT);
+    lv_obj_center(s_roulette_number);
+    s_roulette_color = label(s_game_frame, "GREEN", &lv_font_montserrat_14, C_GREEN);
+    lv_obj_align(s_roulette_color, LV_ALIGN_BOTTOM_MID, 0, -13);
 
-    update_header();
-    update_stats_panel();
-    s_spin_timer = lv_timer_create(spin_timer, 40, NULL);
-    lv_screen_load(s_screen);
+    set_game_footer("PRESS OK TO SPIN");
+    refresh_hint();
+}
+
+static void set_die(die_view_t *die, uint8_t value)
+{
+    static const bool map[6][7] = {
+        {0,0,0,1,0,0,0},
+        {1,0,0,0,0,0,1},
+        {1,0,0,1,0,0,1},
+        {1,0,1,0,1,0,1},
+        {1,0,1,1,1,0,1},
+        {1,1,1,0,1,1,1},
+    };
+    if (value < 1 || value > 6) value = 1;
+    for (int i = 0; i < 7; ++i) visible(die->pips[i], map[value - 1][i]);
+}
+
+static void build_die(die_view_t *die, int x)
+{
+    static const uint8_t pip_xy[7][2] = {
+        {13,13}, {36,13}, {13,36}, {36,36}, {13,59}, {36,59}, {59,59},
+    };
+    die->body = box(s_game_frame, x, 27, 82, 82, C_REEL, C_GOLD_DIM, 15);
+    for (int i = 0; i < 7; ++i) {
+        int px = pip_xy[i][0];
+        int py = pip_xy[i][1];
+        if (i == 3) { px = 36; py = 36; }
+        if (i == 4) { px = 13; py = 59; }
+        if (i == 5) { px = 36; py = 59; }
+        if (i == 6) { px = 59; py = 59; }
+        die->pips[i] = box(die->body, px - 5, py - 5, 11, 11, C_INK, C_INK, LV_RADIUS_CIRCLE);
+    }
+    set_die(die, 1);
+}
+
+static void build_dice(void)
+{
+    build_shell("DICE BOUNCE");
+    s_game_frame = box(s_screen, 18, 66, 204, 151, C_PANEL_2, C_CYAN, 20);
+    lv_obj_set_style_border_width(s_game_frame, 2, 0);
+    build_die(&s_dice[0], 15);
+    build_die(&s_dice[1], 107);
+    set_game_footer("PRESS OK TO ROLL");
+    refresh_hint();
+}
+
+static void build_plinko(void)
+{
+    build_shell("PLINKO DROP");
+    s_game_frame = box(s_screen, 16, 52, 208, 176, C_PANEL_2, C_CYAN, 18);
+    lv_obj_set_style_border_width(s_game_frame, 2, 0);
+
+    int peg_index = 0;
+    for (int row = 0; row < PLINKO_ROWS; ++row) {
+        int count = row + 1;
+        int spacing = 19;
+        int start_x = 104 - (count - 1) * spacing / 2;
+        int y = 16 + row * 16;
+        for (int col = 0; col < count && peg_index < PLINKO_PEGS; ++col) {
+            lv_obj_t *peg = box(s_game_frame, start_x + col * spacing - 3, y, 7, 7,
+                                (row & 1) ? C_GOLD : C_CYAN,
+                                C_GOLD, LV_RADIUS_CIRCLE);
+            (void)peg;
+            ++peg_index;
+        }
+    }
+
+    for (int i = 0; i <= PLINKO_ROWS; ++i) {
+        int x = 14 + i * 20;
+        s_plinko_bins[i] = box(s_game_frame, x, 148, 18, 19, C_PANEL, C_GOLD_DIM, 4);
+    }
+
+    s_plinko_ball = box(s_game_frame, 100, 5, 11, 11, C_MAGENTA, C_TEXT, LV_RADIUS_CIRCLE);
+    lv_obj_set_style_border_width(s_plinko_ball, 2, 0);
+    set_game_footer("PRESS OK TO DROP");
+    refresh_hint();
+}
+
+static void home_card(int index, int x, int y, const char *name, const char *tag)
+{
+    bool selected = index == s_home_index;
+    lv_obj_t *card = box(s_screen, x, y, 102, 82,
+                         selected ? C_PANEL_2 : C_PANEL,
+                         selected ? C_GOLD : 0x29314F, 14);
+    lv_obj_set_style_border_width(card, selected ? 2 : 1, 0);
+    if (selected) {
+        lv_obj_set_style_shadow_color(card, lv_color_hex(index & 1 ? C_CYAN : C_MAGENTA), 0);
+        lv_obj_set_style_shadow_opa(card, LV_OPA_30, 0);
+        lv_obj_set_style_shadow_width(card, 10, 0);
+    }
+
+    lv_obj_t *number = label(card, index == 0 ? "777" :
+                             index == 1 ? "00" :
+                             index == 2 ? "6x" : "o", &lv_font_montserrat_20,
+                             selected ? C_GOLD : C_MUTED);
+    lv_obj_align(number, LV_ALIGN_TOP_MID, 0, 8);
+    lv_obj_t *name_label = label(card, name, &lv_font_montserrat_14, C_TEXT);
+    lv_obj_align(name_label, LV_ALIGN_CENTER, 0, 9);
+    lv_obj_t *tag_label = label(card, tag, &lv_font_montserrat_14, C_MUTED);
+    lv_obj_align(tag_label, LV_ALIGN_BOTTOM_MID, 0, -7);
+}
+
+static void build_home(void)
+{
+    build_shell("ODDS ARCADE");
+    lv_obj_t *sub = label(s_screen, "PURE CHANCE · ZERO STAKES", &lv_font_montserrat_14, C_MUTED);
+    lv_obj_align(sub, LV_ALIGN_TOP_MID, 0, 43);
+
+    home_card(0, 13, 69, "SLOTS", "SPIN");
+    home_card(1, 125, 69, "ROULETTE", "FLOW");
+    home_card(2, 13, 161, "DICE", "BOUNCE");
+    home_card(3, 125, 161, "PLINKO", "DROP");
+
+    s_status = label(s_screen, "UP/DOWN SELECT · OK ENTER", &lv_font_montserrat_14, C_GOLD);
+    lv_obj_set_width(s_status, 220);
+    lv_obj_set_style_text_align(s_status, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(s_status, LV_ALIGN_BOTTOM_MID, 0, -33);
+
+    s_hint = label(s_screen, s_sound ? "SOUND ON" : "MUTE", &lv_font_montserrat_14, C_MUTED);
+    lv_obj_align(s_hint, LV_ALIGN_BOTTOM_LEFT, 11, -5);
+}
+
+static void load_page(page_t page)
+{
+    s_page = page;
+    s_busy = false;
+    s_auto = false;
+    s_flash_until = 0;
+    s_next_auto = 0;
+    switch (page) {
+    case PAGE_SLOT: build_slot(); break;
+    case PAGE_ROULETTE: build_roulette(); break;
+    case PAGE_DICE: build_dice(); break;
+    case PAGE_PLINKO: build_plinko(); break;
+    case PAGE_HOME:
+    default: build_home(); break;
+    }
+}
+
+static void finish_action(const char *message, bool special)
+{
+    s_busy = false;
+    lv_label_set_text(s_status, message);
+    if (special) {
+        flash_machine(900);
+        sfx(SFX_SPECIAL);
+    } else {
+        sfx(SFX_STOP);
+    }
+    if (s_auto) s_next_auto = lv_tick_get() + speed_duration(850, 550, 260);
+}
+
+static void start_slot(void)
+{
+    s_slot_result = slot_make_result(esp_random(), esp_random(), esp_random());
+    for (int i = 0; i < 3; ++i) s_reels[i].stopped = false;
+    s_busy = true;
+    s_started = lv_tick_get();
+    lv_label_set_text(s_status, "SPINNING...");
+    sfx(SFX_START);
+}
+
+static void animate_slot(uint32_t elapsed)
+{
+    static const uint32_t chill_stop[3] = {1000, 1320, 1640};
+    static const uint32_t normal_stop[3] = {720, 940, 1180};
+    static const uint32_t turbo_stop[3] = {430, 580, 740};
+    const uint32_t *stops = s_speed == 0 ? chill_stop : (s_speed == 2 ? turbo_stop : normal_stop);
+    uint32_t frame = speed_duration(72, 52, 34);
+
+    for (int i = 0; i < 3; ++i) {
+        if (elapsed < stops[i]) {
+            uint8_t rolling = (uint8_t)((elapsed / frame + (uint32_t)i * 2u) % SLOT_SYMBOL_COUNT);
+            render_symbol(&s_reels[i], rolling);
+            lv_obj_set_style_border_color(s_reels[i].cell, lv_color_hex(C_CYAN), 0);
+        } else {
+            render_symbol(&s_reels[i], s_slot_result.reels[i]);
+            lv_obj_set_style_border_color(s_reels[i].cell, lv_color_hex(C_GOLD_DIM), 0);
+            if (!s_reels[i].stopped) {
+                s_reels[i].stopped = true;
+                sfx(SFX_STOP);
+            }
+        }
+    }
+
+    if (elapsed >= stops[2]) {
+        if (chance_is_triple(s_slot_result.reels)) {
+            finish_action("PERFECT MATCH", true);
+        } else if (chance_is_pair(s_slot_result.reels)) {
+            finish_action("NICE PAIR", false);
+            sfx(SFX_PAIR);
+        } else {
+            finish_action("SATISFYING.", false);
+        }
+    }
+}
+
+static void roulette_show_result(chance_roulette_result_t result)
+{
+    lv_label_set_text_fmt(s_roulette_number, "%u", (unsigned)result.number);
+    const char *name = result.color == CHANCE_RED ? "RED" :
+                       result.color == CHANCE_BLACK ? "BLACK" : "GREEN";
+    uint32_t color = result.color == CHANCE_RED ? C_RED :
+                     result.color == CHANCE_BLACK ? C_TEXT : C_GREEN;
+    lv_label_set_text(s_roulette_color, name);
+    lv_obj_set_style_text_color(s_roulette_color, lv_color_hex(color), 0);
+}
+
+static void start_roulette(void)
+{
+    s_roulette_result = chance_roulette(esp_random());
+    s_roulette_pos = 0;
+    s_busy = true;
+    s_started = lv_tick_get();
+    lv_label_set_text(s_status, "WHEEL SPINNING...");
+    sfx(SFX_START);
+}
+
+static void animate_roulette(uint32_t elapsed)
+{
+    uint32_t duration = speed_duration(2100, 1500, 900);
+    uint32_t base_step = speed_duration(80, 62, 42);
+    uint32_t step = base_step + (elapsed * 90u / duration);
+    uint8_t pos = (uint8_t)((elapsed / step) % LAMP_COUNT);
+    if (pos != s_roulette_pos) {
+        s_roulette_pos = pos;
+        sfx(SFX_TICK);
+    }
+
+    for (int i = 0; i < LAMP_COUNT; ++i) {
+        uint32_t color = i == pos ? C_GOLD : ((i & 1) ? C_INK : C_RED);
+        lv_obj_set_style_bg_color(s_wheel_lamps[i], lv_color_hex(color), 0);
+    }
+
+    if (elapsed >= duration) {
+        roulette_show_result(s_roulette_result);
+        bool special = s_roulette_result.number == 0;
+        char text[32];
+        const char *name = s_roulette_result.color == CHANCE_RED ? "RED" :
+                           s_roulette_result.color == CHANCE_BLACK ? "BLACK" : "GREEN";
+        snprintf(text, sizeof(text), "%s %u", name, (unsigned)s_roulette_result.number);
+        finish_action(text, special);
+    }
+}
+
+static void start_dice(void)
+{
+    s_die_result[0] = chance_die(esp_random());
+    s_die_result[1] = chance_die(esp_random());
+    s_busy = true;
+    s_started = lv_tick_get();
+    lv_label_set_text(s_status, "SHAKE...");
+    sfx(SFX_START);
+}
+
+static void animate_dice(uint32_t elapsed)
+{
+    uint32_t duration = speed_duration(1050, 760, 480);
+    uint32_t frame = speed_duration(120, 85, 55);
+    uint8_t a = (uint8_t)((elapsed / frame) % 6u) + 1u;
+    uint8_t b = (uint8_t)(((elapsed / frame) + 3u) % 6u) + 1u;
+    set_die(&s_dice[0], a);
+    set_die(&s_dice[1], b);
+
+    int hop = ((elapsed / frame) & 1u) ? -5 : 1;
+    lv_obj_set_y(s_dice[0].body, 27 + hop);
+    lv_obj_set_y(s_dice[1].body, 27 - hop);
+
+    if ((elapsed / frame) != ((elapsed > 35 ? elapsed - 35 : 0) / frame))
+        sfx(SFX_BOUNCE);
+
+    if (elapsed >= duration) {
+        set_die(&s_dice[0], s_die_result[0]);
+        set_die(&s_dice[1], s_die_result[1]);
+        lv_obj_set_y(s_dice[0].body, 27);
+        lv_obj_set_y(s_dice[1].body, 27);
+        char text[32];
+        if (s_die_result[0] == s_die_result[1]) {
+            snprintf(text, sizeof(text), "DOUBLES %u", (unsigned)s_die_result[0]);
+            finish_action(text, true);
+        } else {
+            snprintf(text, sizeof(text), "TOTAL %u",
+                     (unsigned)(s_die_result[0] + s_die_result[1]));
+            finish_action(text, false);
+        }
+    }
+}
+
+static void plinko_set_ball(uint8_t row)
+{
+    int x = 100;
+    int rights = 0;
+    for (uint8_t i = 0; i < row; ++i) rights += (uint8_t)((s_plinko_path >> i) & 1u);
+    x += ((int)rights * 2 - (int)row) * 9;
+    int y = 5 + (int)row * 16;
+    lv_obj_set_pos(s_plinko_ball, x, y);
+}
+
+static void start_plinko(void)
+{
+    uint32_t random = esp_random();
+    s_plinko_path = chance_plinko_path(random, PLINKO_ROWS);
+    s_plinko_bin = chance_plinko_bin(random, PLINKO_ROWS);
+    s_plinko_row = 0;
+    for (int i = 0; i <= PLINKO_ROWS; ++i)
+        lv_obj_set_style_bg_color(s_plinko_bins[i], lv_color_hex(C_PANEL), 0);
+    plinko_set_ball(0);
+    s_busy = true;
+    s_started = lv_tick_get();
+    lv_label_set_text(s_status, "DROP...");
+    sfx(SFX_START);
+}
+
+static void animate_plinko(uint32_t elapsed)
+{
+    uint32_t step_ms = speed_duration(180, 130, 82);
+    uint8_t row = (uint8_t)(elapsed / step_ms);
+    if (row > PLINKO_ROWS) row = PLINKO_ROWS;
+    if (row != s_plinko_row) {
+        s_plinko_row = row;
+        plinko_set_ball(row);
+        sfx(SFX_PLINK);
+    }
+
+    if (elapsed >= step_ms * PLINKO_ROWS) {
+        lv_obj_set_style_bg_color(s_plinko_bins[s_plinko_bin], lv_color_hex(C_MAGENTA), 0);
+        char text[32];
+        if (s_plinko_bin == PLINKO_ROWS / 2) {
+            snprintf(text, sizeof(text), "CENTER DROP");
+            finish_action(text, true);
+        } else {
+            snprintf(text, sizeof(text), "LANDED %u/%u",
+                     (unsigned)(s_plinko_bin + 1), (unsigned)(PLINKO_ROWS + 1));
+            finish_action(text, false);
+        }
+    }
+}
+
+static void start_current_game(void)
+{
+    if (s_busy || s_page == PAGE_HOME) return;
+    switch (s_page) {
+    case PAGE_SLOT: start_slot(); break;
+    case PAGE_ROULETTE: start_roulette(); break;
+    case PAGE_DICE: start_dice(); break;
+    case PAGE_PLINKO: start_plinko(); break;
+    default: break;
+    }
+}
+
+static void animate_timer(lv_timer_t *timer)
+{
+    (void)timer;
+    uint32_t now = lv_tick_get();
+
+    if (s_accent_left && s_accent_right) {
+        bool pulse = ((now / 320u) & 1u) != 0;
+        lv_obj_set_style_bg_color(s_accent_left, lv_color_hex(pulse ? C_MAGENTA : C_GOLD_DIM), 0);
+        lv_obj_set_style_bg_color(s_accent_right, lv_color_hex(pulse ? C_CYAN : C_GOLD_DIM), 0);
+    }
+
+    if (s_flash_until != 0 && s_game_frame) {
+        bool active = (int32_t)(s_flash_until - now) > 0;
+        lv_obj_set_style_border_color(s_game_frame,
+            lv_color_hex(active && ((now / 90u) & 1u) ? C_MAGENTA : C_GOLD), 0);
+        if (!active) s_flash_until = 0;
+    }
+
+    if (s_busy) {
+        uint32_t elapsed = lv_tick_elaps(s_started);
+        switch (s_page) {
+        case PAGE_SLOT: animate_slot(elapsed); break;
+        case PAGE_ROULETTE: animate_roulette(elapsed); break;
+        case PAGE_DICE: animate_dice(elapsed); break;
+        case PAGE_PLINKO: animate_plinko(elapsed); break;
+        default: break;
+        }
+    } else if (s_auto && s_page != PAGE_HOME && s_next_auto != 0 &&
+               (int32_t)(now - s_next_auto) >= 0) {
+        s_next_auto = 0;
+        start_current_game();
+    }
+}
+
+static void enter_selected(void)
+{
+    static const page_t pages[4] = { PAGE_SLOT, PAGE_ROULETTE, PAGE_DICE, PAGE_PLINKO };
+    load_page(pages[s_home_index]);
+    sfx(SFX_UI);
+}
+
+static void handle_input(const input_event_t *input)
+{
+    if (s_page == PAGE_HOME) {
+        if (input->event == BSP_BTN_CLICK) {
+            if (input->button == BSP_BTN_UP)
+                s_home_index = (uint8_t)((s_home_index + 3u) % 4u);
+            else if (input->button == BSP_BTN_DOWN)
+                s_home_index = (uint8_t)((s_home_index + 1u) % 4u);
+            else if (input->button == BSP_BTN_OK) {
+                enter_selected();
+                return;
+            }
+            build_home();
+            sfx(SFX_UI);
+        } else if (input->event == BSP_BTN_LONG && input->button == BSP_BTN_DOWN) {
+            s_sound = !s_sound;
+            build_home();
+            if (s_sound) sfx(SFX_UI);
+        }
+        return;
+    }
+
+    if (input->event == BSP_BTN_LONG) {
+        if (input->button == BSP_BTN_OK) {
+            load_page(PAGE_HOME);
+            sfx(SFX_UI);
+            return;
+        }
+        if (input->button == BSP_BTN_UP) {
+            s_auto = !s_auto;
+            if (s_auto && !s_busy) s_next_auto = lv_tick_get() + 250;
+            else if (!s_auto) s_next_auto = 0;
+            refresh_hint();
+            sfx(SFX_UI);
+        } else if (input->button == BSP_BTN_DOWN) {
+            s_sound = !s_sound;
+            refresh_hint();
+            if (s_sound) sfx(SFX_UI);
+        }
+        return;
+    }
+
+    if (input->event != BSP_BTN_CLICK) return;
+    if (input->button == BSP_BTN_OK) {
+        start_current_game();
+    } else if (input->button == BSP_BTN_UP && !s_busy) {
+        s_speed = (uint8_t)((s_speed + 1u) % 3u);
+        refresh_hint();
+        sfx(SFX_UI);
+    } else if (input->button == BSP_BTN_DOWN) {
+        s_sound = !s_sound;
+        refresh_hint();
+        if (s_sound) sfx(SFX_UI);
+    }
+}
+
+static void input_task(void *arg)
+{
+    (void)arg;
+    int64_t battery_due = 0;
+    for (;;) {
+        input_event_t input;
+        if (xQueueReceive(s_input_queue, &input, pdMS_TO_TICKS(60)) == pdTRUE) {
+            if (bsp_lvgl_lock(300)) {
+                handle_input(&input);
+                bsp_lvgl_unlock();
+            }
+        }
+
+        int64_t now = (int64_t)lv_tick_get();
+        if (now >= battery_due) {
+            battery_due = now + 30000;
+            if (bsp_lvgl_lock(250)) {
+                update_battery_unlocked();
+                bsp_lvgl_unlock();
+            }
+        }
+    }
+}
+
+static void on_button(bsp_btn_t button, bsp_btn_ev_t event, void *user)
+{
+    (void)user;
+    if (!s_input_ready || !s_input_queue) return;
+    input_event_t input = { .button = button, .event = event };
+    (void)xQueueSend(s_input_queue, &input, 0);
 }
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "Neon Jackpot starting");
-
-    store_init();
+    ESP_LOGI(TAG, "Odds Arcade starting");
 
     if (bsp_display_init() != ESP_OK || !bsp_lvgl_init()) {
         ESP_LOGE(TAG, "display/LVGL initialization failed");
@@ -670,7 +964,7 @@ void app_main(void)
 
     if (bsp_audio_init() == ESP_OK && s_audio_queue) {
         s_audio_ready = true;
-        if (xTaskCreate(audio_task, "slot_audio", 4096, NULL, 4, NULL) != pdPASS)
+        if (xTaskCreate(audio_task, "arcade_audio", 4096, NULL, 4, NULL) != pdPASS)
             s_audio_ready = false;
     }
 
@@ -678,23 +972,26 @@ void app_main(void)
         ESP_LOGE(TAG, "cannot lock LVGL");
         return;
     }
-    build_ui();
+    s_screen = lv_obj_create(NULL);
+    lv_obj_remove_flag(s_screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_pad_all(s_screen, 0, 0);
+    lv_obj_set_style_border_width(s_screen, 0, 0);
+    lv_obj_set_style_bg_color(s_screen, lv_color_hex(C_BG), 0);
+    lv_obj_set_style_bg_opa(s_screen, LV_OPA_COVER, 0);
+    lv_screen_load(s_screen);
+    build_home();
+    s_anim_timer = lv_timer_create(animate_timer, 32, NULL);
     bsp_lvgl_unlock();
 
     if (bsp_button_init(on_button, NULL) != ESP_OK) {
         ESP_LOGE(TAG, "button initialization failed");
         return;
     }
-
-    if (xTaskCreate(input_task, "slot_input", 4096, NULL, 5, NULL) != pdPASS) {
+    if (xTaskCreate(input_task, "arcade_input", 4096, NULL, 5, NULL) != pdPASS) {
         ESP_LOGE(TAG, "input task allocation failed");
         return;
     }
 
     s_input_ready = true;
-    update_battery();
-    ESP_LOGI(TAG, "Neon Jackpot ready: credits=%lu bet=%lu sound=%u",
-             (unsigned long)s_store.credits,
-             (unsigned long)s_store.bet,
-             (unsigned)s_store.sound_enabled);
+    ESP_LOGI(TAG, "Odds Arcade ready: slots roulette dice plinko");
 }
