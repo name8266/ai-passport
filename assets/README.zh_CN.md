@@ -39,3 +39,13 @@
 - 与当前 BSP 音频路径匹配时优先采用 16 kHz、16 位单声道 PCM。
 - 嵌入音频前评估 Flash 与内部 RAM 成本；长录音应流式或分块。
 - 无再分发许可不提交媒体文件。
+
+### 游乐场中文界面字体
+
+`fonts/NotoSansCJKsc-Arcade.otf` 是 [Noto Sans CJK SC Regular](https://github.com/notofonts/noto-cjk/blob/main/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf) 的子集，采用 SIL OFL 1.1 许可（保留在 `fonts/OFL.txt`）。包含可打印 ASCII 以及 `fonts/arcade_symbols.txt` 中的固定界面字符。14px/20px、4bpp、未压缩的 `arcade_font_*.c` 由 main 组件编译到 Flash。使用 lv_font_conv 1.5.3，通过 `python3 tools/regenerate_arcade_fonts.py --converter /path/to/lv_font_conv` 重新生成。增加字符前，须从上游字体重新构建 OTF 子集。启动时检查两种字号及一个已知缺失字符的负例。
+
+### 经典老虎机卷带图案
+
+`images/slot-classic-atlas.png` 是 2026-10-06 使用内置图像生成工具为本应用原创制作的 1536×1024 RGBA 六图案素材表。采用机械卷带常见图案：樱桃、柠檬、BAR、金铃铛、紫李子及红色 7；未嵌入第三方图稿或品牌标识。视觉参考包含真实机械卷带，例如 [1938 年 Mills Cherry Bell](https://www.antiguedades.es/es/otros-objetos-antiguos-vendidos/1154-tragaperras-antigua-para-mercado-ingles-del-ano-1938-en-funcionamiento-con-peniques-ingleses-para-su-manejo.html)，未复制其图稿。
+
+通过 `python3 tools/convert_slot_symbols.py`（需要 Pillow）重新生成固件素材。转换器裁切六个透明单元、保持图案比例、居中放入经典模式 48×64 或多线模式 32×36 的象牙白底图，并编码为小端 RGB565。`images/slot-*.png` 保留实际尺寸预览，`images/slot-symbols-native.png` 为 288×64 的经典图案总览，`images/slot-symbols-small-native.png` 为 192×36 的多线图案总览。`images/slot_symbols.c` 提供十二个共享 const LVGL 图像描述符，像素共占 Flash 50,688 字节，无逐行像素副本或透明图层。原 `SLOT_GEM` 编号现显示紫李子，符号编号、出现概率及结果逻辑保持一致。`tests/test_slot_symbols.py` 检查尺寸、描述符顺序、数据长度、唯一性、对比度及底图四角。

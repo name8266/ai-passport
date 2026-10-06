@@ -123,8 +123,9 @@ uint16_t rigid_die_step_60hz(rigid_die_t *d)
         }
     }
 
-    const int32_t xlim = 70 << 8;
-    const int32_t zlim = 42 << 8;
+    /* Keep all eight vertices within the elevated-camera canvas. */
+    const int32_t xlim = 55 << 8;
+    const int32_t zlim = 35 << 8;
     if (d->pos_q8.x < -xlim || d->pos_q8.x > xlim) {
         d->pos_q8.x = d->pos_q8.x < 0 ? -xlim : xlim;
         d->vel_q8.x = -d->vel_q8.x * 3 / 5;
@@ -146,9 +147,7 @@ uint16_t rigid_die_step_60hz(rigid_die_t *d)
     int32_t angular = iabs32(d->omega_q10.x) + iabs32(d->omega_q10.y) + iabs32(d->omega_q10.z);
     if (min_y <= (1 << 8) && linear < 42 && angular < 900) {
         if (++d->sleep_ticks > 20) {
-            d->sleeping = true;
-            d->vel_q8 = (t3_vec3_t){0, 0, 0};
-            d->omega_q10 = (t3_vec3_t){0, 0, 0};
+            rigid_die_settle(d);
         }
     } else {
         d->sleep_ticks = 0;
@@ -259,4 +258,24 @@ uint8_t rigid_die_top_face(const rigid_die_t *d)
         }
     }
     return value;
+}
+
+void rigid_die_settle(rigid_die_t *d)
+{
+    if(!d)return;
+    static const t3_vec3_t normals[6]={{0,16384,0},{0,-16384,0},{0,0,-16384},{0,0,16384},{16384,0,0},{-16384,0,0}};
+    t3_vec3_t best={0,0,0};
+    for(int i=0;i<6;i++) {
+        t3_vec3_t n=t3_quat_rotate_q14(d->orientation,normals[i]);
+        if(n.y>best.y)best=n;
+    }
+    t3_quat_t r=t3_quat_normalize((t3_quat_t){16384+best.y,-best.z,0,best.x});
+    t3_quat_t q=d->orientation;
+    d->orientation=t3_quat_normalize((t3_quat_t){
+        (int32_t)(((int64_t)r.w*q.w-(int64_t)r.x*q.x-(int64_t)r.y*q.y-(int64_t)r.z*q.z)/16384),
+        (int32_t)(((int64_t)r.w*q.x+(int64_t)r.x*q.w+(int64_t)r.y*q.z-(int64_t)r.z*q.y)/16384),
+        (int32_t)(((int64_t)r.w*q.y-(int64_t)r.x*q.z+(int64_t)r.y*q.w+(int64_t)r.z*q.x)/16384),
+        (int32_t)(((int64_t)r.w*q.z+(int64_t)r.x*q.y-(int64_t)r.y*q.x+(int64_t)r.z*q.w)/16384)});
+    d->pos_q8.y=RIGID_DIE_HALF_Q8;
+    d->vel_q8=(t3_vec3_t){0,0,0};d->omega_q10=(t3_vec3_t){0,0,0};d->sleeping=true;
 }

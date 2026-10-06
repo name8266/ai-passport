@@ -49,3 +49,5 @@ motion_slot_profile_t motion_slot_profile(uint32_t seed, uint8_t speed, uint8_t 
 motion_die_profile_t motion_die_profile(uint32_t seed, uint8_t die_index, uint8_t speed);
 motion_plinko_profile_t motion_plinko_profile(uint32_t seed, uint8_t speed);
 motion_roulette_profile_t motion_roulette_profile(uint32_t seed, uint8_t speed);
+
+uint32_t motion_reel_position(uint32_t start_q8, uint32_t end_q8, uint32_t elapsed_ms, uint32_t duration_ms);

@@ -30,10 +30,10 @@ typedef struct {
 static const cube_face_t FACES[6] = {
     {{3,7,6,2}, {0,T3_Q14_ONE,0},  {0,12 * 256,0},  {6 * 256,0,0},   {0,0,6 * 256}, 1},
     {{0,1,5,4}, {0,-T3_Q14_ONE,0}, {0,-(12 * 256),0}, {6 * 256,0,0},   {0,0,-(6 * 256)},6},
-    {{0,3,2,1}, {0,0,-T3_Q14_ONE}, {0,0,-(12 * 256)}, {6 * 256,0,0},   {0,6 * 256,0},  2},
-    {{4,5,6,7}, {0,0,T3_Q14_ONE},  {0,0,12 * 256},  {-(6 * 256),0,0},  {0,6 * 256,0},  5},
-    {{1,2,6,5}, {T3_Q14_ONE,0,0},  {12 * 256,0,0},  {0,0,6 * 256},   {0,6 * 256,0},  3},
-    {{0,4,7,3}, {-T3_Q14_ONE,0,0}, {-(12 * 256),0,0}, {0,0,-(6 * 256)},  {0,6 * 256,0},  4},
+    {{0,1,3,2}, {0,0,-T3_Q14_ONE}, {0,0,-(12 * 256)}, {6 * 256,0,0},   {0,6 * 256,0},  2},
+    {{4,5,7,6}, {0,0,T3_Q14_ONE},  {0,0,12 * 256},  {-(6 * 256),0,0},  {0,6 * 256,0},  5},
+    {{1,3,7,5}, {T3_Q14_ONE,0,0},  {12 * 256,0,0},  {0,0,6 * 256},   {0,6 * 256,0},  3},
+    {{0,4,6,2}, {-T3_Q14_ONE,0,0}, {-(12 * 256),0,0}, {0,0,-(6 * 256)},  {0,6 * 256,0},  4},
 };
 
 static uint16_t rgb565(uint32_t rgb)
@@ -158,21 +158,15 @@ static void ellipse(t3d_surface_t *s, int cx, int cy, int rx, int ry, uint16_t c
 
 static screen_vertex_t project(const t3d_surface_t *s, t3_vec3_t p_q8)
 {
-    /* Fixed camera: elevated ~27 degrees and looking toward +Z. */
-    const int32_t cos_q14 = 14582;
-    const int32_t sin_q14 = 7438;
-    int32_t camera_y = (int32_t)(((int64_t)cos_q14 * p_q8.y +
-                                  (int64_t)sin_q14 * p_q8.z) >> 14);
-    int32_t camera_z = (170 << 8) +
-                       (int32_t)(((int64_t)cos_q14 * p_q8.z -
-                                  (int64_t)sin_q14 * p_q8.y) >> 14);
-    if (camera_z < (32 << 8)) camera_z = 32 << 8;
-
-    const int32_t focal = 154;
-    screen_vertex_t out = {
-        .x = (int16_t)(s->width / 2 + (int32_t)((int64_t)p_q8.x * focal / camera_z)),
-        .y = (int16_t)(s->height - 17 - (int32_t)((int64_t)camera_y * focal / camera_z)),
-        .z_q8 = camera_z,
+    /* Elevated camera: 60 degrees down, 30 degree azimuth. Top + two sides remain visible. */
+    int32_t horizontal=(int32_t)(((int64_t)14189*p_q8.x-(int64_t)8192*p_q8.z)/16384);
+    int32_t forward=(int32_t)(((int64_t)8192*p_q8.x+(int64_t)14189*p_q8.z)/16384);
+    int32_t screen_y=(int32_t)((-(int64_t)14189*forward-(int64_t)8192*p_q8.y)/16384);
+    int32_t depth=200*256+(int32_t)(((int64_t)8192*forward-(int64_t)14189*p_q8.y)/16384);
+    screen_vertex_t out={
+        .x=(int16_t)(s->width/2+horizontal*11/(10*256)),
+        .y=(int16_t)(s->height/2+8+screen_y*11/(10*256)),
+        .z_q8=depth,
     };
     return out;
 }
@@ -191,7 +185,7 @@ static t3_vec3_t local_vertex(int index)
 static int32_t face_light(t3_vec3_t n, int32_t *spec_out)
 {
     /* Surface-to-light: upper-left/front, ~45 degree elevation. */
-    const t3_vec3_t light = {-8192, 11585, -8192};
+    const t3_vec3_t light = {-10000, 12500, -2600};
     const t3_vec3_t halfv = {-4374, 10118, -12150};
     int32_t diffuse = t3_dot_q14(n, light);
     if (diffuse < 0) diffuse = 0;
@@ -202,7 +196,7 @@ static int32_t face_light(t3_vec3_t n, int32_t *spec_out)
     int32_t s4 = (int32_t)((int64_t)s2 * s2 >> 14);
     *spec_out = s4 * 88 / T3_Q14_ONE;
 
-    return 54 + diffuse * 168 / T3_Q14_ONE;
+    return 95 + diffuse * 145 / T3_Q14_ONE;
 }
 
 static void render_shadow(t3d_surface_t *s, const rigid_die_t *d)
@@ -267,7 +261,7 @@ static void render_die(t3d_surface_t *s, const rigid_die_t *d)
     }
 
     /* Camera-facing direction in world space. */
-    const t3_vec3_t view = {0, 7438, -14582};
+    const t3_vec3_t view = {-4096, 14189, -7094};
     visible_face_t visible_faces[6];
     int count = 0;
     for (int f = 0; f < 6; ++f) {
@@ -312,43 +306,102 @@ static void render_die(t3d_surface_t *s, const rigid_die_t *d)
         line(s, c.x, c.y, d4.x, d4.y, edge_color);
         line(s, d4.x, d4.y, a.x, a.y, edge_color);
 
-        int radius = visible_faces[i].depth < (150 << 8) ? 2 : 1;
+        /* Side faces are foreshortened; smaller pips stay separate. */
+        int radius = visible_faces[i].world_normal_q14.y > 10000 ? 2 : 1;
         render_face_pips(s, d, face, radius);
     }
 }
 
 static void render_floor(t3d_surface_t *s)
 {
-    uint16_t floor_color = rgb565(C_FLOOR);
-    uint16_t grid_color = rgb565(C_GRID);
-    int horizon = s->height - 37;
-    for (int y = horizon; y < s->height; ++y) {
-        uint16_t *row = s->pixels + y * s->stride;
-        for (int x = 0; x < s->width; ++x) row[x] = floor_color;
+    t3d_surface_clear(s, 0x123D32);
+    uint16_t trim=rgb565(0xB59B65);
+    for(int i=0;i<2;i++) {
+        line(s,3+i,3+i,s->width-4-i,3+i,trim);
+        line(s,3+i,s->height-4-i,s->width-4-i,s->height-4-i,trim);
+        line(s,3+i,3+i,3+i,s->height-4-i,trim);
+        line(s,s->width-4-i,3+i,s->width-4-i,s->height-4-i,trim);
     }
-    line(s, 0, horizon, s->width - 1, horizon, grid_color);
-    for (int y = horizon + 12; y < s->height; y += 12)
-        line(s, 0, y, s->width - 1, y, grid_color);
-    for (int x = 12; x < s->width; x += 24)
-        line(s, s->width / 2, horizon, x, s->height - 1, grid_color);
+}
+void t3d_render_dice_count(t3d_surface_t *s,const rigid_die_t *dice,uint8_t count)
+{
+    if(!s||!s->pixels||!dice)return;
+    if(count>6)count=6;
+    render_floor(s);
+    uint8_t order[6];
+    for(uint8_t i=0;i<count;i++){ order[i]=i;render_shadow(s,&dice[i]); }
+    for(uint8_t i=0;i<count;i++)for(uint8_t j=i+1;j<count;j++)
+        if(project(s,dice[order[j]].pos_q8).z_q8>project(s,dice[order[i]].pos_q8).z_q8) {
+            uint8_t tmp=order[i];order[i]=order[j];order[j]=tmp;
+        }
+    for(uint8_t i=0;i<count;i++)render_die(s,&dice[order[i]]);
+}
+void t3d_render_dice_scene(t3d_surface_t *s,const rigid_die_t dice[2]) {
+    t3d_render_dice_count(s,dice,2);
 }
 
-void t3d_render_dice_scene(t3d_surface_t *s, const rigid_die_t dice[2])
-{
-    if (!s || !s->pixels || !dice) return;
-    t3d_surface_clear(s, C_SCENE_BG);
-    render_floor(s);
-    render_shadow(s, &dice[0]);
-    render_shadow(s, &dice[1]);
-
-    /* Draw farther body first using center camera depth. */
-    screen_vertex_t p0 = project(s, dice[0].pos_q8);
-    screen_vertex_t p1 = project(s, dice[1].pos_q8);
-    if (p0.z_q8 > p1.z_q8) {
-        render_die(s, &dice[0]);
-        render_die(s, &dice[1]);
-    } else {
-        render_die(s, &dice[1]);
-        render_die(s, &dice[0]);
+static const uint8_t WHEEL[37]={0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26};
+uint8_t t3d_roulette_number(uint8_t pocket){return WHEEL[pocket%37];}
+static int32_t sin_q10(int32_t angle) {
+    angle%=3600;if(angle<0)angle+=3600;
+    int sign=angle>1800?-1:1; if(angle>1800)angle-=1800;
+    int64_t p=(int64_t)angle*(1800-angle);
+    return (int32_t)(sign*4*p*1024/(4050000-p));
+}
+static screen_vertex_t polar(t3d_surface_t *s,int angle,int radius) {
+    screen_vertex_t p={.x=(int16_t)(s->width/2+sin_q10(angle+900)*radius/1024),
+        .y=(int16_t)(s->height/2+sin_q10(angle)*radius*84/(1024*100)),.z_q8=0};return p;
+}
+static const uint16_t DIGITS[10]={0x7B6F,0x2492,0x73E7,0x73CF,0x5BC9,0x79CF,0x79EF,0x7249,0x7BEF,0x7BCF};
+static void digit(t3d_surface_t *s,int x,int y,int n,uint16_t color) {
+    uint16_t bits=DIGITS[n%10];for(int r=0;r<5;r++)for(int c=0;c<3;c++)
+        if(bits&(1u<<(14-r*3-c)))px(s,x+c,y+r,color);
+}
+void t3d_render_roulette(t3d_surface_t *s,int32_t wheel_angle,int32_t ball_angle,int ball_radius) {
+    if(!s||!s->pixels)return;
+    t3d_surface_clear(s,0x153A30);
+    int cx=s->width/2,cy=s->height/2;
+    ellipse(s,cx+2,cy+4,96,80,rgb565(0x07160F));
+    ellipse(s,cx,cy,95,79,rgb565(0xA67B43));
+    ellipse(s,cx,cy,91,76,rgb565(0xF0D290));
+    ellipse(s,cx,cy,88,74,rgb565(0x291B10));
+    ellipse(s,cx,cy,82,69,rgb565(0x97653A));
+    for(int i=0;i<37;i++) {
+        int a=wheel_angle+i*3600/37,b=wheel_angle+(i+1)*3600/37;
+        screen_vertex_t p0=polar(s,a,80),p1=polar(s,b,80),p2=polar(s,b,54),p3=polar(s,a,54);
+        uint16_t fill=rgb565(i==0?0x108950:(i&1)?0xB52639:0x151A1D);
+        triangle(s,p0,p1,p2,fill);triangle(s,p0,p2,p3,fill);
+        line(s,p0.x,p0.y,p3.x,p3.y,rgb565(0xC7A35F));
+        screen_vertex_t p=polar(s,(a+b)/2,71);
+        int number=WHEEL[i];int left=p.x-(number>=10?3:1);
+        if(number>=10)digit(s,left,p.y-2,number/10,rgb565(0xFFF5D9));
+        digit(s,left+(number>=10?4:0),p.y-2,number%10,rgb565(0xFFF5D9));
     }
+    ellipse(s,cx,cy,52,44,rgb565(0xC5A764));
+    ellipse(s,cx,cy,49,41,rgb565(0x5C3920));
+    ellipse(s,cx,cy,36,30,rgb565(0x8C5A31));
+    for(int i=0;i<8;i++) {
+        screen_vertex_t a=polar(s,wheel_angle+i*450,14),b=polar(s,wheel_angle+i*450,46);
+        line(s,a.x,a.y,b.x,b.y,rgb565(0xD4B273));
+    }
+    ellipse(s,cx,cy,13,11,rgb565(0xDEBD74));
+    ellipse(s,cx-2,cy-3,6,4,rgb565(0xFFF0BF));
+    screen_vertex_t ball=polar(s,ball_angle,ball_radius);
+    circle(s,ball.x+1,ball.y+2,4,rgb565(0x090C09));
+    circle(s,ball.x,ball.y,3,rgb565(0xF2ECDD));
+    circle(s,ball.x-1,ball.y-1,1,rgb565(0xFFFFFF));
+}
+
+bool t3d_cube_mesh_valid(void) {
+    for(int f=0;f<6;f++) {
+        const cube_face_t *face=&FACES[f];
+        for(int k=0;k<4;k++) {
+            t3_vec3_t a=local_vertex(face->v[k]),b=local_vertex(face->v[(k+1)%4]);
+            int64_t plane=(int64_t)a.x*face->normal_q14.x+(int64_t)a.y*face->normal_q14.y+(int64_t)a.z*face->normal_q14.z;
+            if(plane!=(int64_t)RIGID_DIE_HALF_Q8*16384)return false;
+            int32_t dx=a.x-b.x,dy=a.y-b.y,dz=a.z-b.z;
+            if((int64_t)dx*dx+(int64_t)dy*dy+(int64_t)dz*dz!=(int64_t)4*RIGID_DIE_HALF_Q8*RIGID_DIE_HALF_Q8)return false;
+        }
+    }
+    return true;
 }

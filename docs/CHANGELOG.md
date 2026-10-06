@@ -10,6 +10,11 @@
 > with `CHANGELOG.zh_CN.md`. The entries currently under `Unreleased` are pending
 > review for the next release; they are not a finalized release history.
 
+## 2026-10-07 — Neon Arcade
+
+- Released Chinese arcade UI and perimeter neon effects; classic symbol artwork and continuous reels; configurable five-column multiline slots with round and separate cumulative points; traditional roulette; 1–6 overhead dice; simultaneous 1–10 ball Plinko; seven settings including optional FPS display.
+- Published operating instructions and simulated game illustrations; retained exact verified firmware identity and documented manual acceptance limits.
+
 ## Unreleased
 
 - Added the supplied 80-byte CW2017 profile for the specified 520 mAh cell, including content/update-flag checks, verified writes, the required restart sequence, and bounded SOC-readiness polling.

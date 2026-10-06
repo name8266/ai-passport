@@ -100,3 +100,15 @@ motion_roulette_profile_t motion_roulette_profile(uint32_t seed, uint8_t speed)
     };
     return p;
 }
+
+uint32_t motion_reel_position(uint32_t start, uint32_t end, uint32_t elapsed, uint32_t duration)
+{
+    if(!duration || elapsed>=duration)return end;
+    uint64_t t=(uint64_t)elapsed*65536/duration, displacement;
+    const uint64_t a=6553,b=22937,v=104858;
+    if(t<a)displacement=v*t*t/(2*a*65536);
+    else if(t<b)displacement=v*(t-a/2)/65536;
+    else { uint64_t u=t-b;displacement=v*(b-a/2+u-u*u/(2*(65536-b)))/65536; }
+    if(displacement>65536)displacement=65536;
+    return start+(uint32_t)((uint64_t)(end-start)*displacement/65536);
+}

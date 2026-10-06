@@ -21,3 +21,5 @@ void rigid_die_init(rigid_die_t *die, uint32_t seed, uint8_t index, uint8_t spee
 uint16_t rigid_die_step_60hz(rigid_die_t *die);
 uint16_t rigid_die_pair_step(rigid_die_t *a, rigid_die_t *b);
 uint8_t rigid_die_top_face(const rigid_die_t *die);
+
+void rigid_die_settle(rigid_die_t *die);

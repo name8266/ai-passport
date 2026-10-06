@@ -27,5 +27,14 @@ int main(void)
     assert(q1.duration_ms >= 1550 && q1.duration_ms <= 2500);
     assert(q1.duration_ms != q2.duration_ms ||
            q1.ball_velocity_q8 != q2.ball_velocity_q8);
+    uint32_t last=0;
+    for(uint32_t t=0;t<=2000;t++) {
+        uint32_t p=motion_reel_position(0,42*256,t,2000);
+        assert(p>=last);assert(p<=42*256);assert(p-last<20);
+        last=p;
+    }
+    assert(last==42*256);
+    assert(motion_reel_position(123,999,0,1000)==123);
+    assert(motion_reel_position(123,999,1000,1000)==999);
     return 0;
 }

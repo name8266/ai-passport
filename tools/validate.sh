@@ -17,6 +17,7 @@ run_static_checks() {
     fi
 
     python3 tools/check_repo.py
+    PYTHONDONTWRITEBYTECODE=1 python3 tests/test_slot_symbols.py
 
     actionlint_bin="${ACTIONLINT_BIN:-}"
     if [[ -z "${actionlint_bin}" ]]; then
@@ -33,6 +34,10 @@ run_static_checks() {
         -o "${test_dir}/test_slot_core"
     "${test_dir}/test_slot_core"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_multi_slot_core.c main/multi_slot_core.c main/slot_core.c \
+        -o "${test_dir}/test_multi_slot_core"
+    "${test_dir}/test_multi_slot_core"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
         tests/test_chance_core.c main/chance_core.c \
         -o "${test_dir}/test_chance_core"
     "${test_dir}/test_chance_core"
@@ -40,6 +45,10 @@ run_static_checks() {
         tests/test_motion_core.c main/motion_core.c \
         -o "${test_dir}/test_motion_core"
     "${test_dir}/test_motion_core"
+    cc -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_plinko_core.c main/plinko_core.c main/tiny3d_math.c \
+        -o "${test_dir}/test_plinko_core"
+    "${test_dir}/test_plinko_core"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
         tests/test_light_core.c main/light_core.c \
         -o "${test_dir}/test_light_core"
