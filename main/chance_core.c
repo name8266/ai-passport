@@ -28,25 +28,6 @@ chance_roulette_result_t chance_roulette(uint32_t random_value)
     return result;
 }
 
-uint16_t chance_plinko_path(uint32_t random_value, uint8_t rows)
-{
-    if (rows > 15u) rows = 15u;
-    uint16_t mask = 0;
-    for (uint8_t i = 0; i < rows; ++i) {
-        if ((random_value >> (i % 31u)) & 1u) mask |= (uint16_t)(1u << i);
-    }
-    return mask;
-}
-
-uint8_t chance_plinko_bin(uint32_t random_value, uint8_t rows)
-{
-    uint16_t path = chance_plinko_path(random_value, rows);
-    uint8_t rights = 0;
-    for (uint8_t i = 0; i < rows; ++i)
-        rights += (uint8_t)((path >> i) & 1u);
-    return rights;
-}
-
 bool chance_is_triple(const uint8_t reels[3])
 {
     return reels && reels[0] == reels[1] && reels[1] == reels[2];
