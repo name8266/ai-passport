@@ -45,6 +45,18 @@ run_static_checks() {
         -o "${test_dir}/test_light_core"
     "${test_dir}/test_light_core"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_tiny3d_math.c main/tiny3d_math.c \
+        -o "${test_dir}/test_tiny3d_math"
+    "${test_dir}/test_tiny3d_math"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_rigid_body.c main/rigid_body.c main/tiny3d_math.c \
+        -o "${test_dir}/test_rigid_body"
+    "${test_dir}/test_rigid_body"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_tiny3d_render.c main/tiny3d_render.c main/rigid_body.c main/tiny3d_math.c \
+        -o "${test_dir}/test_tiny3d_render"
+    "${test_dir}/test_tiny3d_render"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
         tests/test_ui_pixel_math.c main/ui_pixel_math.c \
         -o "${test_dir}/test_ui_pixel_math"
     "${test_dir}/test_ui_pixel_math"
