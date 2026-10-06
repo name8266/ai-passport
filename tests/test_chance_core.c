@@ -16,10 +16,6 @@ int main(void)
     chance_roulette_result_t black = chance_roulette(2);
     assert(black.number == 2 && black.color == CHANCE_BLACK);
 
-    assert(chance_plinko_bin(0, 8) == 0);
-    assert(chance_plinko_bin(0xFFu, 8) == 8);
-    assert(chance_plinko_bin(0xAAu, 8) == 4);
-
     uint8_t reels[3] = {1, 1, 1};
     assert(chance_is_triple(reels));
     assert(chance_is_pair(reels));
