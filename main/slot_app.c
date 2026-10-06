@@ -607,9 +607,9 @@ static void build_dice(void)
 
     for (int i = 0; i < 2; ++i) {
         rigid_die_init(&s_rigid_dice[i], 0x3D1CEu + (uint32_t)i, (uint8_t)i, 0);
-        s_rigid_dice[i].pos_q8.x = (i ? 29 : -29) << 8;
+        s_rigid_dice[i].pos_q8.x = (i ? 29 : -29) * 256;
         s_rigid_dice[i].pos_q8.y = RIGID_DIE_HALF_Q8;
-        s_rigid_dice[i].pos_q8.z = (i ? 5 : -5) << 8;
+        s_rigid_dice[i].pos_q8.z = (i ? 5 : -5) * 256;
         s_rigid_dice[i].vel_q8 = (t3_vec3_t){0, 0, 0};
         s_rigid_dice[i].omega_q10 = (t3_vec3_t){0, 0, 0};
         s_rigid_dice[i].orientation = t3_quat_identity();
