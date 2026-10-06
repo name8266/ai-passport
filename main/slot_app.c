@@ -506,32 +506,6 @@ static void apply_reel_lighting(reel_view_t *reel, uint32_t phase_q8)
         lv_obj_set_style_bg_opa(reel->shade, (lv_opa_t)(24u + sample.shadow / 4u), 0);
 }
 
-static void apply_die_lighting(die_view_t *die, const die_motion_t *motion)
-{
-    if (!die || !motion || !die->body) return;
-    light_sample_t sample = light_sample_spinner(motion->angle_tenths, 225);
-    uint32_t body = light_shade_rgb(C_REEL, sample, 0);
-    lv_obj_set_style_bg_color(die->body, lv_color_hex(body), 0);
-
-    int x = motion->x_q8 >> 8;
-    int y = motion->y_q8 >> 8;
-    int height = 78 - y;
-    if (height < 0) height = 0;
-    if (height > 78) height = 78;
-
-    if (die->highlight) {
-        lv_obj_set_pos(die->highlight, x + 7, y + 5);
-        lv_obj_set_style_bg_opa(die->highlight,
-            (lv_opa_t)(28u + sample.specular / 2u), 0);
-    }
-    if (die->shadow) {
-        lv_obj_set_pos(die->shadow, x + 7, 136);
-        lv_obj_set_size(die->shadow, 52 + height / 5, 8 + height / 20);
-        lv_obj_set_style_bg_opa(die->shadow,
-            (lv_opa_t)(light_shadow_opacity((uint16_t)height) / 2u), 0);
-    }
-}
-
 static void apply_roulette_lighting(void)
 {
     if (!s_roulette_wheel) return;
@@ -630,6 +604,19 @@ static void build_dice(void)
                          T3D_DICE_CANVAS_W, T3D_DICE_CANVAS_H,
                          LV_COLOR_FORMAT_RGB565);
     lv_obj_set_pos(s_dice_canvas, 12, 10);
+
+    for (int i = 0; i < 2; ++i) {
+        rigid_die_init(&s_rigid_dice[i], 0x3D1CEu + (uint32_t)i, (uint8_t)i, 0);
+        s_rigid_dice[i].pos_q8.x = (i ? 29 : -29) << 8;
+        s_rigid_dice[i].pos_q8.y = RIGID_DIE_HALF_Q8;
+        s_rigid_dice[i].pos_q8.z = (i ? 5 : -5) << 8;
+        s_rigid_dice[i].vel_q8 = (t3_vec3_t){0, 0, 0};
+        s_rigid_dice[i].omega_q10 = (t3_vec3_t){0, 0, 0};
+        s_rigid_dice[i].orientation = t3_quat_identity();
+        s_rigid_dice[i].sleeping = true;
+    }
+    t3d_render_dice_scene(&s_dice_surface, s_rigid_dice);
+    lv_obj_invalidate(s_dice_canvas);
 
     lv_obj_t *badge = label(s_game_frame, "FIXED 60HZ · Q14 LIGHT", &lv_font_montserrat_14, C_MUTED);
     lv_obj_align(badge, LV_ALIGN_BOTTOM_MID, 0, -7);
