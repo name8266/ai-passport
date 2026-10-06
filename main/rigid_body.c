@@ -36,9 +36,9 @@ void rigid_die_init(rigid_die_t *d, uint32_t seed, uint8_t index, uint8_t speed)
     if (speed > 2) speed = 1;
 
     uint32_t s = mix32(seed ^ (0x51ed270bu + (uint32_t)index * 0x68bc21ebu));
-    d->pos_q8.x = (index ? 31 : -31) << 8;
-    d->pos_q8.y = range_s(&s, 45, 62) << 8;
-    d->pos_q8.z = range_s(&s, -13, 13) << 8;
+    d->pos_q8.x = (index ? 31 : -31) * 256;
+    d->pos_q8.y = range_s(&s, 45, 62) * 256;
+    d->pos_q8.z = range_s(&s, -13, 13) * 256;
     d->vel_q8.x = range_s(&s, index ? -95 : 50, index ? -45 : 100);
     d->vel_q8.y = range_s(&s, speed == 0 ? 50 : 70, speed == 2 ? 125 : 105);
     d->vel_q8.z = range_s(&s, -55, 55);
