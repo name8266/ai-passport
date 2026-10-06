@@ -164,6 +164,7 @@ static die_view_t s_dice[2];
 static uint8_t s_die_result[2];
 static die_motion_t s_die_motion[2];
 static uint32_t s_dice_deadline;
+static uint8_t s_dice_pair_cooldown;
 
 /* plinko */
 static lv_obj_t *s_plinko_ball;
@@ -681,7 +682,11 @@ static void finish_action(const char *message, bool special)
     } else {
         sfx(SFX_STOP);
     }
-    if (s_auto) s_next_auto = lv_tick_get() + speed_duration(850, 550, 260);
+    if (s_auto) {
+        uint32_t base = speed_duration(760, 470, 210);
+        uint32_t jitter = speed_duration(420, 280, 160);
+        s_next_auto = lv_tick_get() + base + (esp_random() % jitter);
+    }
 }
 
 static void start_slot(void)
@@ -839,6 +844,7 @@ static void start_dice(void)
     }
 
     s_dice_deadline = speed_duration(3000, 2350, 1650) + (seed % 620u);
+    s_dice_pair_cooldown = 0;
     s_busy = true;
     s_started = lv_tick_get();
     lv_label_set_text(s_status, "THROW...");
@@ -923,7 +929,8 @@ static void animate_dice(uint32_t elapsed)
         }
     }
 
-    if (!s_die_motion[0].settled && !s_die_motion[1].settled) {
+    if (s_dice_pair_cooldown > 0) --s_dice_pair_cooldown;
+    if (!s_die_motion[0].settled && !s_die_motion[1].settled && s_dice_pair_cooldown == 0) {
         int32_t dx = (s_die_motion[0].x_q8 - s_die_motion[1].x_q8) >> 8;
         int32_t dy = (s_die_motion[0].y_q8 - s_die_motion[1].y_q8) >> 8;
         if (iabs32(dx) < 56 && iabs32(dy) < 54) {
@@ -934,6 +941,9 @@ static void animate_dice(uint32_t elapsed)
             s_die_motion[1].vx_q8 -= dx >= 0 ? 42 : -42;
             s_die_motion[0].omega_tenths = -s_die_motion[0].omega_tenths;
             s_die_motion[1].omega_tenths = -s_die_motion[1].omega_tenths;
+            s_die_motion[0].x_q8 += dx >= 0 ? (5 << 8) : -(5 << 8);
+            s_die_motion[1].x_q8 -= dx >= 0 ? (5 << 8) : -(5 << 8);
+            s_dice_pair_cooldown = 4;
             sfx_intensity(SFX_BOUNCE, 190);
         }
     }
