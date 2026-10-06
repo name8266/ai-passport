@@ -15,11 +15,8 @@ typedef enum {
 
 typedef struct {
     uint8_t reels[3];
-    uint32_t multiplier;
-    bool jackpot;
+    bool rare_match;
 } slot_result_t;
 
 uint8_t slot_pick_symbol(uint32_t random_value);
-uint32_t slot_multiplier(const uint8_t reels[3]);
-uint32_t slot_payout(uint32_t bet, const uint8_t reels[3]);
 slot_result_t slot_make_result(uint32_t r0, uint32_t r1, uint32_t r2);
