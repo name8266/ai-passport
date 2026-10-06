@@ -554,13 +554,15 @@ static void set_die(die_view_t *die, uint8_t value)
 static void build_die(die_view_t *die, int x)
 {
     static const uint8_t pip_xy[7][2] = {
-        {13,13}, {59,13}, {13,36}, {36,36}, {59,36}, {13,59}, {59,59},
+        {12,12}, {52,12}, {12,32}, {32,32}, {52,32}, {12,52}, {52,52},
     };
-    die->body = box(s_game_frame, x, 27, 82, 82, C_REEL, C_GOLD_DIM, 15);
+    die->body = box(s_game_frame, x, 20, 64, 64, C_REEL, C_GOLD_DIM, 14);
+    lv_obj_set_style_transform_pivot_x(die->body, 32, 0);
+    lv_obj_set_style_transform_pivot_y(die->body, 32, 0);
     for (int i = 0; i < 7; ++i) {
         int px = pip_xy[i][0];
         int py = pip_xy[i][1];
-        die->pips[i] = box(die->body, px - 5, py - 5, 11, 11, C_INK, C_INK, LV_RADIUS_CIRCLE);
+        die->pips[i] = box(die->body, px - 4, py - 4, 9, 9, C_INK, C_INK, LV_RADIUS_CIRCLE);
     }
     set_die(die, 1);
 }
@@ -570,8 +572,8 @@ static void build_dice(void)
     build_shell("DICE BOUNCE");
     s_game_frame = box(s_screen, 18, 66, 204, 151, C_PANEL_2, C_CYAN, 20);
     lv_obj_set_style_border_width(s_game_frame, 2, 0);
-    build_die(&s_dice[0], 15);
-    build_die(&s_dice[1], 107);
+    build_die(&s_dice[0], 20);
+    build_die(&s_dice[1], 120);
     set_game_footer("PRESS OK TO ROLL");
     refresh_hint();
 }
@@ -820,21 +822,112 @@ static void animate_roulette(uint32_t elapsed)
 
 static void start_dice(void)
 {
+    uint32_t seed = esp_random();
     s_die_result[0] = chance_die(esp_random());
-    s_die_result[1] = chance_die(esp_random());
-    s_busy = true;
-    s_started = lv_tick_get();
-    lv_label_set_text(s_status, "SHAKE...");
-    sfx(SFX_START);
+    s_die_result[1static int32_t iabs32(int32_t value)
+{
+    return value < 0 ? -value : value;
 }
 
 static void animate_dice(uint32_t elapsed)
 {
-    uint32_t duration = speed_duration(1050, 760, 480);
-    uint32_t frame = speed_duration(120, 85, 55);
-    uint8_t a = (uint8_t)((elapsed / frame) % 6u) + 1u;
-    uint8_t b = (uint8_t)(((elapsed / frame) + 3u) % 6u) + 1u;
-    set_die(&s_dice[0], a);
+    const int32_t min_x = 3 << 8;
+    const int32_t max_x = 137 << 8;
+    const int32_t min_y = 2 << 8;
+    const int32_t floor_y = 78 << 8;
+    bool all_settled = true;
+
+    for (int i = 0; i < 2; ++i) {
+        die_motion_t *m = &s_die_motion[i];
+        if (m->settled) continue;
+        all_settled = false;
+
+        int32_t impact = 0;
+        m->x_q8 += m->vx_q8;
+        m->y_q8 += m->vy_q8;
+        m->vy_q8 += 30 + (int32_t)s_speed * 5;
+        m->angle_tenths += m->omega_tenths;
+
+        if (m->x_q8 < min_x) {
+            m->x_q8 = min_x;
+            impact = iabs32(m->vx_q8);
+            m->vx_q8 = -m->vx_q8 * m->profile.restitution / 256;
+            m->omega_tenths = -m->omega_tenths * 3 / 4;
+        } else if (m->x_q8 > max_x) {
+            m->x_q8 = max_x;
+            impact = iabs32(m->vx_q8);
+            m->vx_q8 = -m->vx_q8 * m->profile.restitution / 256;
+            m->omega_tenths = -m->omega_tenths * 3 / 4;
+        }
+
+        if (m->y_q8 < min_y) {
+            m->y_q8 = min_y;
+            impact = iabs32(m->vy_q8);
+            m->vy_q8 = iabs32(m->vy_q8) * m->profile.restitution / 256;
+        }
+
+        if (m->y_q8 > floor_y) {
+            m->y_q8 = floor_y;
+            impact = iabs32(m->vy_q8);
+            m->vy_q8 = -m->vy_q8 * m->profile.restitution / 256;
+            m->vx_q8 = m->vx_q8 * 225 / 256;
+            m->omega_tenths = m->omega_tenths * 205 / 256;
+            ++m->bounces;
+        }
+
+        if (impact > 70) {
+            uint8_t intensity = (uint8_t)(impact > 255 ? 255 : impact);
+            sfx_intensity(SFX_BOUNCE, intensity);
+        }
+
+        uint8_t face = (uint8_t)(((uint32_t)iabs32(m->angle_tenths) / 430u +
+                                  m->profile.face_phase) % 6u) + 1u;
+        set_die(&s_dice[i], face);
+        lv_obj_set_pos(s_dice[i].body, m->x_q8 >> 8, m->y_q8 >> 8);
+        lv_obj_set_style_transform_rotation(s_dice[i].body, m->angle_tenths % 3600, 0);
+
+        if ((m->bounces >= 2 && iabs32(m->vy_q8) < 42 && iabs32(m->vx_q8) < 26) ||
+            elapsed >= s_dice_deadline) {
+            m->settled = true;
+            m->y_q8 = floor_y;
+            m->vx_q8 = m->vy_q8 = 0;
+            m->omega_tenths = 0;
+            set_die(&s_dice[i], s_die_result[i]);
+            lv_obj_set_pos(s_dice[i].body, m->x_q8 >> 8, floor_y >> 8);
+            lv_obj_set_style_transform_rotation(s_dice[i].body, 0, 0);
+            sfx_intensity(SFX_STOP, (uint8_t)(120u + m->bounces * 18u));
+        }
+    }
+
+    if (!s_die_motion[0].settled && !s_die_motion[1].settled) {
+        int32_t dx = (s_die_motion[0].x_q8 - s_die_motion[1].x_q8) >> 8;
+        int32_t dy = (s_die_motion[0].y_q8 - s_die_motion[1].y_q8) >> 8;
+        if (iabs32(dx) < 56 && iabs32(dy) < 54) {
+            int32_t temp = s_die_motion[0].vx_q8;
+            s_die_motion[0].vx_q8 = s_die_motion[1].vx_q8;
+            s_die_motion[1].vx_q8 = temp;
+            s_die_motion[0].vx_q8 += dx >= 0 ? 42 : -42;
+            s_die_motion[1].vx_q8 -= dx >= 0 ? 42 : -42;
+            s_die_motion[0].omega_tenths = -s_die_motion[0].omega_tenths;
+            s_die_motion[1].omega_tenths = -s_die_motion[1].omega_tenths;
+            sfx_intensity(SFX_BOUNCE, 190);
+        }
+    }
+
+    if (s_die_motion[0].settled && s_die_motion[1].settled) all_settled = true;
+    if (all_settled) {
+        char text[32];
+        if (s_die_result[0] == s_die_result[1]) {
+            snprintf(text, sizeof(text), "DOUBLES %u", (unsigned)s_die_result[0]);
+            finish_action(text, true);
+        } else {
+            snprintf(text, sizeof(text), "TOTAL %u",
+                     (unsigned)(s_die_result[0] + s_die_result[1]));
+            finish_action(text, false);
+        }
+    }
+}
+_dice[0], a);
     set_die(&s_dice[1], b);
 
     int hop = ((elapsed / frame) & 1u) ? -5 : 1;
