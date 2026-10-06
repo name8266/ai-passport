@@ -762,27 +762,48 @@ static void roulette_show_result(chance_roulette_result_t result)
 
 static void start_roulette(void)
 {
+    uint32_t seed = esp_random();
     s_roulette_result = chance_roulette(esp_random());
-    s_roulette_pos = 0;
+    s_roulette_motion.profile = motion_roulette_profile(seed, s_speed);
+    s_roulette_motion.wheel_phase_q8 = (uint32_t)s_roulette_motion.profile.wheel_start << 8;
+    s_roulette_motion.ball_phase_q8 = (uint32_t)s_roulette_motion.profile.ball_start << 8;
+    s_roulette_motion.last_ball_pos = s_roulette_motion.profile.ball_start;
+    s_roulette_pos = s_roulette_motion.profile.ball_start;
     s_busy = true;
     s_started = lv_tick_get();
     lv_label_set_text(s_status, "WHEEL SPINNING...");
-    sfx(SFX_START);
+    sfx_intensity(SFX_START, (uint8_t)(120u + (seed & 0x5Fu)));
 }
 
 static void animate_roulette(uint32_t elapsed)
 {
-    uint32_t duration = speed_duration(2100, 1500, 900);
-    uint32_t base_step = speed_duration(80, 62, 42);
-    uint32_t step = base_step + (elapsed * 90u / duration);
-    uint8_t pos = (uint8_t)((elapsed / step) % LAMP_COUNT);
-    if (pos != s_roulette_pos) {
-        s_roulette_pos = pos;
-        sfx(SFX_TICK);
+    motion_roulette_profile_t *p = &s_roulette_motion.profile;
+    uint32_t duration = p->duration_ms;
+    uint32_t t = elapsed > duration ? duration : elapsed;
+
+    uint32_t wheel_v = p->wheel_velocity_q8;
+    uint32_t ball_v = p->ball_velocity_q8;
+    uint32_t wheel_loss = (uint32_t)p->wheel_drag_q8 * t / 16u;
+    uint32_t ball_loss = (uint32_t)p->ball_drag_q8 * t / 14u;
+    if (wheel_loss < wheel_v) wheel_v -= wheel_loss; else wheel_v = 18;
+    if (ball_loss < ball_v) ball_v -= ball_loss; else ball_v = 12;
+
+    s_roulette_motion.wheel_phase_q8 += wheel_v;
+    s_roulette_motion.ball_phase_q8 -= ball_v;
+
+    uint8_t wheel_pos = (uint8_t)((s_roulette_motion.wheel_phase_q8 >> 8) % LAMP_COUNT);
+    uint8_t ball_pos = (uint8_t)((s_roulette_motion.ball_phase_q8 >> 8) % LAMP_COUNT);
+    s_roulette_pos = ball_pos;
+
+    if (ball_pos != s_roulette_motion.last_ball_pos) {
+        uint8_t intensity = (uint8_t)(90u + (ball_v > 150 ? 120u : ball_v / 2u));
+        sfx_intensity(SFX_TICK, intensity);
+        s_roulette_motion.last_ball_pos = ball_pos;
     }
 
     for (int i = 0; i < LAMP_COUNT; ++i) {
-        uint32_t color = i == pos ? C_GOLD : ((i & 1) ? C_INK : C_RED);
+        uint32_t color = i == ball_pos ? C_GOLD :
+            ((((i + wheel_pos) & 1) != 0) ? C_INK : C_RED);
         lv_obj_set_style_bg_color(s_wheel_lamps[i], lv_color_hex(color), 0);
     }
 
