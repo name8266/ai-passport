@@ -128,7 +128,7 @@ static void line(t3d_surface_t *s, int x0, int y0, int x1, int y1, uint16_t colo
     for (;;) {
         px(s, x0, y0, color);
         if (x0 == x1 && y0 == y1) break;
-        int e2 = err << 1;
+        int e2 = err * 2;
         if (e2 >= dy) { err += dy; x0 += sx; }
         if (e2 <= dx) { err += dx; y0 += sy; }
     }
@@ -210,8 +210,8 @@ static void render_shadow(t3d_surface_t *s, const rigid_die_t *d)
     int32_t h = d->pos_q8.y >> 8;
     t3_vec3_t ground = d->pos_q8;
     ground.y = 0;
-    ground.x += (h * 5 / 10) << 8;
-    ground.z += (h * 3 / 10) << 8;
+    ground.x += (h * 5 / 10) * 256;
+    ground.z += (h * 3 / 10) * 256;
     screen_vertex_t p = project(s, ground);
     int rx = 11 + h / 9;
     int ry = 4 + h / 28;
