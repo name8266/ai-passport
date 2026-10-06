@@ -49,16 +49,46 @@ t3_quat_t t3_quat_normalize(t3_quat_t q)
     return q;
 }
 
+static t3_quat_t quat_mul(t3_quat_t a, t3_quat_t b)
+{
+    t3_quat_t q = {
+        (int32_t)(((int64_t)a.w * b.w - (int64_t)a.x * b.x -
+                   (int64_t)a.y * b.y - (int64_t)a.z * b.z) >> 14),
+        (int32_t)(((int64_t)a.w * b.x + (int64_t)a.x * b.w +
+                   (int64_t)a.y * b.z - (int64_t)a.z * b.y) >> 14),
+        (int32_t)(((int64_t)a.w * b.y - (int64_t)a.x * b.z +
+                   (int64_t)a.y * b.w + (int64_t)a.z * b.x) >> 14),
+        (int32_t)(((int64_t)a.w * b.z + (int64_t)a.x * b.y -
+                   (int64_t)a.y * b.x + (int64_t)a.z * b.w) >> 14),
+    };
+    return q;
+}
+
 t3_quat_t t3_quat_from_seed(uint32_t seed)
 {
+    static const t3_quat_t cube[24] = {
+        {0,0,0,16384}, {0,0,16384,0}, {0,16384,0,0}, {16384,0,0,0},
+        {0,0,11585,-11585}, {0,0,11585,11585},
+        {11585,11585,0,0}, {11585,-11585,0,0},
+        {0,11585,-11585,0}, {11585,0,0,11585},
+        {11585,0,0,-11585}, {0,11585,11585,0},
+        {8192,8192,-8192,8192}, {8192,-8192,8192,8192},
+        {8192,8192,8192,-8192}, {8192,-8192,-8192,-8192},
+        {8192,8192,-8192,-8192}, {8192,-8192,-8192,8192},
+        {8192,-8192,8192,-8192}, {8192,8192,8192,8192},
+        {0,11585,0,-11585}, {11585,0,-11585,0},
+        {0,11585,0,11585}, {11585,0,11585,0},
+    };
+
     int32_t a[4];
-    uint32_t s = seed;
+    uint32_t state = seed;
     for (int i = 0; i < 4; ++i) {
-        s = mix32(s + 0x9e3779b9u);
-        a[i] = (int32_t)(s & 0x7fffu) - 16384;
+        state = mix32(state + 0x9e3779b9u);
+        a[i] = (int32_t)(state & 0x7fffu) - 16384;
     }
-    t3_quat_t q = { a[0], a[1], a[2], a[3] };
-    return t3_quat_normalize(q);
+    t3_quat_t q = t3_quat_normalize((t3_quat_t){a[0], a[1], a[2], a[3]});
+    uint32_t symmetry = mix32(seed ^ 0xD1CEB00Cu);
+    return t3_quat_normalize(quat_mul(cube[symmetry % 24u], q));
 }
 
 void t3_quat_integrate_60hz(t3_quat_t *q, t3_vec3_t omega_q10)
@@ -68,15 +98,15 @@ void t3_quat_integrate_60hz(t3_quat_t *q, t3_vec3_t omega_q10)
     int64_t dw = -(int64_t)q->x * omega_q10.x -
                  (int64_t)q->y * omega_q10.y -
                  (int64_t)q->z * omega_q10.z;
-    int64_t dx =  (int64_t)q->w * omega_q10.x +
-                  (int64_t)q->y * omega_q10.z -
-                  (int64_t)q->z * omega_q10.y;
-    int64_t dy =  (int64_t)q->w * omega_q10.y +
-                  (int64_t)q->z * omega_q10.x -
-                  (int64_t)q->x * omega_q10.z;
-    int64_t dz =  (int64_t)q->w * omega_q10.z +
-                  (int64_t)q->x * omega_q10.y -
-                  (int64_t)q->y * omega_q10.x;
+    int64_t dx =  (int64_t)omega_q10.x * q->w +
+                  (int64_t)omega_q10.y * q->z -
+                  (int64_t)omega_q10.z * q->y;
+    int64_t dy = -(int64_t)omega_q10.x * q->z +
+                  (int64_t)omega_q10.y * q->w +
+                  (int64_t)omega_q10.z * q->x;
+    int64_t dz =  (int64_t)omega_q10.x * q->y -
+                  (int64_t)omega_q10.y * q->x +
+                  (int64_t)omega_q10.z * q->w;
 
     q->w += (int32_t)((dw >> 10) / 120);
     q->x += (int32_t)((dx >> 10) / 120);
