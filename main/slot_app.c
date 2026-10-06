@@ -954,51 +954,122 @@ _dice[0], a);
     }
 }
 
-static void plinko_set_ball(uint8_t row)
+static void plinko_place_ball(void)
 {
-    int x = 100;
-    int rights = 0;
-    for (uint8_t i = 0; i < row; ++i) rights += (uint8_t)((s_plinko_path >> i) & 1u);
-    x += ((int)rights * 2 - (int)row) * 9;
-    int y = 5 + (int)row * 16;
-    lv_obj_set_pos(s_plinko_ball, x, y);
+    lv_obj_set_pos(s_plinko_ball,
+                   s_plinko_motion.x_q8 >> 8,
+                   s_plinko_motion.y_q8 >> 8);
 }
 
 static void start_plinko(void)
 {
-    uint32_t random = esp_random();
-    s_plinko_path = chance_plinko_path(random, PLINKO_ROWS);
-    s_plinko_bin = chance_plinko_bin(random, PLINKO_ROWS);
-    s_plinko_row = 0;
+    uint32_t seed = esp_random();
+    s_plinko_motion.profile = motion_plinko_profile(seed, s_speed);
+    s_plinko_motion.x_q8 = s_plinko_motion.profile.x_q8;
+    s_plinko_motion.y_q8 = s_plinko_motion.profile.y_q8;
+    s_plinko_motion.vx_q8 = s_plinko_motion.profile.vx_q8;
+    s_plinko_motion.vy_q8 = s_plinko_motion.profile.vy_q8;
+    s_plinko_motion.last_peg = -1;
+    s_plinko_motion.collision_cooldown = 0;
+    s_plinko_motion.collisions = 0;
+    s_plinko_bin = 0;
+
     for (int i = 0; i <= PLINKO_ROWS; ++i)
         lv_obj_set_style_bg_color(s_plinko_bins[i], lv_color_hex(C_PANEL), 0);
-    plinko_set_ball(0);
+
+    plinko_place_ball();
     s_busy = true;
     s_started = lv_tick_get();
     lv_label_set_text(s_status, "DROP...");
-    sfx(SFX_START);
+    sfx_intensity(SFX_START, (uint8_t)(100u + (seed & 0x7Fu)));
 }
 
 static void animate_plinko(uint32_t elapsed)
 {
-    uint32_t step_ms = speed_duration(180, 130, 82);
-    uint8_t row = (uint8_t)(elapsed / step_ms);
-    if (row > PLINKO_ROWS) row = PLINKO_ROWS;
-    if (row != s_plinko_row) {
-        s_plinko_row = row;
-        plinko_set_ball(row);
-        sfx(SFX_PLINK);
+    plinko_motion_t *m = &s_plinko_motion;
+    const int32_t left = 3 << 8;
+    const int32_t right = 194 << 8;
+    const int32_t floor_y = 137 << 8;
+
+    m->x_q8 += m->vx_q8;
+    m->y_q8 += m->vy_q8;
+    m->vy_q8 += m->profile.gravity_q8;
+
+    if (m->x_q8 < left) {
+        m->x_q8 = left;
+        m->vx_q8 = -m->vx_q8 * 190 / 256;
+        sfx_intensity(SFX_PLINK, 110);
+    } else if (m->x_q8 > right) {
+        m->x_q8 = right;
+        m->vx_q8 = -m->vx_q8 * 190 / 256;
+        sfx_intensity(SFX_PLINK, 110);
     }
 
-    if (elapsed >= step_ms * PLINKO_ROWS) {
+    if (m->collision_cooldown > 0) --m->collision_cooldown;
+
+    int ball_x = (m->x_q8 >> 8) + 5;
+    int ball_y = (m->y_q8 >> 8) + 5;
+    int peg_index = 0;
+    bool collided = false;
+
+    for (int row = 0; row < PLINKO_ROWS && !collided; ++row) {
+        int count = row + 1;
+        int spacing = 19;
+        int start_x = 104 - (count - 1) * spacing / 2;
+        int peg_y = 19 + row * 16;
+        for (int col = 0; col < count; ++col, ++peg_index) {
+            int peg_x = start_x + col * spacing;
+            int dx = ball_x - peg_x;
+            int dy = ball_y - peg_y;
+            int dist2 = dx * dx + dy * dy;
+            if (dist2 <= 74 && m->vy_q8 > 0 &&
+                (m->collision_cooldown == 0 || m->last_peg != peg_index)) {
+                int32_t impact = iabs32(m->vy_q8);
+                int side;
+                if (dx > 1) side = 1;
+                else if (dx < -1) side = -1;
+                else side = (esp_random() & 1u) ? 1 : -1;
+
+                int32_t jitter_range = m->profile.jitter_q8;
+                int32_t jitter = (int32_t)(esp_random() % (uint32_t)(jitter_range * 2 + 1)) -
+                                  jitter_range;
+                m->vx_q8 += side * (int32_t)m->profile.peg_kick_q8 + jitter;
+                if (m->vx_q8 > 300) m->vx_q8 = 300;
+                if (m->vx_q8 < -300) m->vx_q8 = -300;
+
+                m->vy_q8 = -(impact * m->profile.restitution / 256) - 18;
+                m->y_q8 -= 2 << 8;
+                m->last_peg = (int16_t)peg_index;
+                m->collision_cooldown = 3;
+                ++m->collisions;
+
+                uint8_t intensity = (uint8_t)(impact > 300 ? 255 : 85 + impact / 2);
+                sfx_intensity(SFX_PLINK, intensity);
+                collided = true;
+                break;
+            }
+        }
+    }
+
+    plinko_place_ball();
+
+    if (m->y_q8 >= floor_y || elapsed > 6500u) {
+        int x = (m->x_q8 >> 8) + 5;
+        int bin = (x - 14 + 10) / 20;
+        if (bin < 0) bin = 0;
+        if (bin > PLINKO_ROWS) bin = PLINKO_ROWS;
+        s_plinko_bin = (uint8_t)bin;
+        m->y_q8 = floor_y;
+        plinko_place_ball();
+
         lv_obj_set_style_bg_color(s_plinko_bins[s_plinko_bin], lv_color_hex(C_MAGENTA), 0);
         char text[32];
         if (s_plinko_bin == PLINKO_ROWS / 2) {
-            snprintf(text, sizeof(text), "CENTER DROP");
+            snprintf(text, sizeof(text), "CENTER · %u HITS", (unsigned)m->collisions);
             finish_action(text, true);
         } else {
-            snprintf(text, sizeof(text), "LANDED %u/%u",
-                     (unsigned)(s_plinko_bin + 1), (unsigned)(PLINKO_ROWS + 1));
+            snprintf(text, sizeof(text), "BIN %u · %u HITS",
+                     (unsigned)(s_plinko_bin + 1), (unsigned)m->collisions);
             finish_action(text, false);
         }
     }
