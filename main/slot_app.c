@@ -23,7 +23,9 @@
 #include "lvgl.h"
 #include "light_core.h"
 #include "motion_core.h"
+#include "rigid_body.h"
 #include "slot_core.h"
+#include "tiny3d_render.h"
 
 #define INPUT_QUEUE_DEPTH 8
 #define AUDIO_QUEUE_DEPTH 16
@@ -82,28 +84,9 @@ typedef struct {
 } reel_view_t;
 
 typedef struct {
-    lv_obj_t *shadow;
-    lv_obj_t *body;
-    lv_obj_t *highlight;
-    lv_obj_t *pips[7];
-} die_view_t;
-
-typedef struct {
     motion_slot_profile_t profile;
     uint32_t phase_q8;
 } reel_motion_t;
-
-typedef struct {
-    motion_die_profile_t profile;
-    int32_t x_q8;
-    int32_t y_q8;
-    int32_t vx_q8;
-    int32_t vy_q8;
-    int32_t angle_tenths;
-    int32_t omega_tenths;
-    uint8_t bounces;
-    bool settled;
-} die_motion_t;
 
 typedef struct {
     motion_plinko_profile_t profile;
@@ -175,12 +158,21 @@ static chance_roulette_result_t s_roulette_result;
 static uint8_t s_roulette_pos;
 static roulette_motion_t s_roulette_motion;
 
-/* dice */
-static die_view_t s_dice[2];
+/* dice: fixed-point rigid bodies + software RGB565 renderer */
+static lv_obj_t *s_dice_canvas;
+static uint16_t s_dice_canvas_pixels[T3D_DICE_CANVAS_W * T3D_DICE_CANVAS_H]
+    __attribute__((aligned(4)));
+static t3d_surface_t s_dice_surface = {
+    .pixels = s_dice_canvas_pixels,
+    .width = T3D_DICE_CANVAS_W,
+    .height = T3D_DICE_CANVAS_H,
+    .stride = T3D_DICE_CANVAS_W,
+};
+static rigid_die_t s_rigid_dice[2];
 static uint8_t s_die_result[2];
-static die_motion_t s_die_motion[2];
+static int64_t s_dice_last_us;
+static int64_t s_dice_accum_us;
 static uint32_t s_dice_deadline;
-static uint8_t s_dice_pair_cooldown;
 
 /* plinko */
 static lv_obj_t *s_plinko_shadow;
@@ -362,12 +354,7 @@ static void clear_page_refs(void)
     s_roulette_glint = NULL;
     s_roulette_number = NULL;
     s_roulette_color = NULL;
-    for (int d = 0; d < 2; ++d) {
-        s_dice[d].shadow = NULL;
-        s_dice[d].body = NULL;
-        s_dice[d].highlight = NULL;
-        for (int i = 0; i < 7; ++i) s_dice[d].pips[i] = NULL;
-    }
+    s_dice_canvas = NULL;
     s_plinko_shadow = NULL;
     s_plinko_ball = NULL;
     s_plinko_highlight = NULL;
@@ -631,48 +618,23 @@ static void build_roulette(void)
     refresh_hint();
 }
 
-static void set_die(die_view_t *die, uint8_t value)
-{
-    static const bool map[6][7] = {
-        {0,0,0,1,0,0,0},
-        {1,0,0,0,0,0,1},
-        {1,0,0,1,0,0,1},
-        {1,1,0,0,0,1,1},
-        {1,1,0,1,0,1,1},
-        {1,1,1,0,1,1,1},
-    };
-    if (value < 1 || value > 6) value = 1;
-    for (int i = 0; i < 7; ++i) visible(die->pips[i], map[value - 1][i]);
-}
-
-static void build_die(die_view_t *die, int x)
-{
-    static const uint8_t pip_xy[7][2] = {
-        {12,12}, {52,12}, {12,32}, {32,32}, {52,32}, {12,52}, {52,52},
-    };
-    die->shadow = box(s_game_frame, x + 3, 136, 58, 10, C_INK, C_INK, LV_RADIUS_CIRCLE);
-    lv_obj_set_style_bg_opa(die->shadow, 54, 0);
-    die->body = box(s_game_frame, x, 20, 64, 64, C_REEL, C_GOLD_DIM, 14);
-    lv_obj_set_style_transform_pivot_x(die->body, 32, 0);
-    lv_obj_set_style_transform_pivot_y(die->body, 32, 0);
-    for (int i = 0; i < 7; ++i) {
-        int px = pip_xy[i][0];
-        int py = pip_xy[i][1];
-        die->pips[i] = box(die->body, px - 4, py - 4, 9, 9, C_INK, C_INK, LV_RADIUS_CIRCLE);
-    }
-    die->highlight = box(s_game_frame, x + 7, 24, 18, 10, C_TEXT, C_TEXT, LV_RADIUS_CIRCLE);
-    lv_obj_set_style_bg_opa(die->highlight, 44, 0);
-    set_die(die, 1);
-}
-
 static void build_dice(void)
 {
-    build_shell("DICE BOUNCE");
-    s_game_frame = box(s_screen, 18, 66, 204, 151, C_PANEL_2, C_CYAN, 20);
+    build_shell("DICE BOUNCE 3D");
+    s_game_frame = box(s_screen, 18, 62, 204, 158, C_PANEL_2, C_CYAN, 20);
     lv_obj_set_style_border_width(s_game_frame, 2, 0);
-    build_die(&s_dice[0], 20);
-    build_die(&s_dice[1], 120);
-    set_game_footer("PRESS OK TO ROLL");
+
+    t3d_surface_clear(&s_dice_surface, C_PANEL_2);
+    s_dice_canvas = lv_canvas_create(s_game_frame);
+    lv_canvas_set_buffer(s_dice_canvas, s_dice_canvas_pixels,
+                         T3D_DICE_CANVAS_W, T3D_DICE_CANVAS_H,
+                         LV_COLOR_FORMAT_RGB565);
+    lv_obj_set_pos(s_dice_canvas, 12, 10);
+
+    lv_obj_t *badge = label(s_game_frame, "FIXED 60HZ · Q14 LIGHT", &lv_font_montserrat_14, C_MUTED);
+    lv_obj_align(badge, LV_ALIGN_BOTTOM_MID, 0, -7);
+
+    set_game_footer("PRESS OK TO THROW");
     refresh_hint();
 }
 
