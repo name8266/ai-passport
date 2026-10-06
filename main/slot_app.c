@@ -15,6 +15,7 @@
 #include "freertos/queue.h"
 #include "freertos/task.h"
 #include "lvgl.h"
+#include "light_core.h"
 #include "motion_core.h"
 #include "slot_core.h"
 
@@ -68,12 +69,16 @@ typedef struct {
     lv_obj_t *shape2;
     lv_obj_t *shape3;
     lv_obj_t *label;
+    lv_obj_t *highlight;
+    lv_obj_t *shade;
     uint8_t shown;
     bool stopped;
 } reel_view_t;
 
 typedef struct {
+    lv_obj_t *shadow;
     lv_obj_t *body;
+    lv_obj_t *highlight;
     lv_obj_t *pips[7];
 } die_view_t;
 
@@ -167,7 +172,9 @@ static uint32_t s_dice_deadline;
 static uint8_t s_dice_pair_cooldown;
 
 /* plinko */
+static lv_obj_t *s_plinko_shadow;
 static lv_obj_t *s_plinko_ball;
+static lv_obj_t *s_plinko_highlight;
 static lv_obj_t *s_plinko_bins[PLINKO_ROWS + 1];
 static uint8_t s_plinko_bin;
 static plinko_motion_t s_plinko_motion;
@@ -328,15 +335,21 @@ static void clear_page_refs(void)
         s_reels[i].shape2 = NULL;
         s_reels[i].shape3 = NULL;
         s_reels[i].label = NULL;
+        s_reels[i].highlight = NULL;
+        s_reels[i].shade = NULL;
     }
     for (int i = 0; i < LAMP_COUNT; ++i) s_wheel_lamps[i] = NULL;
     s_roulette_number = NULL;
     s_roulette_color = NULL;
     for (int d = 0; d < 2; ++d) {
+        s_dice[d].shadow = NULL;
         s_dice[d].body = NULL;
+        s_dice[d].highlight = NULL;
         for (int i = 0; i < 7; ++i) s_dice[d].pips[i] = NULL;
     }
+    s_plinko_shadow = NULL;
     s_plinko_ball = NULL;
+    s_plinko_highlight = NULL;
     for (int i = 0; i <= PLINKO_ROWS; ++i) s_plinko_bins[i] = NULL;
 }
 
