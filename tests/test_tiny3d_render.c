@@ -15,8 +15,8 @@ int main(void)
     rigid_die_t dice[2];
     rigid_die_init(&dice[0], 11, 0, 1);
     rigid_die_init(&dice[1], 22, 1, 1);
-    dice[0].pos_q8 = (t3_vec3_t){-28 << 8, 18 << 8, -4 << 8};
-    dice[1].pos_q8 = (t3_vec3_t){ 28 << 8, 24 << 8,  5 << 8};
+    dice[0].pos_q8 = (t3_vec3_t){-28 * 256, 18 * 256, -4 * 256};
+    dice[1].pos_q8 = (t3_vec3_t){ 28 * 256, 24 * 256,  5 * 256};
 
     t3d_render_dice_scene(&surface, dice);
 
