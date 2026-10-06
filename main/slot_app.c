@@ -461,6 +461,15 @@ static void render_symbol(reel_view_t *reel, uint8_t symbol)
     }
 }
 
+static void reel_translate(reel_view_t *reel, int offset)
+{
+    if (!reel || !reel->cell) return;
+    lv_obj_set_style_translate_y(reel->shape1, offset, 0);
+    lv_obj_set_style_translate_y(reel->shape2, offset, 0);
+    lv_obj_set_style_translate_y(reel->shape3, offset, 0);
+    lv_obj_set_style_translate_y(reel->label, offset, 0);
+}
+
 static void build_reel(reel_view_t *reel, int x, uint8_t initial)
 {
     reel->cell = box(s_game_frame, x, 20, 58, 92, C_REEL, C_GOLD_DIM, 12);
@@ -675,38 +684,60 @@ static void finish_action(const char *message, bool special)
 
 static void start_slot(void)
 {
+    uint32_t seed = esp_random();
     s_slot_result = slot_make_result(esp_random(), esp_random(), esp_random());
-    for (int i = 0; i < 3; ++i) s_reels[i].stopped = false;
+    for (int i = 0; i < 3; ++i) {
+        s_reels[i].stopped = false;
+        s_reel_motion[i].profile = motion_slot_profile(seed ^ esp_random(), s_speed, (uint8_t)i);
+        s_reel_motion[i].phase_q8 = s_reel_motion[i].profile.phase_q8;
+        reel_translate(&s_reels[i], 0);
+    }
     s_busy = true;
     s_started = lv_tick_get();
     lv_label_set_text(s_status, "SPINNING...");
-    sfx(SFX_START);
+    sfx_intensity(SFX_START, (uint8_t)(120u + (seed & 0x5Fu)));
 }
 
 static void animate_slot(uint32_t elapsed)
 {
-    static const uint32_t chill_stop[3] = {1000, 1320, 1640};
-    static const uint32_t normal_stop[3] = {720, 940, 1180};
-    static const uint32_t turbo_stop[3] = {430, 580, 740};
-    const uint32_t *stops = s_speed == 0 ? chill_stop : (s_speed == 2 ? turbo_stop : normal_stop);
-    uint32_t frame = speed_duration(72, 52, 34);
+    bool all_stopped = true;
 
     for (int i = 0; i < 3; ++i) {
-        if (elapsed < stops[i]) {
-            uint8_t rolling = (uint8_t)((elapsed / frame + (uint32_t)i * 2u) % SLOT_SYMBOL_COUNT);
+        motion_slot_profile_t *p = &s_reel_motion[i].profile;
+        uint32_t stop_ms = p->stop_ms;
+        uint32_t settle_start = stop_ms > p->settle_ms ? stop_ms - p->settle_ms : 0;
+
+        if (elapsed < stop_ms) {
+            all_stopped = false;
+            uint64_t linear = ((uint64_t)p->velocity_q8 * elapsed) / 28u;
+            uint64_t drag = ((uint64_t)p->drag_q8 * elapsed * elapsed) / 1850u;
+            uint32_t phase = p->phase_q8 + (uint32_t)(linear > drag ? linear - drag : linear / 5u);
+            s_reel_motion[i].phase_q8 = phase;
+
+            uint8_t rolling = (uint8_t)((phase >> 8) % SLOT_SYMBOL_COUNT);
             render_symbol(&s_reels[i], rolling);
+
+            int offset = ((int)(phase & 0xFFu) - 128) * 7 / 128;
+            if (elapsed >= settle_start) {
+                uint32_t remain = stop_ms - elapsed;
+                int bounce = (int)p->bounce_px * (int)remain / (int)(p->settle_ms ? p->settle_ms : 1u);
+                offset = ((elapsed / 42u) & 1u) ? bounce : -bounce;
+            }
+            reel_translate(&s_reels[i], offset);
             lv_obj_set_style_border_color(s_reels[i].cell, lv_color_hex(C_CYAN), 0);
         } else {
             render_symbol(&s_reels[i], s_slot_result.reels[i]);
+            reel_translate(&s_reels[i], 0);
             lv_obj_set_style_border_color(s_reels[i].cell, lv_color_hex(C_GOLD_DIM), 0);
             if (!s_reels[i].stopped) {
                 s_reels[i].stopped = true;
-                sfx(SFX_STOP);
+                uint8_t intensity = (uint8_t)(130u + (p->bounce_px * 18u));
+                sfx_intensity(SFX_STOP, intensity);
             }
         }
     }
 
-    if (elapsed >= stops[2]) {
+    if (all_stopped) {
         if (chance_is_triple(s_slot_result.reels)) {
             finish_action("PERFECT MATCH", true);
         } else if (chance_is_pair(s_slot_result.reels)) {
