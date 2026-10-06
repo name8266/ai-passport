@@ -824,7 +824,28 @@ static void start_dice(void)
 {
     uint32_t seed = esp_random();
     s_die_result[0] = chance_die(esp_random());
-    s_die_result[1static int32_t iabs32(int32_t value)
+    s_die_result[1] = chance_die(esp_random());
+
+    for (int i = 0; i < 2; ++i) {
+        s_die_motion[i].profile = motion_die_profile(seed ^ esp_random(), (uint8_t)i, s_speed);
+        s_die_motion[i].x_q8 = s_die_motion[i].profile.x_q8;
+        s_die_motion[i].y_q8 = s_die_motion[i].profile.y_q8;
+        s_die_motion[i].vx_q8 = s_die_motion[i].profile.vx_q8;
+        s_die_motion[i].vy_q8 = s_die_motion[i].profile.vy_q8;
+        s_die_motion[i].angle_tenths = s_die_motion[i].profile.angle_tenths;
+        s_die_motion[i].omega_tenths = s_die_motion[i].profile.omega_tenths;
+        s_die_motion[i].bounces = 0;
+        s_die_motion[i].settled = false;
+    }
+
+    s_dice_deadline = speed_duration(3000, 2350, 1650) + (seed % 620u);
+    s_busy = true;
+    s_started = lv_tick_get();
+    lv_label_set_text(s_status, "THROW...");
+    sfx_intensity(SFX_START, (uint8_t)(130u + (seed & 0x5Fu)));
+}
+
+static int32_t iabs32(int32_t value)
 {
     return value < 0 ? -value : value;
 }
@@ -884,13 +905,16 @@ static void animate_dice(uint32_t elapsed)
                                   m->profile.face_phase) % 6u) + 1u;
         set_die(&s_dice[i], face);
         lv_obj_set_pos(s_dice[i].body, m->x_q8 >> 8, m->y_q8 >> 8);
-        lv_obj_set_style_transform_rotation(s_dice[i].body, m->angle_tenths % 3600, 0);
+        int32_t rotation = m->angle_tenths % 3600;
+        if (rotation < 0) rotation += 3600;
+        lv_obj_set_style_transform_rotation(s_dice[i].body, rotation, 0);
 
         if ((m->bounces >= 2 && iabs32(m->vy_q8) < 42 && iabs32(m->vx_q8) < 26) ||
             elapsed >= s_dice_deadline) {
             m->settled = true;
             m->y_q8 = floor_y;
-            m->vx_q8 = m->vy_q8 = 0;
+            m->vx_q8 = 0;
+            m->vy_q8 = 0;
             m->omega_tenths = 0;
             set_die(&s_dice[i], s_die_result[i]);
             lv_obj_set_pos(s_dice[i].body, m->x_q8 >> 8, floor_y >> 8);
@@ -916,32 +940,6 @@ static void animate_dice(uint32_t elapsed)
 
     if (s_die_motion[0].settled && s_die_motion[1].settled) all_settled = true;
     if (all_settled) {
-        char text[32];
-        if (s_die_result[0] == s_die_result[1]) {
-            snprintf(text, sizeof(text), "DOUBLES %u", (unsigned)s_die_result[0]);
-            finish_action(text, true);
-        } else {
-            snprintf(text, sizeof(text), "TOTAL %u",
-                     (unsigned)(s_die_result[0] + s_die_result[1]));
-            finish_action(text, false);
-        }
-    }
-}
-_dice[0], a);
-    set_die(&s_dice[1], b);
-
-    int hop = ((elapsed / frame) & 1u) ? -5 : 1;
-    lv_obj_set_y(s_dice[0].body, 27 + hop);
-    lv_obj_set_y(s_dice[1].body, 27 - hop);
-
-    if ((elapsed / frame) != ((elapsed > 35 ? elapsed - 35 : 0) / frame))
-        sfx(SFX_BOUNCE);
-
-    if (elapsed >= duration) {
-        set_die(&s_dice[0], s_die_result[0]);
-        set_die(&s_dice[1], s_die_result[1]);
-        lv_obj_set_y(s_dice[0].body, 27);
-        lv_obj_set_y(s_dice[1].body, 27);
         char text[32];
         if (s_die_result[0] == s_die_result[1]) {
             snprintf(text, sizeof(text), "DOUBLES %u", (unsigned)s_die_result[0]);
