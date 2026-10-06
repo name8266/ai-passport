@@ -49,11 +49,11 @@ motion_die_profile_t motion_die_profile(uint32_t seed, uint8_t die_index, uint8_
     int spin_direction = range(&s, 0, 1) ? 1 : -1;
 
     motion_die_profile_t p = {
-        .x_q8 = (int16_t)(range(&s, die_index ? 108 : 12, die_index ? 132 : 42) << 8),
-        .y_q8 = (int16_t)(range(&s, 5, 25) << 8),
-        .vx_q8 = (int16_t)(direction * (int)range(&s, speed == 0 ? 110 : 150,
+        .x_q8 = (int32_t)(range(&s, die_index ? 108 : 12, die_index ? 132 : 42) << 8),
+        .y_q8 = (int32_t)(range(&s, 5, 25) << 8),
+        .vx_q8 = (int32_t)(direction * (int)range(&s, speed == 0 ? 110 : 150,
                                                        speed == 2 ? 330 : 260)),
-        .vy_q8 = (int16_t)range(&s, speed == 0 ? 120 : 160,
+        .vy_q8 = (int32_t)range(&s, speed == 0 ? 120 : 160,
                                       speed == 2 ? 330 : 260),
         .angle_tenths = (int16_t)range(&s, 0, 3599),
         .omega_tenths = (int16_t)(spin_direction * (int)range(&s, 110, speed == 2 ? 310 : 240)),
@@ -70,10 +70,10 @@ motion_plinko_profile_t motion_plinko_profile(uint32_t seed, uint8_t speed)
     int direction = range(&s, 0, 1) ? 1 : -1;
 
     motion_plinko_profile_t p = {
-        .x_q8 = (int16_t)(range(&s, 94, 106) << 8),
-        .y_q8 = (int16_t)(3 << 8),
-        .vx_q8 = (int16_t)(direction * (int)range(&s, 10, 48)),
-        .vy_q8 = (int16_t)range(&s, 18, 42),
+        .x_q8 = (int32_t)(range(&s, 94, 106) << 8),
+        .y_q8 = (int32_t)(3 << 8),
+        .vx_q8 = (int32_t)(direction * (int)range(&s, 10, 48)),
+        .vy_q8 = (int32_t)range(&s, 18, 42),
         .gravity_q8 = (uint8_t)range(&s, speed == 0 ? 7 : 10, speed == 2 ? 18 : 14),
         .peg_kick_q8 = (uint8_t)range(&s, 48, 92),
         .restitution = (uint8_t)range(&s, 82, 126),
