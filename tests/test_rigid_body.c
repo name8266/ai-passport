@@ -14,18 +14,33 @@ int main(void)
         if (rigid_die_step_60hz(&b) > 0) ++contacts;
         (void)rigid_die_pair_step(&a, &b);
     }
-
     assert(a.pos_q8.y >= 0);
     assert(b.pos_q8.y >= 0);
     assert(contacts > 0);
 
-    uint8_t fa = rigid_die_top_face(&a);
-    uint8_t fb = rigid_die_top_face(&b);
-    assert(fa >= 1 && fa <= 6);
-    assert(fb >= 1 && fb <= 6);
-
     rigid_die_t flat = {0};
     flat.orientation = t3_quat_identity();
     assert(rigid_die_top_face(&flat) == 1);
+
+    /* Regression: deterministic seed sweep must naturally settle and must not
+     * collapse toward one local axis. This does not claim casino certification;
+     * it catches coordinate-frame and orientation bugs in the tiny solver. */
+    unsigned faces[7] = {0};
+    for (uint32_t seed = 1; seed <= 240; ++seed) {
+        rigid_die_t die;
+        rigid_die_init(&die, seed, (uint8_t)(seed & 1u), 1);
+        int step;
+        for (step = 0; step < 360 && !die.sleeping; ++step)
+            (void)rigid_die_step_60hz(&die);
+        assert(die.sleeping);
+        assert(step < 360);
+        uint8_t face = rigid_die_top_face(&die);
+        assert(face >= 1 && face <= 6);
+        ++faces[face];
+    }
+    for (int face = 1; face <= 6; ++face) {
+        assert(faces[face] >= 25);
+        assert(faces[face] <= 55);
+    }
     return 0;
 }
