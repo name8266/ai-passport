@@ -3,6 +3,7 @@ idf_component_register(
          "slot_core.c"
          "chance_core.c"
          "motion_core.c"
+         "light_core.c"
     INCLUDE_DIRS "."
     REQUIRES bsp esp_hw_support esp_timer
 )
