@@ -46,7 +46,7 @@ void rigid_die_init(rigid_die_t *d, uint32_t seed, uint8_t index, uint8_t speed)
     d->omega_q10.y = range_s(&s, -4200, 4200);
     d->omega_q10.z = range_s(&s, -5200, 5200);
     d->orientation = t3_quat_from_seed(s ^ 0xA5A5D1CEu);
-    d->restitution_q8 = (uint8_t)range_s(&s, 112, 154);
+    d->restitution_q8 = (uint8_t)range_s(&s, 104, 148);
     d->friction_q8 = (uint8_t)range_s(&s, 34, 62);
     d->contacts = 0;
     d->sleep_ticks = 0;
@@ -136,16 +136,16 @@ uint16_t rigid_die_step_60hz(rigid_die_t *d)
         d->omega_q10.x = -d->omega_q10.x * 7 / 8;
     }
 
-    d->vel_q8.x = d->vel_q8.x * 255 / 256;
-    d->vel_q8.z = d->vel_q8.z * 255 / 256;
-    d->omega_q10.x = d->omega_q10.x * 254 / 256;
-    d->omega_q10.y = d->omega_q10.y * 254 / 256;
-    d->omega_q10.z = d->omega_q10.z * 254 / 256;
+    d->vel_q8.x = d->vel_q8.x * 254 / 256;
+    d->vel_q8.z = d->vel_q8.z * 254 / 256;
+    d->omega_q10.x = d->omega_q10.x * 252 / 256;
+    d->omega_q10.y = d->omega_q10.y * 252 / 256;
+    d->omega_q10.z = d->omega_q10.z * 252 / 256;
 
     int32_t linear = iabs32(d->vel_q8.x) + iabs32(d->vel_q8.y) + iabs32(d->vel_q8.z);
     int32_t angular = iabs32(d->omega_q10.x) + iabs32(d->omega_q10.y) + iabs32(d->omega_q10.z);
-    if (min_y <= (1 << 8) && linear < 28 && angular < 520) {
-        if (++d->sleep_ticks > 28) {
+    if (min_y <= (1 << 8) && linear < 42 && angular < 900) {
+        if (++d->sleep_ticks > 20) {
             d->sleeping = true;
             d->vel_q8 = (t3_vec3_t){0, 0, 0};
             d->omega_q10 = (t3_vec3_t){0, 0, 0};
