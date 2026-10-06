@@ -158,6 +158,8 @@ static reel_motion_t s_reel_motion[3];
 
 /* roulette */
 static lv_obj_t *s_wheel_lamps[LAMP_COUNT];
+static lv_obj_t *s_roulette_wheel;
+static lv_obj_t *s_roulette_glint;
 static lv_obj_t *s_roulette_number;
 static lv_obj_t *s_roulette_color;
 static chance_roulette_result_t s_roulette_result;
@@ -339,6 +341,8 @@ static void clear_page_refs(void)
         s_reels[i].shade = NULL;
     }
     for (int i = 0; i < LAMP_COUNT; ++i) s_wheel_lamps[i] = NULL;
+    s_roulette_wheel = NULL;
+    s_roulette_glint = NULL;
     s_roulette_number = NULL;
     s_roulette_color = NULL;
     for (int d = 0; d < 2; ++d) {
@@ -495,6 +499,10 @@ static void build_reel(reel_view_t *reel, int x, uint8_t initial)
     reel->shape2 = box(reel->cell, 0, 0, 1, 1, C_RED, C_RED, 0);
     reel->shape3 = box(reel->cell, 0, 0, 1, 1, C_RED, C_RED, 0);
     reel->label = label(reel->cell, "", &lv_font_montserrat_14, C_INK);
+    reel->highlight = box(reel->cell, 3, 3, 10, 84, C_TEXT, C_TEXT, 5);
+    lv_obj_set_style_bg_opa(reel->highlight, 22, 0);
+    reel->shade = box(reel->cell, 45, 3, 10, 84, C_INK, C_INK, 5);
+    lv_obj_set_style_bg_opa(reel->shade, 54, 0);
     reel->shown = 0xFF;
     reel->stopped = true;
     render_symbol(reel, initial);
@@ -532,9 +540,11 @@ static void build_roulette(void)
     s_game_frame = box(s_screen, 31, 57, 178, 166, C_PANEL_2, C_GOLD, 22);
     lv_obj_set_style_border_width(s_game_frame, 2, 0);
 
-    lv_obj_t *wheel = box(s_game_frame, 34, 12, 110, 110, 0x101521, C_GOLD_DIM, LV_RADIUS_CIRCLE);
-    lv_obj_set_style_border_width(wheel, 4, 0);
-    lv_obj_t *inner = box(wheel, 22, 22, 66, 66, 0x071019, C_GREEN, LV_RADIUS_CIRCLE);
+    s_roulette_wheel = box(s_game_frame, 34, 12, 110, 110, 0x101521, C_GOLD_DIM, LV_RADIUS_CIRCLE);
+    lv_obj_set_style_border_width(s_roulette_wheel, 4, 0);
+    s_roulette_glint = box(s_roulette_wheel, 18, 11, 34, 12, C_TEXT, C_TEXT, LV_RADIUS_CIRCLE);
+    lv_obj_set_style_bg_opa(s_roulette_glint, 32, 0);
+    lv_obj_t *inner = box(s_roulette_wheel, 22, 22, 66, 66, 0x071019, C_GREEN, LV_RADIUS_CIRCLE);
     lv_obj_set_style_border_width(inner, 2, 0);
 
     for (int i = 0; i < LAMP_COUNT; ++i) {
@@ -570,6 +580,8 @@ static void build_die(die_view_t *die, int x)
     static const uint8_t pip_xy[7][2] = {
         {12,12}, {52,12}, {12,32}, {32,32}, {52,32}, {12,52}, {52,52},
     };
+    die->shadow = box(s_game_frame, x + 3, 136, 58, 10, C_INK, C_INK, LV_RADIUS_CIRCLE);
+    lv_obj_set_style_bg_opa(die->shadow, 54, 0);
     die->body = box(s_game_frame, x, 20, 64, 64, C_REEL, C_GOLD_DIM, 14);
     lv_obj_set_style_transform_pivot_x(die->body, 32, 0);
     lv_obj_set_style_transform_pivot_y(die->body, 32, 0);
@@ -578,6 +590,8 @@ static void build_die(die_view_t *die, int x)
         int py = pip_xy[i][1];
         die->pips[i] = box(die->body, px - 4, py - 4, 9, 9, C_INK, C_INK, LV_RADIUS_CIRCLE);
     }
+    die->highlight = box(s_game_frame, x + 7, 24, 18, 10, C_TEXT, C_TEXT, LV_RADIUS_CIRCLE);
+    lv_obj_set_style_bg_opa(die->highlight, 44, 0);
     set_die(die, 1);
 }
 
@@ -618,8 +632,12 @@ static void build_plinko(void)
         s_plinko_bins[i] = box(s_game_frame, x, 148, 18, 19, C_PANEL, C_GOLD_DIM, 4);
     }
 
+    s_plinko_shadow = box(s_game_frame, 101, 141, 10, 5, C_INK, C_INK, LV_RADIUS_CIRCLE);
+    lv_obj_set_style_bg_opa(s_plinko_shadow, 38, 0);
     s_plinko_ball = box(s_game_frame, 100, 5, 11, 11, C_MAGENTA, C_TEXT, LV_RADIUS_CIRCLE);
     lv_obj_set_style_border_width(s_plinko_ball, 2, 0);
+    s_plinko_highlight = box(s_game_frame, 102, 6, 4, 4, C_TEXT, C_TEXT, LV_RADIUS_CIRCLE);
+    lv_obj_set_style_bg_opa(s_plinko_highlight, 150, 0);
     set_game_footer("PRESS OK TO DROP");
     refresh_hint();
 }
