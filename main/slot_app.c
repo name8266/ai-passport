@@ -2,6 +2,7 @@
 // Four endlessly replayable mini games: slots, roulette, dice and Plinko.
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdatomic.h>
 #include <stdio.h>
 
 #include "bsp_audio.h"
@@ -11,6 +12,11 @@
 #include "chance_core.h"
 #include "esp_log.h"
 #include "esp_random.h"
+#include "esp_timer.h"
+#include "esp_heap_caps.h"
+#if CONFIG_ARCADE_USB_TEST
+#include "driver/usb_serial_jtag.h"
+#endif
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/task.h"
@@ -128,9 +134,11 @@ static const char *const SPEED_NAMES[] = { "CHILL", "NORMAL", "TURBO" };
 
 static QueueHandle_t s_input_queue;
 static QueueHandle_t s_audio_queue;
-static bool s_audio_ready;
-static bool s_sound = true;
-static volatile bool s_input_ready;
+static atomic_bool s_audio_ready;
+static atomic_bool s_sound = true;
+static atomic_bool s_input_ready;
+static atomic_uint s_audio_writes;
+static atomic_uint s_audio_errors;
 
 static page_t s_page = PAGE_HOME;
 static uint8_t s_home_index;
@@ -140,6 +148,7 @@ static bool s_busy;
 static uint32_t s_started;
 static uint32_t s_next_auto;
 static uint32_t s_flash_until;
+static uint32_t s_completed;
 
 static lv_obj_t *s_screen;
 static lv_obj_t *s_title;
@@ -245,7 +254,13 @@ static void tone(uint32_t hz, uint32_t ms, int16_t amplitude)
             pcm[i] = phase < period / 2 ? amplitude : (int16_t)-amplitude;
             if (++phase >= period) phase = 0;
         }
-        if (bsp_audio_write(pcm, n * sizeof(pcm[0])) != ESP_OK) return;
+        esp_err_t error = bsp_audio_write(pcm, n * sizeof(pcm[0]));
+        if (error != ESP_OK) {
+            ++s_audio_errors;
+            ESP_LOGE(TAG, "audio write failed: %s", esp_err_to_name(error));
+            return;
+        }
+        ++s_audio_writes;
         total -= n;
     }
 }
@@ -255,6 +270,8 @@ static void audio_task(void *arg)
     (void)arg;
     if (bsp_audio_set_format(16000, 16, 1) != ESP_OK) {
         s_audio_ready = false;
+        ++s_audio_errors;
+        ESP_LOGE(TAG, "audio format setup failed");
         vTaskDelete(NULL);
         return;
     }
@@ -759,6 +776,8 @@ static void load_page(page_t page)
 static void finish_action(const char *message, bool special)
 {
     s_busy = false;
+    ++s_completed;
+    ESP_LOGI(TAG, "result page=%d count=%lu %s", s_page, (unsigned long)s_completed, message);
     lv_label_set_text(s_status, message);
     if (special) {
         flash_machine(900);
@@ -1197,6 +1216,7 @@ static void animate_plinko(uint32_t elapsed)
 static void start_current_game(void)
 {
     if (s_busy || s_page == PAGE_HOME) return;
+    ESP_LOGI(TAG, "play page=%d speed=%u", s_page, s_speed);
     switch (s_page) {
     case PAGE_SLOT: start_slot(); break;
     case PAGE_ROULETTE: start_roulette(); break;
@@ -1316,7 +1336,7 @@ static void input_task(void *arg)
             }
         }
 
-        int64_t now = (int64_t)lv_tick_get();
+        int64_t now = esp_timer_get_time() / 1000;
         if (now >= battery_due) {
             battery_due = now + 30000;
             if (bsp_lvgl_lock(250)) {
@@ -1326,6 +1346,46 @@ static void input_task(void *arg)
         }
     }
 }
+
+#if CONFIG_ARCADE_USB_TEST
+/* Development-only USB input follows the same queue and LVGL ownership as keys. */
+static void usb_test_task(void *arg)
+{
+    (void)arg;
+    for (;;) {
+        uint8_t command;
+        if (usb_serial_jtag_read_bytes(&command, 1, pdMS_TO_TICKS(100)) != 1) continue;
+        if (command == '?') {
+            if (bsp_lvgl_lock(500)) {
+                lv_mem_monitor_t memory;
+                lv_mem_monitor(&memory);
+                ESP_LOGI(TAG, "state page=%d selected=%u busy=%d auto=%d speed=%u sound=%d completed=%lu heap=%lu min=%lu largest=%lu lvfree=%lu stack=%u audio=%d writes=%u audio_errors=%u lvpeak=%lu lvlargest=%lu",
+                         s_page, s_home_index, s_busy, s_auto, s_speed, (bool)s_sound,
+                         (unsigned long)s_completed,
+                         (unsigned long)esp_get_free_heap_size(),
+                         (unsigned long)esp_get_minimum_free_heap_size(),
+                         (unsigned long)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL),
+                         (unsigned long)memory.free_size,
+                         (unsigned)uxTaskGetStackHighWaterMark(NULL), (bool)s_audio_ready,
+                         (unsigned)s_audio_writes, (unsigned)s_audio_errors,
+                         (unsigned long)memory.max_used, (unsigned long)memory.free_biggest_size);
+                bsp_lvgl_unlock();
+            }
+            continue;
+        }
+        input_event_t input = { .event = BSP_BTN_CLICK };
+        switch (command) {
+        case 'u': case 'U': input.button = BSP_BTN_UP; break;
+        case 'd': case 'D': input.button = BSP_BTN_DOWN; break;
+        case 'o': case 'O': input.button = BSP_BTN_OK; break;
+        default: continue;
+        }
+        if (command >= 'A' && command <= 'Z') input.event = BSP_BTN_LONG;
+        if (s_input_ready && xQueueSend(s_input_queue, &input, pdMS_TO_TICKS(100)) != pdTRUE)
+            ESP_LOGW(TAG, "USB test input queue full");
+    }
+}
+#endif
 
 static void on_button(bsp_btn_t button, bsp_btn_ev_t event, void *user)
 {
@@ -1385,4 +1445,15 @@ void app_main(void)
 
     s_input_ready = true;
     ESP_LOGI(TAG, "Odds Arcade ready: slots roulette dice plinko");
+#if CONFIG_ARCADE_USB_TEST
+    usb_serial_jtag_driver_config_t usb_config = USB_SERIAL_JTAG_DRIVER_CONFIG_DEFAULT();
+    if (usb_serial_jtag_driver_install(&usb_config) != ESP_OK) {
+        ESP_LOGE(TAG, "USB test driver initialization failed");
+    } else if (xTaskCreate(usb_test_task, "arcade_usb", 4096, NULL, 3, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "USB test task allocation failed");
+        usb_serial_jtag_driver_uninstall();
+    } else {
+        ESP_LOGI(TAG, "USB test keys: u/d/o click, U/D/O hold, ? state");
+    }
+#endif
 }

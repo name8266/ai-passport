@@ -5,5 +5,5 @@ idf_component_register(
          "motion_core.c"
          "light_core.c"
     INCLUDE_DIRS "."
-    REQUIRES bsp esp_hw_support esp_timer
+    REQUIRES bsp esp_hw_support esp_timer esp_driver_usb_serial_jtag
 )

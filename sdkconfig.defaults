@@ -25,8 +25,9 @@ CONFIG_LV_DEF_REFR_PERIOD=20
 CONFIG_LV_FONT_MONTSERRAT_14=y
 CONFIG_LV_FONT_MONTSERRAT_20=y
 # LVGL 内置 malloc 池大小(KB)。它是独立静态区、不与系统堆共享,配大了会白白占用 RAM。
-# 本 demo UI 简单,24KB 足够;若自建复杂界面出现绘制卡死/看门狗,调大此值。
-CONFIG_LV_MEM_SIZE_KILOBYTES=24
+# Arcade: ~14KB widgets, two padded ARGB dice layers (up to ~22KB each),
+# plus draw tasks and fragmentation. 64KB failed during on-device autoplay.
+CONFIG_LV_MEM_SIZE_KILOBYTES=96
 
 # --- 系统 ---
 CONFIG_FREERTOS_HZ=1000
@@ -42,3 +43,10 @@ CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
 CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
 CONFIG_BT_NIMBLE_HOST_BASED_PRIVACY=n
 CONFIG_BT_NIMBLE_NVS_PERSIST=n
+
+# Remote acceptance on this development branch; disable for production.
+CONFIG_ARCADE_USB_TEST=y
+# Keep allocation warnings visible during hardware acceptance.
+CONFIG_LV_USE_LOG=y
+CONFIG_LV_LOG_LEVEL_WARN=y
+CONFIG_LV_LOG_PRINTF=y

@@ -1,0 +1,8 @@
+menu "Odds Arcade"
+config ARCADE_USB_TEST
+    bool "Enable USB development test input"
+    default n
+    help
+        Accept u/d/o (click), U/D/O (hold), and ? (state) over USB.
+        Disable for normal builds without remote testing.
+endmenu
