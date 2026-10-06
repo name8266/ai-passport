@@ -58,6 +58,7 @@ typedef enum {
     PAGE_ROULETTE,
     PAGE_DICE,
     PAGE_PLINKO,
+    PAGE_SETTINGS,
 } page_t;
 
 typedef enum {
@@ -132,6 +133,17 @@ static uint32_t s_started;
 static uint32_t s_next_auto;
 static uint32_t s_flash_until;
 static uint32_t s_completed;
+static bool s_fps_sampling;
+static uint32_t s_fps_frames;
+static uint32_t s_fps_active_ms;
+static uint32_t s_fps_last_frame_ms;
+static int64_t s_fps_start_us;
+static page_t s_fps_page;
+static bool s_fps_display_enabled;
+static uint32_t s_live_fps_frames;
+static uint32_t s_live_fps_active_ms;
+static uint32_t s_live_fps_last_frame_ms;
+static uint32_t s_live_fps_window_start_ms;
 
 static lv_obj_t *s_screen;
 static lv_obj_t *s_title;
@@ -141,7 +153,73 @@ static lv_obj_t *s_battery;
 static lv_obj_t *s_accent_left;
 static lv_obj_t *s_accent_right;
 static lv_obj_t *s_game_frame;
+static lv_obj_t *s_fps_badge;
 static lv_timer_t *s_anim_timer;
+
+static bool is_game_page(page_t page)
+{
+    return page >= PAGE_SLOT && page <= PAGE_PLINKO;
+}
+
+static const char *fps_page_name(page_t page)
+{
+    switch (page) {
+    case PAGE_SLOT: return "slots";
+    case PAGE_ROULETTE: return "roulette";
+    case PAGE_DICE: return "dice";
+    case PAGE_PLINKO: return "plinko";
+    case PAGE_HOME:
+    default: return "home";
+    }
+}
+
+static void fps_refresh_event_cb(lv_event_t *event)
+{
+    (void)event;
+    uint32_t now = lv_tick_get();
+
+    if (s_fps_sampling) {
+        if (s_page != s_fps_page || !s_busy) {
+            s_fps_last_frame_ms = 0;
+        } else {
+            if (s_fps_last_frame_ms != 0) {
+            s_fps_active_ms += now - s_fps_last_frame_ms;
+            }
+            s_fps_last_frame_ms = now;
+            ++s_fps_frames;
+        }
+    }
+
+    if (!s_fps_display_enabled || !s_fps_badge) return;
+    if (!is_game_page(s_page) || !s_busy) {
+        s_live_fps_frames = 0;
+        s_live_fps_active_ms = 0;
+        s_live_fps_last_frame_ms = 0;
+        s_live_fps_window_start_ms = now;
+        if (lv_label_get_text(s_fps_badge)[0] != '-')
+            lv_label_set_text(s_fps_badge, "-- FPS");
+        return;
+    }
+
+    if (s_live_fps_last_frame_ms != 0) {
+        s_live_fps_active_ms += now - s_live_fps_last_frame_ms;
+    }
+    s_live_fps_last_frame_ms = now;
+    ++s_live_fps_frames;
+    if (s_live_fps_window_start_ms == 0) s_live_fps_window_start_ms = now;
+    if (now - s_live_fps_window_start_ms >= 1000) {
+        uint32_t fps_x100 = s_live_fps_active_ms && s_live_fps_frames > 1
+            ? (uint32_t)(((uint64_t)(s_live_fps_frames - 1) * 100000u) /
+                         s_live_fps_active_ms)
+            : 0;
+        lv_label_set_text_fmt(s_fps_badge, "%lu FPS",
+                              (unsigned long)((fps_x100 + 50) / 100));
+        s_live_fps_frames = 0;
+        s_live_fps_active_ms = 0;
+        s_live_fps_last_frame_ms = now;
+        s_live_fps_window_start_ms = now;
+    }
+}
 
 /* slot */
 static reel_view_t s_reels[3];
@@ -340,6 +418,11 @@ static void clear_page_refs(void)
     s_accent_left = NULL;
     s_accent_right = NULL;
     s_game_frame = NULL;
+    s_fps_badge = NULL;
+    s_live_fps_frames = 0;
+    s_live_fps_active_ms = 0;
+    s_live_fps_last_frame_ms = 0;
+    s_live_fps_window_start_ms = 0;
     for (int i = 0; i < 3; ++i) {
         s_reels[i].cell = NULL;
         s_reels[i].shape1 = NULL;
@@ -384,6 +467,12 @@ static void build_shell(const char *title_text)
     s_battery = label(s_screen, "BAT --", &lv_font_montserrat_14, C_MUTED);
     lv_obj_align(s_battery, LV_ALIGN_BOTTOM_RIGHT, -10, -4);
     update_battery_unlocked();
+
+    if (s_fps_display_enabled && is_game_page(s_page)) {
+        lv_obj_t *badge = box(s_screen, 87, 34, 66, 18, C_PANEL, C_CYAN, 9);
+        s_fps_badge = label(badge, "-- FPS", &lv_font_montserrat_14, C_CYAN);
+        lv_obj_center(s_fps_badge);
+    }
 }
 
 static void set_game_footer(const char *status_text)
@@ -701,8 +790,42 @@ static void build_home(void)
     lv_obj_set_style_text_align(s_status, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(s_status, LV_ALIGN_BOTTOM_MID, 0, -33);
 
+    lv_obj_t *settings_hint = label(s_screen, "HOLD OK FOR SETTINGS",
+                                    &lv_font_montserrat_14, C_MUTED);
+    lv_obj_align(settings_hint, LV_ALIGN_TOP_MID, 0, 250);
+
     s_hint = label(s_screen, s_sound ? "SOUND ON" : "MUTE", &lv_font_montserrat_14, C_MUTED);
     lv_obj_align(s_hint, LV_ALIGN_BOTTOM_LEFT, 11, -5);
+}
+
+static void build_settings(void)
+{
+    build_shell("SETTINGS");
+
+    lv_obj_t *card = box(s_screen, 18, 84, 204, 76, C_PANEL_2, C_CYAN, 14);
+    lv_obj_t *name = label(card, "LIVE FPS OVERLAY", &lv_font_montserrat_14, C_TEXT);
+    lv_obj_align(name, LV_ALIGN_LEFT_MID, 12, 0);
+
+    lv_obj_t *switch_box = box(card, 144, 22, 48, 32,
+                               s_fps_display_enabled ? C_CYAN : C_PANEL,
+                               s_fps_display_enabled ? C_CYAN : C_MUTED, 10);
+    lv_obj_t *toggle = label(switch_box, s_fps_display_enabled ? "ON" : "OFF",
+                             &lv_font_montserrat_14,
+                             s_fps_display_enabled ? C_BG : C_MUTED);
+    lv_obj_center(toggle);
+
+    lv_obj_t *sound = label(s_screen, s_sound ? "SOUND ON · HOLD DOWN TO MUTE" :
+                            "MUTE · HOLD DOWN FOR SOUND",
+                            &lv_font_montserrat_14, C_MUTED);
+    lv_obj_set_width(sound, 224);
+    lv_obj_set_style_text_align(sound, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(sound, LV_ALIGN_TOP_MID, 0, 183);
+
+    lv_obj_t *controls = label(s_screen, "OK TO TOGGLE · HOLD OK TO RETURN",
+                               &lv_font_montserrat_14, C_GOLD);
+    lv_obj_set_width(controls, 224);
+    lv_obj_set_style_text_align(controls, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_align(controls, LV_ALIGN_TOP_MID, 0, 235);
 }
 
 static void load_page(page_t page)
@@ -717,6 +840,7 @@ static void load_page(page_t page)
     case PAGE_ROULETTE: build_roulette(); break;
     case PAGE_DICE: build_dice(); break;
     case PAGE_PLINKO: build_plinko(); break;
+    case PAGE_SETTINGS: build_settings(); break;
     case PAGE_HOME:
     default: build_home(); break;
     }
@@ -1165,6 +1289,25 @@ static void enter_selected(void)
 
 static void handle_input(const input_event_t *input)
 {
+    if (s_page == PAGE_SETTINGS) {
+        if (input->event == BSP_BTN_CLICK && input->button == BSP_BTN_OK) {
+            s_fps_display_enabled = !s_fps_display_enabled;
+            s_live_fps_frames = 0;
+            s_live_fps_active_ms = 0;
+            s_live_fps_last_frame_ms = 0;
+            build_settings();
+            sfx(SFX_UI);
+        } else if (input->event == BSP_BTN_LONG && input->button == BSP_BTN_OK) {
+            load_page(PAGE_HOME);
+            sfx(SFX_UI);
+        } else if (input->event == BSP_BTN_LONG && input->button == BSP_BTN_DOWN) {
+            s_sound = !s_sound;
+            build_settings();
+            if (s_sound) sfx(SFX_UI);
+        }
+        return;
+    }
+
     if (s_page == PAGE_HOME) {
         if (input->event == BSP_BTN_CLICK) {
             if (input->button == BSP_BTN_UP)
@@ -1181,6 +1324,9 @@ static void handle_input(const input_event_t *input)
             s_sound = !s_sound;
             build_home();
             if (s_sound) sfx(SFX_UI);
+        } else if (input->event == BSP_BTN_LONG && input->button == BSP_BTN_OK) {
+            load_page(PAGE_SETTINGS);
+            sfx(SFX_UI);
         }
         return;
     }
@@ -1255,8 +1401,9 @@ static void usb_test_task(void *arg)
             if (bsp_lvgl_lock(500)) {
                 lv_mem_monitor_t memory;
                 lv_mem_monitor(&memory);
-                ESP_LOGI(TAG, "state page=%d selected=%u busy=%d auto=%d speed=%u sound=%d completed=%lu heap=%lu min=%lu largest=%lu lvfree=%lu stack=%u audio=%d writes=%u audio_errors=%u lvpeak=%lu lvlargest=%lu",
+                ESP_LOGI(TAG, "state page=%d selected=%u busy=%d auto=%d speed=%u sound=%d fps_overlay=%d completed=%lu heap=%lu min=%lu largest=%lu lvfree=%lu stack=%u audio=%d writes=%u audio_errors=%u lvpeak=%lu lvlargest=%lu",
                          s_page, s_home_index, s_busy, s_auto, s_speed, (bool)s_sound,
+                         s_fps_display_enabled,
                          (unsigned long)s_completed,
                          (unsigned long)esp_get_free_heap_size(),
                          (unsigned long)esp_get_minimum_free_heap_size(),
@@ -1267,6 +1414,38 @@ static void usb_test_task(void *arg)
                          (unsigned long)memory.max_used, (unsigned long)memory.free_biggest_size);
                 bsp_lvgl_unlock();
             }
+            continue;
+        }
+        if (command == 'm') {
+            if (!bsp_lvgl_lock(500)) continue;
+            if (!is_game_page(s_page)) {
+                ESP_LOGW(TAG, "FPS measurement requires a game page");
+                bsp_lvgl_unlock();
+                continue;
+            }
+            s_fps_page = s_page;
+            s_fps_frames = 0;
+            s_fps_active_ms = 0;
+            s_fps_last_frame_ms = 0;
+            s_fps_start_us = esp_timer_get_time();
+            s_fps_sampling = true;
+            ESP_LOGI(TAG, "FPS measurement started: %s refreshes for 10 seconds",
+                     fps_page_name(s_fps_page));
+            bsp_lvgl_unlock();
+
+            vTaskDelay(pdMS_TO_TICKS(10000));
+
+            if (!bsp_lvgl_lock(500)) continue;
+            s_fps_sampling = false;
+            uint32_t elapsed_ms = (uint32_t)((esp_timer_get_time() - s_fps_start_us) / 1000);
+            uint32_t fps_x100 = s_fps_active_ms && s_fps_frames > 1
+                ? (uint32_t)(((uint64_t)(s_fps_frames - 1) * 100000u) / s_fps_active_ms)
+                : 0;
+            ESP_LOGI(TAG, "FPS_RESULT page=%s window_ms=%lu active_ms=%lu frames=%lu fps_x100=%lu",
+                     fps_page_name(s_fps_page),
+                     (unsigned long)elapsed_ms, (unsigned long)s_fps_active_ms,
+                     (unsigned long)s_fps_frames, (unsigned long)fps_x100);
+            bsp_lvgl_unlock();
             continue;
         }
         input_event_t input = { .event = BSP_BTN_CLICK };
@@ -1295,7 +1474,12 @@ void app_main(void)
 {
     ESP_LOGI(TAG, "Odds Arcade starting");
 
-    if (bsp_display_init() != ESP_OK || !bsp_lvgl_init()) {
+    if (bsp_display_init() != ESP_OK) {
+        ESP_LOGE(TAG, "display initialization failed");
+        return;
+    }
+    lv_display_t *display = bsp_lvgl_init();
+    if (!display) {
         ESP_LOGE(TAG, "display/LVGL initialization failed");
         return;
     }
@@ -1326,6 +1510,7 @@ void app_main(void)
     lv_obj_set_style_bg_color(s_screen, lv_color_hex(C_BG), 0);
     lv_obj_set_style_bg_opa(s_screen, LV_OPA_COVER, 0);
     lv_screen_load(s_screen);
+    lv_display_add_event_cb(display, fps_refresh_event_cb, LV_EVENT_REFR_READY, NULL);
     build_home();
     s_anim_timer = lv_timer_create(animate_timer, 32, NULL);
     bsp_lvgl_unlock();
