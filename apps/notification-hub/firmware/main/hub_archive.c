@@ -32,16 +32,29 @@ static int group_index(hub_archive_t *db,const char *app,bool create) {
     if(!app || !*app) app="Unresolved";
     for(uint16_t i=0;i<db->group_count;i++)
         if(strcmp(db->groups[i].app,app)==0) return (int)i;
-    if(!create || db->group_count>=HUB_ARCHIVE_GROUP_LIMIT) return -1;
-    uint16_t idx=db->group_count++;
+    if(!create) return -1;
+    /* A resolved placeholder may have left an empty group slot. Reuse it. */
+    uint16_t idx=db->group_count;
+    for(uint16_t i=0;i<db->group_count;i++)
+        if(db->groups[i].count==0) {idx=i;break;}
+    if(idx==db->group_count) {
+        if(db->group_count>=HUB_ARCHIVE_GROUP_LIMIT) return -1;
+        db->group_count++;
+    }
     snprintf(db->groups[idx].app,sizeof(db->groups[idx].app),"%s",app);
     db->groups[idx].count=0;
     return idx;
 }
 static bool partition_is_blank(const esp_partition_t *p) {
+    /* Inspect the entire partition. A damaged empty first sector is NOT
+     * evidence that the rest of a user's archive may be reformatted. */
     uint8_t buffer[4096];
-    if(!p || esp_partition_read(p,0,buffer,sizeof(buffer))!=ESP_OK) return false;
-    for(size_t i=0;i<sizeof(buffer);i++) if(buffer[i]!=0xFF) return false;
+    if(!p || (p->size % sizeof(buffer))!=0) return false;
+    for(size_t offset=0;offset<p->size;offset+=sizeof(buffer)) {
+        if(esp_partition_read(p,offset,buffer,sizeof(buffer))!=ESP_OK) return false;
+        for(size_t i=0;i<sizeof(buffer);i++)
+            if(buffer[i]!=0xFF) return false;
+    }
     return true;
 }
 static bool load_entry(hub_archive_t *db,uint32_t slot,hub_archive_record_t *out) {
@@ -110,7 +123,12 @@ bool hub_archive_open(hub_archive_t *db,uint32_t session) {
         if(r.sequence>=db->next_sequence) db->next_sequence=r.sequence+1;
         if(r.obsolete) continue;
         int idx=group_index(db,r.app,true);
-        if(idx>=0) db->groups[idx].count++;
+        if(idx<0) {
+            db->failed=true;
+            ESP_LOGE(TAG,"Group index exhausted; archive remains untouched");
+            return false;
+        }
+        db->groups[idx].count++;
     }
     db->mounted=true;
     ESP_LOGI(TAG,"Archive mounted: %lu records, %u application groups",
@@ -141,6 +159,16 @@ bool hub_archive_capture(hub_archive_t *db,const hub_archive_record_t *input) {
     if((db->rows+1u)*sizeof(hub_archive_record_t)>db->usable_bytes) {
         db->full=true;
         return false;
+    }
+    /* Refuse new distinct groups when the in-RAM group index is at capacity
+     * rather than invisibly archiving entries that cannot be browsed. */
+    if(input->kind==HUB_ARCHIVE_PREVIEW &&
+       group_index(db,input->app[0]?input->app:"Unresolved",false)<0 &&
+       db->group_count>=HUB_ARCHIVE_GROUP_LIMIT) {
+        bool empty=false;
+        for(uint16_t i=0;i<db->group_count;i++)
+            if(db->groups[i].count==0) empty=true;
+        if(!empty) { db->full=true; return false; }
     }
     hub_archive_record_t r=*input;
     r.magic=HUB_ARCHIVE_MAGIC;
