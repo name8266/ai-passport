@@ -1,4 +1,8 @@
+# 8MB flash: 4MB firmware region + 4MB dedicated persistent archive.
+# Moving from the previous factory-only layout changes partition boundaries.
+# Do NOT erase-flash, and do NOT use a merged 0x0 image when preserving history.
 # Name,Type,SubType,Offset,Size
 nvs,data,nvs,0x9000,0x6000
 phy_init,data,phy,0xF000,0x1000
-factory,app,factory,0x10000,0x7F0000
+factory,app,factory,0x10000,0x3F0000
+archive,data,fat,0x400000,0x400000
