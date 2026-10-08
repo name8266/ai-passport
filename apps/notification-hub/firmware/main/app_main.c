@@ -176,8 +176,6 @@ static void handle_ai_archive_request(const ai_archive_req_t *request) {
         if(reply.success)
             reply.success=hub_ai_advance_cursor(request->digest.processed_through);
         if(reply.success) {
-            latest_digest=request->digest;
-            latest_digest_ready=true;
             archive_job_t ui_request={.kind=ARCHIVE_AI_LAST};
             (void)post_job(&ui_request);
         }
@@ -273,6 +271,8 @@ static void archive_task(void *arg) {
         start.found=hub_archive_get_group(&archive_database,0,&start.group);
         (void)xQueueOverwrite(archive_replies,&start);
     }
+    archive_job_t load_latest={.kind=ARCHIVE_AI_LAST};
+    (void)post_job(&load_latest);
     archive_job_t job;
     while(true) {
         ai_archive_req_t request;
@@ -396,6 +396,39 @@ static const char *app_display(const char *bundle) {
     if(!strcmp(bundle,"ph.telegra.Telegraph")) return "Telegram";
     return bundle[0]?bundle:"Unresolved";
 }
+/* UTF-8 codepoint pagination avoids chopping Han characters in half. */
+static void digest_text_page(const char *source,uint16_t page,
+                             char *out,size_t max) {
+    if(!out || max==0) return;
+    out[0]=0;
+    if(!source || !*source) return;
+    size_t skip=(size_t)page*60u;
+    const unsigned char *p=(const unsigned char *)source;
+    while(*p && skip) {
+        size_t n=(*p<0x80)?1:(*p<0xE0)?2:(*p<0xF0)?3:4;
+        for(size_t i=0;i<n&&*p;i++) p++;
+        skip--;
+    }
+    size_t count=0,length=0;
+    while(*p && count<60) {
+        size_t n=(*p<0x80)?1:(*p<0xE0)?2:(*p<0xF0)?3:4;
+        if(length+n>=max) break;
+        for(size_t i=0;i<n&&*p;i++) out[length++]=(char)*p++;
+        count++;
+    }
+    out[length]=0;
+}
+static uint16_t digest_pages(const char *source) {
+    if(!source || !*source) return 1;
+    uint32_t count=0;
+    const unsigned char *p=(const unsigned char *)source;
+    while(*p) {
+        size_t n=(*p<0x80)?1:(*p<0xE0)?2:(*p<0xF0)?3:4;
+        for(size_t i=0;i<n&&*p;i++) p++;
+        count++;
+    }
+    return (uint16_t)((count+59)/60);
+}
 static void render(void) {
     int battery=bsp_battery_soc();
     if(battery<0) lv_label_set_text(top_battery,"--%");
@@ -412,7 +445,26 @@ static void render(void) {
     lv_obj_set_style_text_color(top_status,lv_color_hex(
         archive_error||archive_full||archive_dropped?0xFF8B87:
         ready?0x7EE6B3:0xFFBB70),0);
-    if(view_mode==VIEW_GROUPS) {
+    if(view_mode==VIEW_DIGEST) {
+        lv_obj_set_style_text_color(title_text,lv_color_hex(0x7EE6B3),0);
+        uint16_t pages=latest_digest_ready?digest_pages(latest_digest.summary):1;
+        if(digest_page>=pages) digest_page=pages-1;
+        lv_label_set_text_fmt(page_no,"AI SUMMARY  %u / %u",
+                              (unsigned)digest_page+1,(unsigned)pages);
+        lv_label_set_text(app_name,latest_digest_ready?
+                          "SAVED DIGEST":"NO SUMMARY YET");
+        lv_label_set_text_fmt(title_text,latest_digest_ready?
+                             "Batch to #%lu":"Set up gateway via USB",
+                             (unsigned long)latest_digest.processed_through);
+        static char fragment[256];
+        digest_text_page(latest_digest_ready?latest_digest.summary:"",
+                         digest_page,fragment,sizeof(fragment));
+        lv_label_set_text(body_text,latest_digest_ready?
+             fragment:(!ai_configured?"AI NOT CONFIGURED":
+                       !ai_enabled?"AI DISABLED IN ADMIN":
+                       ai_busy?"SUMMARIZING...":"WAITING FOR INTERVAL"));
+        lv_label_set_text(help_text,"UP/DOWN:PAGE  HOLD OK:BACK");
+    }else if(view_mode==VIEW_GROUPS) {
         lv_label_set_text_fmt(page_no,"APPLICATIONS %d / %lu",
              visible_group_count?group_cursor+1:0,(unsigned long)visible_group_count);
         if(!visible_group_count) {
@@ -466,15 +518,32 @@ static void refresh(lv_timer_t *timer) {
                 memset(&previous_group,0,sizeof(previous_group));
                 memset(&next_group,0,sizeof(next_group));
             }
-        } else if(reply.kind==ARCHIVE_RECORD && view_mode!=VIEW_GROUPS) {
+        } else if(reply.kind==ARCHIVE_AI_LAST) {
+            latest_digest_ready=reply.found;
+            digest_page=0;
+            if(reply.found) latest_digest=reply.digest;
+        } else if(reply.kind==ARCHIVE_RECORD && view_mode==VIEW_LIST) {
             selected_record_valid=reply.found;
             if(reply.found) selected_record=reply.record;
         }
     }
     button_t btn;
     while(xQueueReceive(button_queue,&btn,0)==pdTRUE) {
-        if(btn.ev==BSP_BTN_LONG && btn.btn==BSP_BTN_OK) {
-            if(view_mode==VIEW_DETAIL) view_mode=VIEW_LIST;
+        if(btn.ev==BSP_BTN_LONG && btn.btn==BSP_BTN_UP) {
+            if(view_mode==VIEW_GROUPS) {
+                view_mode=VIEW_DIGEST;
+                archive_job_t latest={.kind=ARCHIVE_AI_LAST};
+                (void)post_job(&latest);
+            } else if(view_mode==VIEW_DIGEST) {
+                view_mode=VIEW_GROUPS;request_group(group_cursor);
+            }
+        } else if(btn.ev==BSP_BTN_LONG && btn.btn==BSP_BTN_DOWN &&
+                  view_mode==VIEW_DIGEST) {
+            ai_run_now=true; /* Back-end still must explicitly enable sending. */
+        } else if(btn.ev==BSP_BTN_LONG && btn.btn==BSP_BTN_OK) {
+            if(view_mode==VIEW_DIGEST) {
+                view_mode=VIEW_GROUPS;request_group(group_cursor);
+            } else if(view_mode==VIEW_DETAIL) view_mode=VIEW_LIST;
             else if(view_mode==VIEW_LIST) {
                 view_mode=VIEW_GROUPS;
                 request_group(group_cursor);
@@ -489,6 +558,11 @@ static void refresh(lv_timer_t *timer) {
                 }
             } else if(btn.btn==BSP_BTN_UP || btn.btn==BSP_BTN_DOWN) {
                 int delta=btn.btn==BSP_BTN_DOWN?1:-1;
+                if(view_mode==VIEW_DIGEST) {
+                    int pages=digest_pages(latest_digest_ready?
+                                          latest_digest.summary:"");
+                    digest_page=(uint16_t)((digest_page+pages+delta)%pages);
+                }
                 if(view_mode==VIEW_GROUPS && visible_group_count) {
                     group_cursor=(group_cursor+(int)visible_group_count+delta) %
                                   (int)visible_group_count;
