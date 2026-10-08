@@ -233,12 +233,13 @@ final class NavigationModel: NSObject, ObservableObject, CLLocationManagerDelega
 
     var snapshot: NavSnapshot {
         let point = location
-        let speed = max(0, point?.speed ?? 0) * 3.6
+        let freshFix = point.map { abs($0.timestamp.timeIntervalSinceNow) < 6 && $0.horizontalAccuracy >= 0 && $0.horizontalAccuracy < 100 } ?? false
+        let speed = freshFix ? max(0, point?.speed ?? 0) * 3.6 : 0
         let course = point?.course ?? -1
         let time = Calendar.current.dateComponents([.hour, .minute], from: eta)
         return NavSnapshot(
             maneuver: navigating ? classify(stepText) : 0,
-            isNavigating: navigating, hasGPS: point != nil,
+            isNavigating: navigating, hasGPS: freshFix,
             rerouting: rerouting,
             turnMeters: UInt16(clamping: Int(max(0, turnMeters.rounded()))),
             speedTenthsKmh: UInt16(clamping: Int((speed * 10).rounded())),
