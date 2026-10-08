@@ -7,21 +7,25 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     TARGETED_DEVICE_FAMILY: "1"
-    DEVELOPMENT_TEAM: ""
 targets:
   PassportNav:
     type: application
     platform: iOS
     sources:
       - path: PassportNav
+    info:
+      path: PassportNav/Info.plist
+      properties:
+        CFBundleDisplayName: Passport Nav
+        UILaunchScreen: {}
+        NSLocationWhenInUseUsageDescription: "用于导航定位、速度和转向信息计算。"
+        NSLocationAlwaysAndWhenInUseUsageDescription: "导航期间即使屏幕锁定也需要连续定位。"
+        NSBluetoothAlwaysUsageDescription: "通过蓝牙将导航数据发送至 Passport。"
+        UIBackgroundModes:
+          - location
+          - bluetooth-central
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.passportnav.companion
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "用于计算导航路线、速度与转向信息，并向 Passport 发送实时仪表数据。"
-        INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: "用于导航时在后台持续向 Passport 显示定位与转向信息。"
-        INFOPLIST_KEY_NSLocationAlwaysUsageDescription: "导航期间需要持续定位。"
-        INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription: "通过蓝牙将导航仪表数据发送至 Passport 设备。"
-        INFOPLIST_KEY_UIBackgroundModes: "location bluetooth-central"
         CODE_SIGN_STYLE: Automatic
+        GENERATE_INFOPLIST_FILE: NO
