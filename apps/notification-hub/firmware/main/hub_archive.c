@@ -70,6 +70,9 @@ static bool sync_file(FILE *f) {
     if(fflush(f)!=0) return false;
     return fsync(fileno(f))==0;
 }
+static void record_pending(hub_archive_t *db,uint32_t uid,uint32_t session,uint32_t offset);
+static void fold_preview(hub_archive_t *db,const hub_archive_record_t *preview);
+static bool is_superseded(const hub_archive_t *db,uint32_t index);
 bool hub_archive_open(hub_archive_t *db,uint32_t session) {
     if(!db) return false;
     memset(db,0,sizeof(*db));
@@ -100,14 +103,15 @@ bool hub_archive_open(hub_archive_t *db,uint32_t session) {
     if(fseek(db->file,0,SEEK_END)!=0) {db->failed=true;return false;}
     long size=ftell(db->file);
     if(size<0) {db->failed=true;return false;}
-    /* Incomplete tail: keep existing bytes, but never append over corruption.
-     * A later recovery tool may salvage the valid prefix. */
+    /* Incomplete tail: keep existing bytes and refuse further writing,
+     * without silently truncating or erasing the history. */
     if((size % sizeof(hub_archive_record_t))!=0) {
         db->failed=true;
         ESP_LOGE(TAG,"Partial archive tail; refusing writes");
         return false;
     }
     db->rows=(uint32_t)size/sizeof(hub_archive_record_t);
+    if(db->rows>=HUB_ARCHIVE_MAX_RECORDS) db->full=true;
     /* Limit so a full journal does not hit filesystem metadata exhaustion. */
     db->usable_bytes=p->size-32768;
     if((uint32_t)size+sizeof(hub_archive_record_t)>db->usable_bytes)
@@ -121,7 +125,7 @@ bool hub_archive_open(hub_archive_t *db,uint32_t session) {
             return false;
         }
         if(r.sequence>=db->next_sequence) db->next_sequence=r.sequence+1;
-        if(r.obsolete) continue;
+        if(r.obsolete) {db->failed=true;return false;}
         int idx=group_index(db,r.app,true);
         if(idx<0) {
             db->failed=true;
@@ -129,34 +133,49 @@ bool hub_archive_open(hub_archive_t *db,uint32_t session) {
             return false;
         }
         db->groups[idx].count++;
+        if(r.kind==HUB_ARCHIVE_SOURCE)
+            record_pending(db,r.uid,r.session,i);
+        else if(r.kind==HUB_ARCHIVE_PREVIEW)
+            fold_preview(db,&r);
     }
     db->mounted=true;
     ESP_LOGI(TAG,"Archive mounted: %lu records, %u application groups",
              (unsigned long)db->rows,(unsigned)db->group_count);
     return true;
 }
-static bool update_superseded(hub_archive_t *db,uint32_t idx,
-                              const hub_archive_record_t *newest) {
-    if(idx>=db->rows) return false;
-    hub_archive_record_t old;
-    if(!load_entry(db,idx,&old)) return false;
-    if(old.kind!=HUB_ARCHIVE_SOURCE || old.uid!=newest->uid ||
-       old.session!=newest->session || old.obsolete) return false;
-    old.obsolete=1;
-    old.checksum=checksum(&old);
-    if(fseek(db->file,(long)idx*sizeof(old),SEEK_SET)!=0 ||
-       fwrite(&old,sizeof(old),1,db->file)!=1 || !sync_file(db->file))
-        return false;
-    int group=group_index(db,old.app,false);
-    if(group>=0 && db->groups[group].count)
-        db->groups[group].count--;
-    return true;
+static bool is_superseded(const hub_archive_t *db,uint32_t index) {
+    return index<HUB_ARCHIVE_MAX_RECORDS &&
+        (db->superseded[index/8] & (uint8_t)(1u<<(index%8)))!=0;
+}
+static void record_pending(hub_archive_t *db,uint32_t uid,uint32_t session,
+                           uint32_t offset) {
+    hub_archive_pending_t *p=&db->pending[db->pending_cursor++ %
+                                         (sizeof(db->pending)/sizeof(db->pending[0]))];
+    *p=(hub_archive_pending_t){
+        .uid=uid,.session=session,.offset=offset,.active=true
+    };
+}
+static void fold_preview(hub_archive_t *db,
+                         const hub_archive_record_t *preview) {
+    for(size_t i=0;i<sizeof(db->pending)/sizeof(db->pending[0]);i++) {
+        hub_archive_pending_t *p=&db->pending[i];
+        if(!p->active || p->uid!=preview->uid ||
+           p->session!=preview->session) continue;
+        p->active=false;
+        if(p->offset>=db->rows || is_superseded(db,p->offset)) break;
+        db->superseded[p->offset/8] |= (uint8_t)(1u<<(p->offset%8));
+        /* A source record is always stored in "Unresolved" group. */
+        int group=group_index(db,"Unresolved",false);
+        if(group>=0 && db->groups[group].count) db->groups[group].count--;
+        break;
+    }
 }
 bool hub_archive_capture(hub_archive_t *db,const hub_archive_record_t *input) {
     if(!db || !db->mounted || db->full || db->failed || !input) return false;
     if(input->kind!=HUB_ARCHIVE_SOURCE && input->kind!=HUB_ARCHIVE_PREVIEW)
         return false;
-    if((db->rows+1u)*sizeof(hub_archive_record_t)>db->usable_bytes) {
+    if(db->rows>=HUB_ARCHIVE_MAX_RECORDS ||
+       (db->rows+1u)*sizeof(hub_archive_record_t)>db->usable_bytes) {
         db->full=true;
         return false;
     }
@@ -192,23 +211,9 @@ bool hub_archive_capture(hub_archive_t *db,const hub_archive_record_t *input) {
     uint32_t new_slot=db->rows++;
     int group=group_index(db,r.app,true);
     if(group>=0) db->groups[group].count++;
-    if(r.kind==HUB_ARCHIVE_SOURCE) {
-        hub_archive_pending_t *pending=&db->pending[db->pending_cursor++ %
-                                                     (sizeof(db->pending)/sizeof(db->pending[0]))];
-        *pending=(hub_archive_pending_t){.uid=r.uid,.offset=new_slot,.active=true};
-    } else {
-        /* Preview is fully committed before editing the pending source marker.
-         * A crash between these writes may leave one duplicate placeholder,
-         * but does not discard the committed preview. */
-        for(size_t i=0;i<sizeof(db->pending)/sizeof(db->pending[0]);i++) {
-            hub_archive_pending_t *p=&db->pending[i];
-            if(p->active && p->uid==r.uid) {
-                (void)update_superseded(db,p->offset,&r);
-                p->active=false;
-                break;
-            }
-        }
-    }
+    if(r.kind==HUB_ARCHIVE_SOURCE)
+        record_pending(db,r.uid,r.session,new_slot);
+    else fold_preview(db,&r);
     return true;
 }
 bool hub_archive_get_group(const hub_archive_t *db,uint32_t ordinal,
@@ -228,7 +233,7 @@ bool hub_archive_get_record(hub_archive_t *db,const char *app,
     for(uint32_t i=db->rows;i>0;i--) {
         hub_archive_record_t r;
         if(!load_entry(db,i-1,&r)) {db->failed=true;return false;}
-        if(!r.obsolete && strcmp(r.app,app)==0) {
+        if(!is_superseded(db,i-1) && strcmp(r.app,app)==0) {
             if(nth==0) {*out=r;return true;}
             nth--;
         }
