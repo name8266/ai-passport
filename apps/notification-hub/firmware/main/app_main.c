@@ -109,7 +109,7 @@ static bool latest_digest_ready;
 static uint16_t digest_page;
 static hub_archive_t archive_database; /* only archive_task accesses fields */
 static volatile bool archive_loaded, archive_error, archive_full, archive_dropped;
-static enum { VIEW_GROUPS=0, VIEW_LIST=1, VIEW_DETAIL=2, VIEW_DIGEST=3 } view_mode;
+static enum { VIEW_GROUPS=0, VIEW_LIST=1, VIEW_DETAIL=2, VIEW_DIGEST=3, VIEW_CONFIG=4 } view_mode;
 static int group_cursor, record_cursor;
 static uint32_t visible_group_count, visible_record_count;
 static char selected_app[HUB_APP_BYTES];
@@ -184,14 +184,12 @@ static void handle_ai_archive_request(const ai_archive_req_t *request) {
 }
 static void ai_task(void *arg) {
     (void)arg;
-    hub_ai_connection_t conn;
-    if(!hub_ai_load_connection(&conn)) {
-        ESP_LOGW(TAG,"AI disabled: Wi-Fi/gateway not provisioned");
-        vTaskDelete(NULL);return;
-    }
-    ai_configured=true;
+    hub_ai_connection_t conn={0};
+    ai_configured=hub_ai_load_connection(&conn);
+    /* Start SoftAP + local admin even before user's home Wi-Fi is known.
+     * The Passport, not an external Mac/NAS gateway, owns everything. */
     if(!hub_ai_connect_wifi(&conn)) {
-        ESP_LOGW(TAG,"AI disabled: Wi-Fi startup failed");
+        ESP_LOGW(TAG,"Embedded Wi-Fi admin startup failed");
         ai_failed=true;vTaskDelete(NULL);return;
     }
     hub_ai_settings_t settings={0};
@@ -445,7 +443,19 @@ static void render(void) {
     lv_obj_set_style_text_color(top_status,lv_color_hex(
         archive_error||archive_full||archive_dropped?0xFF8B87:
         ready?0x7EE6B3:0xFFBB70),0);
-    if(view_mode==VIEW_DIGEST) {
+    if(view_mode==VIEW_CONFIG) {
+        lv_obj_set_style_text_color(title_text,lv_color_hex(0x7EE6B3),0);
+        char ap[33]={0},pw[17]={0},admin[17]={0};
+        bool ok=hub_ai_get_access(ap,sizeof(ap),pw,sizeof(pw),
+                                  admin,sizeof(admin));
+        lv_label_set_text(page_no,"PASSPORT WEB ADMIN");
+        lv_label_set_text_fmt(app_name,"WiFi: %s",ok?ap:"Starting...");
+        lv_label_set_text_fmt(title_text,"WiFi key: %s",ok?pw:"----");
+        lv_label_set_text_fmt(body_text,"Admin: admin / %s
+http://192.168.4.1",
+                              ok?admin:"----");
+        lv_label_set_text(help_text,"HOLD OK:BACK");
+    }else if(view_mode==VIEW_DIGEST) {
         lv_obj_set_style_text_color(title_text,lv_color_hex(0x7EE6B3),0);
         uint16_t pages=latest_digest_ready?digest_pages(latest_digest.summary):1;
         if(digest_page>=pages) digest_page=pages-1;
@@ -529,7 +539,10 @@ static void refresh(lv_timer_t *timer) {
     }
     button_t btn;
     while(xQueueReceive(button_queue,&btn,0)==pdTRUE) {
-        if(btn.ev==BSP_BTN_LONG && btn.btn==BSP_BTN_UP) {
+        if(btn.ev==BSP_BTN_LONG && btn.btn==BSP_BTN_DOWN &&
+           view_mode==VIEW_GROUPS) {
+            view_mode=VIEW_CONFIG;
+        } else if(btn.ev==BSP_BTN_LONG && btn.btn==BSP_BTN_UP) {
             if(view_mode==VIEW_GROUPS) {
                 view_mode=VIEW_DIGEST;
                 archive_job_t latest={.kind=ARCHIVE_AI_LAST};
@@ -541,7 +554,7 @@ static void refresh(lv_timer_t *timer) {
                   view_mode==VIEW_DIGEST) {
             ai_run_now=true; /* Back-end still must explicitly enable sending. */
         } else if(btn.ev==BSP_BTN_LONG && btn.btn==BSP_BTN_OK) {
-            if(view_mode==VIEW_DIGEST) {
+            if(view_mode==VIEW_DIGEST || view_mode==VIEW_CONFIG) {
                 view_mode=VIEW_GROUPS;request_group(group_cursor);
             } else if(view_mode==VIEW_DETAIL) view_mode=VIEW_LIST;
             else if(view_mode==VIEW_LIST) {
@@ -838,8 +851,6 @@ void app_main(void) {
         ESP_LOGE(TAG,"Could not start archive worker");
         return;
     }
-    extern void hub_ai_provision_start(void);
-    hub_ai_provision_start();
     if(xTaskCreate(ai_task,"ai_worker",8192,NULL,3,NULL)!=pdPASS)
         ESP_LOGW(TAG,"AI worker not started");
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
