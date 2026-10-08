@@ -1,5 +1,6 @@
 #include "hub_archive.h"
 #include <stddef.h>
+#include <errno.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -98,7 +99,7 @@ bool hub_archive_open(hub_archive_t *db,uint32_t session) {
         return false;
     }
     db->file=fopen(HUB_ARCHIVE_PATH,"rb+");
-    if(!db->file) db->file=fopen(HUB_ARCHIVE_PATH,"wb+");
+    if(!db->file && errno==ENOENT) db->file=fopen(HUB_ARCHIVE_PATH,"wb+");
     if(!db->file) {db->failed=true;return false;}
     if(fseek(db->file,0,SEEK_END)!=0) {db->failed=true;return false;}
     long size=ftell(db->file);
@@ -181,8 +182,7 @@ bool hub_archive_capture(hub_archive_t *db,const hub_archive_record_t *input) {
     }
     /* Refuse new distinct groups when the in-RAM group index is at capacity
      * rather than invisibly archiving entries that cannot be browsed. */
-    if(input->kind==HUB_ARCHIVE_PREVIEW &&
-       group_index(db,input->app[0]?input->app:"Unresolved",false)<0 &&
+    if(group_index(db,input->app[0]?input->app:"Unresolved",false)<0 &&
        db->group_count>=HUB_ARCHIVE_GROUP_LIMIT) {
         bool empty=false;
         for(uint16_t i=0;i<db->group_count;i++)
@@ -210,7 +210,12 @@ bool hub_archive_capture(hub_archive_t *db,const hub_archive_record_t *input) {
     }
     uint32_t new_slot=db->rows++;
     int group=group_index(db,r.app,true);
-    if(group>=0) db->groups[group].count++;
+    if(group<0) {
+        db->failed=true;
+        ESP_LOGE(TAG,"Archive written but group index capacity exceeded");
+        return false;
+    }
+    db->groups[group].count++;
     if(r.kind==HUB_ARCHIVE_SOURCE)
         record_pending(db,r.uid,r.session,new_slot);
     else fold_preview(db,&r);
