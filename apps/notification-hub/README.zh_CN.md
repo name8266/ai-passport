@@ -1,66 +1,91 @@
-# Passport Notification Hub｜iPhone 通知中心
+# Passport Notification Archive｜断电保存的 iPhone 通知档案
 
-[English](README.md) · **简体中文**
+> 开发分支：feature/notification-archive。此分支从 feature/notification-hub 派生，**尚未编译、运行或实机验证**。
+> 本轮按照需求未触发 GitHub Actions，也未刷写设备；不要把本分支标记为可用发布版本。
 
-从 `main` 新建的独立 Passport 固件，和 Passport Nav 没有继承关系。
-这不是需要安装在 iPhone 上读取其他 App 隐私的程序，而是使用
-**Apple ANCS**，让经过蓝牙安全配对和用户授权的 Passport
-接收 iPhone 系统对外开放的普通应用通知。
+## 功能定位
 
-**范围仅限通知**：没有导航、GPS、音乐、Wi-Fi、网络转发、麦克风、
-第三方 App 账户登录，也不做通知回复或远程删除。
+Passport 独立通过 Apple Notification Center Service (ANCS) 读取 iPhone
+经用户授权共享的**普通应用通知**。没有导航、定位、音乐、Wi-Fi 或互联网服务。
+iPhone 不需要安装一个拥有系统级隐私权限的 App。
 
-## 功能
-- 获取 iOS 新通知、更新和移除事件。
-- 读取通知的应用标识、标题和正文（仅限 iOS 实际提供的信息）。
-- RAM 保存最近 8 条，重启/断线清空；绝不持久化正文。
-- 上下键切换通知，确认键清除设备上的临时历史。
-- 显示设备电量、蓝牙连接与配对状态。
-- 显示一次性配对密码，使用 LE Secure Connections + MITM 配对。
-- 使用 LVGL 自带思源黑体 SC 16 CJK **字形子集**：可以显示部分中文，
-  并非能保证显示任意人名、表情及生僻字；仍需核查字库和实机画面。
+- 事件一到，先把 **通知 UID + 类别的元数据快照**写入 Flash；
+  收到详情后，再追加一份包含应用标识、标题、有限正文的快照。
+- 若 iPhone 后续通知被移除（可能是清除通知中心、应用更新或消息撤回），
+  归档记录**不会自动删除**；不能把 ANCS Removed 事件等同于“对方撤回”证据。
+- 按 ANCS App Identifier 自动分组，可以用上下键选择 App，OK 进入历史，
+  再浏览此 App 的通知快照。长按 OK 返回上一层。
+- 设备重启、蓝牙断开后归档仍在，只读查看历史无需手机连接。
+- 通知内容既不上传云端，也不在日志里打印正文。
 
-## 编译和测试
-安装并激活 ESP-IDF 5.5.3：
+## 硬件与容量
 
-```bash
-source /path/to/esp-idf-v5.5.3/export.sh
-cd apps/notification-hub/firmware
-idf.py set-target esp32c3
-idf.py build
-idf.py merge-bin -o notification-hub-full.bin --format raw
-```
+ESP32-C3，8 MB Flash，无 PSRAM，240×320 显示屏。新分区：
 
-仓库根目录运行协议解析测试：
+| 分区 | 起始地址 | 容量 |
+| --- | --- | --- |
+| NVS | 0x9000 | 24 KiB |
+| PHY | 0xF000 | 4 KiB |
+| 固件 factory | 0x10000 | 4032 KiB |
+| 通知历史 archive | 0x400000 | 4096 KiB |
 
-```bash
-cc -std=c11 -Wall -Wextra -Werror \
-  apps/notification-hub/tests/test_hub_protocol.c \
-  apps/notification-hub/firmware/main/hub_protocol.c \
-  -o /tmp/hub_protocol && /tmp/hub_protocol
-```
+存储采用 **FATFS + SPI Flash wear levelling**。本地归档使用固定 384 字节快照；
+理论上的存储上限略小于 1.1 万条快照，考虑文件系统开销、预留 32 KiB 和
+每条通知可能包含“元数据＋详情”两次快照，实际可留存的完整通知数量通常
+低于快照数上限。具体容量必须在真机确认，不能理解为无限保存。
 
-## 使用
-1. 安装固件并打开 Passport，再在 iPhone **设置 → 蓝牙** 中查找 `Notify Hub`。
-2. 连接，输入 Passport 屏幕显示的六位配对码。
-3. 如 iOS 提示或显示「共享系统通知」，请主动授权；也要确保目标 App
-   自己的通知和预览权限已打开。
-4. 有通知到来后在 Passport 显示，上下键翻阅、确定键清空本地列表。
+**达到上限时不循环覆盖旧记录，停止继续归档并提示 ARCHIVE FULL。**
+闪存无法保证永不损坏。当前版本没有导出与清理历史的界面；正式使用前必须
+补齐用户主动备份、手动清理或扩展外部存储的能力。
 
-普通 iOS App 不能读取其他所有 App 的通知。ANCS 是给蓝牙配件公开的
-系统接口，但 iPhone **不保证每一条通知内容均可见**；专注模式、应用设置、
-锁屏预览权限、系统版本等均会影响表现。
+### 断电一致性
 
-## 安全与限制
-仅建立蓝牙安全连接时才能从 iPhone 获取可授权的数据；固件不执行
-ANCS 控制点的通知操作功能，不读取通知以外的个人数据。配对凭据使用
-NVS；正文仅在 RAM 中临时保存，断线时清理，不上传云端。
+- 每次快照追加到一个 Flash 日志文件后执行 flush/fsync。
+- 旧快照不覆盖；后续详情通过追加新快照关联通知元数据。RAM 内维护
+  “已完善元数据”的索引，启动时顺序扫描重建。
+- 文件尾部不完整、校验失败或挂载已有文件系统失败时，不会自动删除历史，
+  进入错误/只读状态等待人工处理。
+- 全部独立存储操作运行在 worker Task，BLE 事件回调只把快照放入队列。
+- 如果突然断电恰好发生在提交前，或者通知风暴导致队列溢出，仍可能遗漏。
+  这是尽力保存而非强证据链或百分百的防撤回保证。
 
-目前属于初版：必须进行实机连接和中文字符覆盖测试。
-某些 ANCS 异常（如长时间不返回详情）尚需进一步完善恢复机制。
-CI 成功不代表真实设备的 Bluetooth 权限及配对流程已确认。
+### “防撤回”的精确含义
 
-完整合并镜像从地址 `0x0` 刷写可能重置 NVS 与存储数据。如果已有重要
-配置，必须先核对分区兼容性并选择合适刷写方式，不能直接擦除整片闪存。
+iPhone 只有已生成、已授权并通过 ANCS 转发的通知内容才能被留存。
+如果发送者在 iOS 发出通知之前撤回，或者 iOS 仅转发“你收到了一条消息”
+这种隐藏预览，Passport **没有办法恢复原始正文、图片、语音或聊天历史**。
+当前单条正文限 191 字节，标题限 95 字节，应用标识限 63 字节；
+超长 UTF-8 文本按字符边界截断。一个应用可能有多次更新快照；
+部分未取得详情的通知会出现在 Unresolved 分组。
 
-苹果协议规范：https://developer.apple.com/library/archive/documentation/CoreBluetooth/Reference/AppleNotificationCenterServiceSpecification/Specification/Specification.html
+## 设备操作
+
+- App 分组页：UP/DOWN 切换分组，OK 进入当前 App 的历史。
+- 历史列表页：UP/DOWN 切换该应用的归档记录，OK 看详细快照。
+- 详细页：长按 OK 返回历史列表；历史列表长按 OK 返回应用分组。
+- 页面显示归档状态，包括文件系统故障、容量不足或队列丢失警告。
+- 用户在 iPhone「设置 → 蓝牙」配对 Notify Hub 并授权共享系统通知。
+
+## 隐私与安全
+
+本版是**敏感通知的持久化明文存储原型**。BLE 的配对加密保护传输，并不等于
+Flash 静态内容加密；持有设备或能读取闪存的人可能读到私人消息。
+在实用发布前，应加入设备本地访问锁、可靠的备份删除策略，以及评估适合
+现有 ESP32-C3 生产流程的 Flash/NVS 加密、密钥恢复与安全擦除。
+不要把这种设备当作司法取证器或不可篡改的存储设备。
+
+## 编译 / 刷写（本轮不执行）
+
+ESP-IDF 5.5.3，开发分支提供源代码与分区表。
+为了保留历史，**禁止默认执行** \`erase-flash\`，也不要使用会重写
+数据分区的整个 0x0 合并镜像；将来须核对分区兼容性后分段刷写固件。
+首次从旧的「单一 factory 直至 Flash 尾部」分区迁移前，
+必须先审查原有固件、Flash 高地址数据是否可保留。
+
+在任何“可用”的宣称之前必须完成：编译、主机测试、固件启动、
+首次格式化、断电重启、多 App 分组、大量通知、撤回后保留、
+高频消息、磁盘写满、文件损坏、中文字符/表情、安全配对和恢复测试。
+
+参考：
+- https://developer.apple.com/library/archive/documentation/CoreBluetooth/Reference/AppleNotificationCenterServiceSpecification/Specification/Specification.html
+- https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32c3/api-reference/storage/fatfs.html
