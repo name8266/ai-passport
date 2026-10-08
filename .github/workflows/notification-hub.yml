@@ -1,0 +1,54 @@
+name: Notification Hub
+on:
+  push:
+    branches: [feature/notification-hub]
+    paths:
+      - "apps/notification-hub/**"
+      - ".github/workflows/notification-hub.yml"
+      - "components/bsp/**"
+  pull_request:
+    paths:
+      - "apps/notification-hub/**"
+      - ".github/workflows/notification-hub.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notification-hub-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Parser tests
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror \
+            apps/notification-hub/tests/test_hub_protocol.c \
+            apps/notification-hub/firmware/main/hub_protocol.c \
+            -o /tmp/hub_protocol
+          /tmp/hub_protocol
+
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Build on ESP-IDF 5.5.3
+        uses: espressif/esp-idf-ci-action@9d38657f3d789ca759b2b37aaf5ceffbc42c4f0d # v1
+        with:
+          esp_idf_version: v5.5.3
+          target: esp32c3
+          command: |
+            cd apps/notification-hub/firmware
+            idf.py build
+            idf.py merge-bin -o notification-hub-full.bin --format raw
+      - name: Upload merged firmware
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: notification-hub-full
+          path: apps/notification-hub/firmware/build/notification-hub-full.bin
+          if-no-files-found: error
+          retention-days: 7
