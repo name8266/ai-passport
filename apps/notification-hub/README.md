@@ -1,85 +1,58 @@
-# Passport Notification Hub
+# Passport Notification Archive (development-only)
 
-[简体中文](README.zh_CN.md) · **English**
+> Branch: feature/notification-archive, derived from feature/notification-hub.
+> **Do not build or flash in this iteration as requested.** This code has not
+> yet undergone compiler, CI, hardware or on-device validation.
 
-An independent, **notification-only**, iPhone companion firmware for the
-FoloToy/Passport ESP32-C3. It is not an iOS app, and cannot read every iOS
-application's private data. It consumes only notifications that iOS exposes
-to an authenticated BLE accessory through [Apple ANCS](https://developer.apple.com/library/archive/documentation/CoreBluetooth/Reference/AppleNotificationCenterServiceSpecification/Specification/Specification.html).
+## Scope
+Standalone notification-only Apple ANCS accessory for ESP32-C3. There is no
+navigation, media, Internet access, or private iPhone notification-reader app.
 
-It is based on `main`, not the unrelated Passport Nav branch. Nothing has
-been added to the existing demo firmware or other user branches.
+The first ANCS event is written as a metadata-only snapshot. If the requested
+ANCS attributes arrive, a second, detailed snapshot is appended (app identifier,
+title, and a limited message preview). ANCS Remove never deletes the historical
+snapshots. It does **not** prove that a sender recalled a message; ordinary iOS
+dismissal can also produce removal.
 
-## Supported
-- Apple ANCS new, modified, removed notification events.
-- Read-only ANCS notification attributes: app identifier, title, body.
-- Eight recent cards in RAM, UP/DOWN navigation, OK clears local cards.
-- Explicit pairing via a fresh six-digit passkey shown on Passport.
-- Bond keys persisted using ESP-IDF NVS; notification content never stored
-  to Flash, sent to the cloud, or logged.
-- Three-button UI and a 240x320 custom dark LVGL view, battery status.
-- Chinese rendering using LVGL's built-in Source Han Sans SC 16 CJK **subset**.
-  This subset is not sufficient for arbitrary Chinese glyphs or emoji; missing
-  characters should remain visible as placeholders, not silently discarded.
+The device browses the archived app groups and records using its three keys:
+UP/DOWN to select, OK to enter, long OK to return. Historical records can be
+read while offline.
 
-No navigation, GPS, music, Wi-Fi, Internet access, microphone or third-party
-iPhone app is included.
+## Persistent storage
+The 8 MB Flash partition layout now reserves factory app 0x10000..0x400000
+(4032 KiB) and an archive FATFS partition 0x400000..0x800000 (4 MiB).
+FATFS uses ESP-IDF wear levelling. Each committed snapshot occupies 384 bytes.
+At most about 10,000 snapshots are feasible, fewer when considering filesystem
+overhead; a notification may create more than one snapshot.
 
-## Compile
+The journal is append-only; its in-RAM indexing coalesces temporary source
+placeholders with detailed captures when they can be correlated. On reboot
+the archive is scanned and reindexed. At capacity **stop writing** rather than
+silently overwriting old records. Flash has finite erase endurance. Complete
+durability during power failure, notification bursts and corruption is not
+guaranteed.
 
-ESP-IDF v5.5.3 is required:
+The archive is never auto-formatted if the *entire* data partition is nonblank.
+Mount errors and invalid records preserve existing bytes and halt further
+writes. Limited UI capacity: at most 96 indexed application groups.
+Text limits: 63 bytes app identifier, 95 bytes title, 191 bytes preview body.
+An early withdrawal, hidden preview, or missing ANCS attribute response cannot
+be reconstructed. Original images, voice, chat database, and app history remain
+inaccessible.
 
-```bash
-source /path/to/esp-idf-v5.5.3/export.sh
-cd apps/notification-hub/firmware
-idf.py set-target esp32c3
-idf.py build
-idf.py merge-bin -o notification-hub-full.bin --format raw
-```
+## Privacy warning
+**The archive stores sensitive notification text in plaintext Flash.** BLE
+bonding protects transport, not storage at rest. Someone possessing the board
+or reading its memory may obtain saved previews. Device PIN, export/deletion
+controls, encryption, key management and secure wipe need additional design
+before personal daily use. These captures are not cryptographic proof.
 
-Protocol parser host test from repository root:
+## Firmware migration
+The previous firmware has a factory partition covering almost all Flash.
+Changing the partition layout requires a review of existing saved data.
+Never blindly run erase-flash or a merged offset-0x0 image when retention
+matters. Build/test has intentionally been deferred.
 
-```bash
-cc -std=c11 -Wall -Wextra -Werror \
-  apps/notification-hub/tests/test_hub_protocol.c \
-  apps/notification-hub/firmware/main/hub_protocol.c \
-  -o /tmp/hub_protocol && /tmp/hub_protocol
-```
-
-## Pairing / notifications
-1. Flash the build matching your board, turn Passport on, and open iPhone
-   **Settings → Bluetooth**.
-2. Find **Notify Hub**. Select it and enter the six-digit Passport passkey.
-3. Permit system-notification sharing if iOS offers that switch or prompt.
-   Keep Bluetooth enabled and allow the original app's notification previews.
-4. Trigger a test notification. Passport displays it, and UP/DOWN browses
-   recent entries. OK clears only the local volatile cache.
-
-The device solicits ANCS using BLE advertising AD type 0x15; pairing and
-permission behavior are subject to iOS version and device testing. Some
-notification contents may be hidden by Focus, notification-preview privacy,
-app settings, or the app not posting a system notification.
-
-## Privacy and security
-A new passkey is generated per device boot; bonding requests LE Secure
-Connections with MITM. Numeric-comparison requests are rejected rather
-than automatically accepted. Incomplete security setup is not marked ready.
-Connection failure or disconnect clears all buffered notification content
-from the device's RAM. No phone notification dismissal, reply, or remote
-actions are implemented.
-
-**Known prototype limitations**: ANCS service can appear/disappear; real
-hardware must verify iOS pairing, reconnection, permission, app attributes,
-correct service discovery, long fragmented text, and privacy settings. An
-internal ANCS attribute response may get stuck if iOS never responds; robust
-timeouts/queueing are a planned improvement.
-
-Merged firmware at address 0x0 includes partitions and bootloader. Flashing
-at 0x0 can overwrite NVS settings and unrelated data. Do not erase the device
-or overwrite active firmware without checking partition layout and deciding
-whether saved data must be preserved. Never confuse an ESP-IDF build success
-with a successful iPhone/Passport functional test.
-
-## Upstream API reference
-- Apple ANCS specification (link above)
-- ESP-IDF 5.5.3 Bluedroid ANCS example (illustrative reference)
+Official references:
+- https://developer.apple.com/library/archive/documentation/CoreBluetooth/Reference/AppleNotificationCenterServiceSpecification/Specification/Specification.html
+- https://docs.espressif.com/projects/esp-idf/en/v5.5.3/esp32c3/api-reference/storage/fatfs.html
