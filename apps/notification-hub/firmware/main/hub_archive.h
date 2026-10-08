@@ -10,6 +10,7 @@
 #include "hub_protocol.h"
 
 #define HUB_ARCHIVE_GROUP_LIMIT 96
+#define HUB_ARCHIVE_MAX_RECORDS 11000
 #define HUB_ARCHIVE_PATH "/archive/alerts.dat"
 #define HUB_ARCHIVE_MAGIC 0x48425541u
 #define HUB_ARCHIVE_VERSION 1u
@@ -29,7 +30,7 @@ typedef struct {
     uint32_t elapsed_seconds; /* boot uptime, NOT a real wall-clock timestamp */
     uint8_t kind;
     uint8_t category;
-    uint8_t obsolete; /* source record superseded after preview committed */
+    uint8_t obsolete; /* v1 reserved (always zero); supersedes tracked in RAM */
     uint8_t reserved;
     char app[HUB_APP_BYTES];
     char title[HUB_TITLE_BYTES];
@@ -44,6 +45,7 @@ typedef struct {
 
 typedef struct {
     uint32_t uid;
+    uint32_t session;
     uint32_t offset;
     bool active;
 } hub_archive_pending_t;
@@ -58,13 +60,14 @@ typedef struct {
     uint32_t usable_bytes;
     uint16_t group_count;
     hub_archive_group_t groups[HUB_ARCHIVE_GROUP_LIMIT];
-    hub_archive_pending_t pending[32];
+    hub_archive_pending_t pending[64];
+    uint8_t superseded[(HUB_ARCHIVE_MAX_RECORDS + 7) / 8];
     uint8_t pending_cursor;
 } hub_archive_t;
 
 /* Never format a nonblank partition even if its filesystem is corrupt. */
 bool hub_archive_open(hub_archive_t *db, uint32_t boot_session);
-/* Append first, flush to flash, then optionally supersede the earlier placeholder. */
+/* Append-only capture; never alter previously committed record bytes. */
 bool hub_archive_capture(hub_archive_t *db, const hub_archive_record_t *input);
 /* Expensive Flash reads run in the worker task only; ordinals are newest first. */
 bool hub_archive_get_group(const hub_archive_t *db, uint32_t ordinal,
