@@ -3,6 +3,7 @@
  * Values are never logged; the sender's terminal may still echo passwords.
  */
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include "esp_log.h"
