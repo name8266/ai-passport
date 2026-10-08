@@ -1,27 +1,45 @@
 # Passport Notification Archive + AI summaries (development-only)
 
-This branch now also includes an **opt-in, scheduled cloud AI digest** based
-exclusively on saved Apple ANCS notification previews. Default provider:
-DeepSeek (`deepseek-v4-flash` via Chat Completions). A self-hosted Python
-[AI gateway](gateway/README.md) provides a password-protected admin UI for
-provider/model/HTTPS endpoint/API key, interval (15–1440 minutes), app exclusions
-and keyword redaction. The API key is encrypted on the gateway, never stored
-on Passport. The device has its own Wi-Fi configuration and trusted TLS client;
-it sends at most eight unprocessed notifications per batch, up to four batches
-per cycle, and commits its NVS cursor only after a summary is saved on Flash.
+This branch adds an opt-in AI notification digest **hosted entirely on
+Passport**. No self-hosted Python, Docker, Mac, NAS or public gateway is needed.
 
-From the application-group UI, long UP opens the AI summary viewer; UP/DOWN
-pages the latest saved digest; long DOWN requests a new run **only when enabled**
-in the admin UI; long OK returns. Previous digests remain in Flash but are not
-yet browsable on-screen. Defaults are OFF until deliberate admin opt-in.
+- Passport itself hosts a small HTTP configuration page at
+  **http://192.168.4.1/**, accessible only to a client joined to its
+  per-device, WPA2-protected \`PassportHub-XXXX\` Wi-Fi access point.
+- On the application-group screen, **long DOWN** displays the AP SSID,
+  AP password, and \`admin\` web password. These secrets are generated
+  and stored in device NVS. The page uses HTTP Basic Auth + CSRF nonce;
+  plaintext HTTP is **not** suitable for production-grade security.
+- In the web page, configure home Wi-Fi SSID/password, DeepSeek API Key,
+  Chat Completions HTTPS endpoint, model, period (15–1440 min),
+  excluded apps, and keyword-based redaction. Saving restarts Passport.
+- Default AI provider is **DeepSeek**, with the current model name
+  \`deepseek-flash\` and endpoint
+  \`https://api.deepseek.com/chat/completions\`. Another OpenAI-compatible
+  model may be configured in the same admin page.
+- **Cloud AI is OFF by default.** When enabled, the Passport's own
+  scheduler sends at most three ANCS notification previews per batch
+  (up to four batches per session) directly to the selected provider
+  over CA-validated HTTPS, and persists its summaries in Flash.
+- Processing resumes after network failure; the source notification
+  history is never deleted by a summary run. Only after the local summary
+  is durably saved does NVS advance the processed-sequence cursor.
+- From the group screen, **long UP** opens the latest summary,
+  UP/DOWN pages through it, long DOWN triggers an enabled summary run,
+  and long OK returns.
 
-**No compile, CI, build, iPhone/Passport trial, or firmware flash was performed
-for this AI feature.** Certificate trust, SNTP, secure Wi-Fi provisioning,
-Flash plaintext exposure, BLE/Wi-Fi coexistence and memory pressure require
-review before real use. AI vendor receives sensitive previews selected by the
-user, subject to provider policies. This is not Apple Intelligence integration,
-nor a mechanism to read arbitrary private iOS app content.
+**Privacy warning:** current prototype stores home Wi-Fi and AI provider
+credentials in unencrypted NVS, alongside plaintext notification and
+digest snapshots in Flash. Admin uses an isolated WPA2 hotspot but HTTP,
+not end-to-end HTTPS. Device Flash encryption, secure onboarding, key
+rotation, hardware privacy controls, and memory stress tests are needed
+before daily personal use.
 
+**No compilation, CI build, simulation, HTTPS request, flashing or iPhone
+hardware test has been performed in this iteration.** BLE/Wi-Fi/TLS/HTTP
+coexistence on an ESP32-C3 without PSRAM may exhaust RAM, and runtime
+stability is unverified. This is a third-party ANCS notification-summary
+accessory, not Apple Intelligence or access to private iOS chat databases.
 
 > Branch: feature/notification-archive, derived from feature/notification-hub.
 > **Do not build or flash in this iteration as requested.** This code has not
