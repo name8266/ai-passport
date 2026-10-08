@@ -245,3 +245,80 @@ bool hub_archive_get_record(hub_archive_t *db,const char *app,
     }
     return false;
 }
+
+#define DIGEST_MAGIC 0x534D4D59u
+#define DIGEST_PATH "/archive/ai-digest.dat"
+typedef struct {
+    uint32_t magic;
+    uint32_t processed_through;
+    uint16_t included;
+    uint16_t version;
+    char text[HUB_AI_SUMMARY_BYTES];
+    uint32_t checksum;
+} stored_digest_t;
+
+static uint32_t digest_hash(const stored_digest_t *d) {
+    const uint8_t *p=(const uint8_t *)d;
+    uint32_t h=2166136261u;
+    for(size_t i=0;i<offsetof(stored_digest_t,checksum);i++)
+        h=(h ^ p[i])*16777619u;
+    return h;
+}
+bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,
+                               hub_ai_batch_t *out) {
+    if(!db || !db->mounted || db->failed || !out) return false;
+    memset(out,0,sizeof(*out));
+    out->after_sequence=cursor;
+    for(uint32_t slot=0;slot<db->rows && out->count<HUB_AI_MAX_BATCH;slot++) {
+        hub_archive_record_t r;
+        if(!load_entry(db,slot,&r)) {db->failed=true;return false;}
+        if(r.sequence<=cursor || is_superseded(db,slot)) continue;
+        uint8_t i=out->count++;
+        out->items[i].sequence=r.sequence;
+        snprintf(out->items[i].app,sizeof(out->items[i].app),"%s",r.app);
+        snprintf(out->items[i].title,sizeof(out->items[i].title),"%s",r.title);
+        snprintf(out->items[i].body,sizeof(out->items[i].body),"%s",r.body);
+        out->through_sequence=r.sequence;
+    }
+    return true;
+}
+bool hub_archive_save_digest(hub_archive_t *db,const hub_ai_digest_t *summary) {
+    if(!db || !db->mounted || db->failed || !summary ||
+       !summary->summary[0] || !memchr(summary->summary,0,sizeof(summary->summary)))
+        return false;
+    stored_digest_t d={.magic=DIGEST_MAGIC,
+        .processed_through=summary->processed_through,
+        .included=summary->included,.version=1};
+    snprintf(d.text,sizeof(d.text),"%s",summary->summary);
+    d.checksum=digest_hash(&d);
+    FILE *file=fopen(DIGEST_PATH,"ab");
+    if(!file) return false;
+    bool ok=fwrite(&d,sizeof(d),1,file)==1 && sync_file(file);
+    if(fclose(file)!=0) ok=false;
+    if(!ok) ESP_LOGE(TAG,"AI digest couldn't be saved to Flash");
+    return ok;
+}
+bool hub_archive_last_digest(hub_archive_t *db,hub_ai_digest_t *out) {
+    if(!db || !db->mounted || !out) return false;
+    FILE *file=fopen(DIGEST_PATH,"rb");
+    if(!file) return false;
+    if(fseek(file,0,SEEK_END)!=0) {fclose(file);return false;}
+    long length=ftell(file);
+    if(length<(long)sizeof(stored_digest_t) ||
+       length%(long)sizeof(stored_digest_t)!=0 ||
+       fseek(file,length-(long)sizeof(stored_digest_t),SEEK_SET)!=0) {
+        fclose(file);return false;
+    }
+    stored_digest_t d;
+    bool ok=fread(&d,sizeof(d),1,file)==1 &&
+        d.magic==DIGEST_MAGIC && d.version==1 &&
+        d.checksum==digest_hash(&d) && memchr(d.text,0,sizeof(d.text));
+    fclose(file);
+    if(ok) {
+        memset(out,0,sizeof(*out));
+        out->processed_through=d.processed_through;
+        out->included=d.included;
+        memcpy(out->summary,d.text,sizeof(out->summary));
+    }
+    return ok;
+}
