@@ -1,4 +1,27 @@
-# Passport Notification Archive (development-only)
+# Passport Notification Archive + AI summaries (development-only)
+
+This branch now also includes an **opt-in, scheduled cloud AI digest** based
+exclusively on saved Apple ANCS notification previews. Default provider:
+DeepSeek (`deepseek-v4-flash` via Chat Completions). A self-hosted Python
+[AI gateway](gateway/README.md) provides a password-protected admin UI for
+provider/model/HTTPS endpoint/API key, interval (15–1440 minutes), app exclusions
+and keyword redaction. The API key is encrypted on the gateway, never stored
+on Passport. The device has its own Wi-Fi configuration and trusted TLS client;
+it sends at most eight unprocessed notifications per batch, up to four batches
+per cycle, and commits its NVS cursor only after a summary is saved on Flash.
+
+From the application-group UI, long UP opens the AI summary viewer; UP/DOWN
+pages the latest saved digest; long DOWN requests a new run **only when enabled**
+in the admin UI; long OK returns. Previous digests remain in Flash but are not
+yet browsable on-screen. Defaults are OFF until deliberate admin opt-in.
+
+**No compile, CI, build, iPhone/Passport trial, or firmware flash was performed
+for this AI feature.** Certificate trust, SNTP, secure Wi-Fi provisioning,
+Flash plaintext exposure, BLE/Wi-Fi coexistence and memory pressure require
+review before real use. AI vendor receives sensitive previews selected by the
+user, subject to provider policies. This is not Apple Intelligence integration,
+nor a mechanism to read arbitrary private iOS app content.
+
 
 > Branch: feature/notification-archive, derived from feature/notification-hub.
 > **Do not build or flash in this iteration as requested.** This code has not
