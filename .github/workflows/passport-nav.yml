@@ -1,0 +1,67 @@
+name: Passport Nav builds
+on:
+  push:
+    branches:
+      - feature/passport-nav
+    paths:
+      - "apps/passport-nav/**"
+      - ".github/workflows/passport-nav.yml"
+      - "components/bsp/**"
+  pull_request:
+    paths:
+      - "apps/passport-nav/**"
+      - ".github/workflows/passport-nav.yml"
+      - "components/bsp/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run protocol host tests
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror \
+            apps/passport-nav/tests/test_nav_packet.c \
+            apps/passport-nav/firmware/main/nav_packet.c \
+            -o /tmp/test_passport_nav
+          /tmp/test_passport_nav
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: ESP-IDF 5.5.3 build and merge binary
+        uses: espressif/esp-idf-ci-action@9d38657f3d789ca759b2b37aaf5ceffbc42c4f0d
+        with:
+          esp_idf_version: v5.5.3
+          target: esp32c3
+          command: |
+            cd apps/passport-nav/firmware
+            idf.py build
+            idf.py merge-bin -o build/passport-nav-full.bin --format raw
+      - name: Upload merged full Flash image
+        uses: actions/upload-artifact@v4
+        with:
+          name: passport-nav-full
+          path: apps/passport-nav/firmware/build/passport-nav-full.bin
+          if-no-files-found: error
+          retention-days: 7
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate iOS Xcode project
+        run: |
+          cd apps/passport-nav/ios
+          xcodegen generate
+      - name: Build for iOS Simulator (without signing)
+        run: |
+          cd apps/passport-nav/ios
+          xcodebuild -project PassportNav.xcodeproj -scheme PassportNav \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
