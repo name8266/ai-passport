@@ -1,3 +1,4 @@
+import Combine
 import CoreLocation
 import MapKit
 import Foundation
@@ -16,6 +17,7 @@ final class NavigationModel: NSObject, ObservableObject, CLLocationManagerDelega
     @Published private(set) var eta: Date = Date()
     @Published private(set) var rerouting = false
 
+    var onTelemetry: ((NavSnapshot) -> Void)?
     private let gps = CLLocationManager()
     private var stepIndex = 0
     private var progressedMeters: Double = 0
@@ -54,8 +56,9 @@ final class NavigationModel: NSObject, ObservableObject, CLLocationManagerDelega
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let point = locations.last, point.horizontalAccuracy >= 0,
               point.horizontalAccuracy < 150 else { return }
-        location = point
         if navigating { updateProgress(point) }
+        location = point
+        onTelemetry?(snapshot)
     }
 
     func findDestination(_ query: String) async {
@@ -98,6 +101,7 @@ final class NavigationModel: NSObject, ObservableObject, CLLocationManagerDelega
                 status = "未找到可行驶路线"
                 return
             }
+            guard !first.steps.isEmpty else { status = "路线缺少转向步骤"; return }
             installRoute(first)
             navigating = true
             gps.allowsBackgroundLocationUpdates = true
@@ -207,7 +211,8 @@ final class NavigationModel: NSObject, ObservableObject, CLLocationManagerDelega
         request.destination = destination
         request.transportType = .automobile
         do {
-            if let newRoute = try await MKDirections(request: request).calculate().routes.first {
+            if let newRoute = try await MKDirections(request: request).calculate().routes.first,
+               !newRoute.steps.isEmpty {
                 installRoute(newRoute)
                 status = "路线已更新"
             }
