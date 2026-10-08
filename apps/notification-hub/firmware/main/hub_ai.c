@@ -2,12 +2,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <inttypes.h>
 #include "esp_crt_bundle.h"
 #include "esp_event.h"
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include "esp_netif.h"
+#include "esp_netif_sntp.h"
 #include "esp_wifi.h"
 #include "nvs.h"
 #include "nvs_flash.h"
@@ -16,6 +18,7 @@
 static const char *TAG="hub_ai";
 static bool s_wifi_initialized;
 static volatile bool s_wifi_online;
+static bool s_ntp_initialized;
 
 static bool read_key(nvs_handle_t h,const char *key,char *dst,size_t capacity) {
     size_t n=capacity;
@@ -119,9 +122,28 @@ static esp_err_t http_event(esp_http_client_event_t *evt) {
     }
     return ESP_OK;
 }
+/* A valid wall clock is essential for server certificate expiry checks. */
+static bool ensure_clock(void) {
+    time_t now=0;
+    time(&now);
+    if(now>1700000000) return true;
+    if(!s_wifi_online) return false;
+    if(!s_ntp_initialized) {
+        esp_sntp_config_t cfg=ESP_NETIF_SNTP_DEFAULT_CONFIG("ntp.aliyun.com");
+        if(esp_netif_sntp_init(&cfg)!=ESP_OK) return false;
+        s_ntp_initialized=true;
+    }
+    if(esp_netif_sntp_sync_wait(pdMS_TO_TICKS(12000))!=ESP_OK) {
+        ESP_LOGW(TAG,"Waiting for trusted wall clock (NTP)");
+        return false;
+    }
+    time(&now);
+    return now>1700000000;
+}
 static bool invoke(const hub_ai_connection_t *c,const char *route,
                    const char *post_data,http_result_t *response) {
-    if(!s_wifi_online || !c || !c->configured || !route || !response) return false;
+    if(!s_wifi_online || !c || !c->configured || !route || !response ||
+       !ensure_clock()) return false;
     char url[240];
     if(snprintf(url,sizeof(url),"%s%s",c->gateway,route)>=(int)sizeof(url))
         return false;
