@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "esp_http_server.h"
+#include "lwip/sockets.h"
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_system.h"
@@ -34,7 +35,18 @@ static bool constant_equals(const char *a,const char *b) {
     }
     return diff==0;
 }
+static bool request_from_hotspot(httpd_req_t *req) {
+    struct sockaddr_storage peer={0};
+    socklen_t len=sizeof(peer);
+    if(getpeername(httpd_req_to_sockfd(req),(struct sockaddr *)&peer,&len)!=0 ||
+       peer.ss_family!=AF_INET) return false;
+    uint32_t addr=ntohl(((const struct sockaddr_in *)&peer)->sin_addr.s_addr);
+    /* Accept administration only from a client on the private WPA2 AP.
+     * Home-network or public requests are not permitted, even with password. */
+    return (addr&0xFFFFFF00u)==0xC0A80400u;
+}
 static bool is_authorized(httpd_req_t *req) {
+    if(!request_from_hotspot(req)) return false;
     char admin[17];
     if(!hub_ai_get_access(NULL,0,NULL,0,admin,sizeof(admin))) return false;
     char basic[40];
