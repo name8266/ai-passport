@@ -61,6 +61,11 @@ struct ContentView: View {
                     }
                 }
             }
+            .onAppear {
+                nav.onTelemetry = { [weak bluetooth] data in
+                    bluetooth?.send(data)
+                }
+            }
             .onReceive(ticker) { _ in
                 bluetooth.send(useDemo ? .demonstration : nav.snapshot)
             }
