@@ -81,7 +81,8 @@ bool hub_archive_open(hub_archive_t *db,uint32_t session) {
                  esp_err_to_name(err));
         return false;
     }
-    db->file=fopen(HUB_ARCHIVE_PATH,"ab+");
+    db->file=fopen(HUB_ARCHIVE_PATH,"rb+");
+    if(!db->file) db->file=fopen(HUB_ARCHIVE_PATH,"wb+");
     if(!db->file) {db->failed=true;return false;}
     if(fseek(db->file,0,SEEK_END)!=0) {db->failed=true;return false;}
     long size=ftell(db->file);
