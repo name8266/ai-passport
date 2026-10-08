@@ -3,6 +3,73 @@
 > 开发分支：feature/notification-archive。此分支从 feature/notification-hub 派生，**尚未编译、运行或实机验证**。
 > 本轮按照需求未触发 GitHub Actions，也未刷写设备；不要把本分支标记为可用发布版本。
 
+## 新增：AI 定时通知总结（源码阶段）
+
+这一版本在设备通知归档基础上，新增 **可选的定时 AI 总结**：
+
+1. Passport 的 Flash 一直保存 ANCS 通知原始快照（不改变历史、防撤回策略）。
+2. 用户首次通过 USB 串口配置 Wi-Fi、HTTPS 网关域名和设备访问令牌。
+3. 自托管的 Python 后台运行在常开的 Mac/NAS/服务器中，
+   提供 \`/admin\` 管理页面；默认 DeepSeek，
+   API 地址 \`https://api.deepseek.com/chat/completions\`，
+   默认模型 \`deepseek-v4-flash\`。
+4. 管理员在后台填写 API Key、调整模型/供应商、间隔（15–1440 分钟）、
+   每批条数及不参与 AI 总结的应用标识，并明确勾选启用。
+5. Passport 每分钟查询一次后台配置；到达总结时间后，把**尚未总结**
+   的归档预览以最多 8 条/批的方式通过验证证书的 HTTPS 发送给网关。
+   网关筛掉默认设置中的验证码/密码/银行信息提醒，再转交配置的
+   OpenAI 兼容 AI API。
+6. AI 总结返回后，Passport **先将总结追加到 Flash**，
+   成功后才将已处理归档序号提交 NVS。超时或离线不清除归档、不会推进进度。
+7. 应用分组页**长按上键**打开“AI SUMMARY”摘要页面；
+   上下键切换摘要页面；长按下键可以手动发起一次总结（必须后台已启用），
+   长按 OK 返回。这里只展示最新摘要；旧摘要保存在 Flash，
+   历史浏览功能尚未完成。
+
+本轮严格按要求**不编译、不运行、不刷写、不发布 BIN**。
+软硬件并发运行（BLE + Wi-Fi + TLS）、中文字形、设备配对及网络失败恢复
+仍需真机验证。没有 PSRAM 的 ESP32-C3 内存可能不足，
+不能因为源码已提交就断言能稳定使用。
+
+### 私密通知和 AI 的边界
+
+- **默认关闭联网 AI**；后台主动启用后，才会发送新一轮数据。
+- API Key 只放在自托管网关上，用环境变量密钥加密保存；
+  不发送到 Passport，更不会提交 GitHub。
+- 设备 Wi-Fi 密码和设备令牌暂存在 NVS，开发机的 USB 终端可能回显输入，
+  这**不等于静态存储加密**。商用前要落实 Flash 加密、管理员访问控制和
+  安全配网机制。
+- 网关不保存原始通知文件，原文只有在转给 AI 服务商时被使用；
+  Passport Flash 则会继续保留通知与 AI 摘要。
+- 这不是苹果 Apple Intelligence 或 iOS 内置系统功能，
+  只是基于 iPhone 已授权 ANCS 通知的**第三方硬件 AI 摘要**。
+  未显示在 ANCS 的私聊、图片、语音和完整正文无法被总结。
+- 用户需要自行评估第三方服务的价格、数据保留规则及隐私合规要求；
+  默认筛掉密码/验证码类消息，可由后台进一步排除 App。
+- 一小时通知量很大时，系统按批逐次处理，不能声称每次调用包含完整历史。
+  每轮最多处理四个小批次，剩余记录留在 Flash 排队。
+
+### 开发后台的部署与首次联网
+
+后台工程及环境变量详见
+[网关使用说明](gateway/README.md)。
+后台配置支持 DeepSeek 和兼容 OpenAI Chat Completions 的其他模型。
+
+首次开发配置通过 Passport USB 串口（仅供可信环境试用）：
+
+\`\`\`text
+hub help
+hub wifi MyWiFi|MyPassword
+hub server https://your-trusted-domain.example
+hub token THE_SAME_TOKEN_AS_GATEWAY_ENV
+hub restart
+\`\`\`
+
+由于设备通过 ESP-IDF 证书信任链验证 HTTPS，网关必须有有效受信任证书，
+不能为了省事关闭证书检查。设备启动后必须先同步网络时间。
+后台可以运行在常开的 Mac 或 NAS，但访问域名、TLS、路由可达性和持续供电
+仍需要使用者配置。本版本没有 iOS 专属 App，也不依赖国行 iPhone 的系统 AI 权限。
+
 ## 功能定位
 
 Passport 独立通过 Apple Notification Center Service (ANCS) 读取 iPhone
