@@ -112,7 +112,7 @@ static uint32_t received_count;
 
 static bool post_job(const archive_job_t *job) {
     if(!archive_jobs || xQueueSend(archive_jobs,job,0)!=pdTRUE) {
-        archive_dropped=true; /* Don't falsely promise every alert was archived. */
+        if(job->kind==ARCHIVE_SAVE) archive_dropped=true; /* Don't falsely promise every alert was archived. */
         return false;
     }
     return true;
@@ -185,12 +185,10 @@ static bool uuid_is(const esp_bt_uuid_t *u,const uint8_t *v) {
     return u->len==ESP_UUID_LEN_128 && memcmp(u->uuid.uuid128,v,16)==0;
 }
 static void item_event(uint8_t type,const item_t *item) {
-    if(type==0 && item) {
-        /* Even a metadata-only alert reaches persistent storage before
-         * full ANCS attributes. A withdrawn alert may have no text. */
-        archive_capture(item,
-            strcmp(item->title,"New notification")==0
-              ?HUB_ARCHIVE_SOURCE:HUB_ARCHIVE_PREVIEW);
+    if((type==0 || type==3) && item) {
+        /* A source event is committed before waiting for detailed attributes.
+         * A withdrawn alert may leave only this metadata snapshot. */
+        archive_capture(item,type==0?HUB_ARCHIVE_SOURCE:HUB_ARCHIVE_PREVIEW);
         received_count++;
     }
     /* Type 1 = ANCS notification removed; deliberate no-op.
@@ -261,10 +259,11 @@ static void render(void) {
         archive_full?"ARCHIVE FULL - KEEP OLD":
         archive_dropped?"ARCHIVE DROPPED ALERT":
         !archive_loaded?"INITIALIZING":
-        !connected?"IPHONE OFFLINE":
-        !paired?"PAIRING":
         !ready?"WAITING ANCS":"IPHONE CONNECTED";
-    lv_label_set_text(top_status,status);
+    if(archive_loaded && !archive_error && !archive_full &&
+       !archive_dropped && !paired)
+        lv_label_set_text_fmt(top_status,"PAIR CODE %06lu",(unsigned long)passkey);
+    else lv_label_set_text(top_status,status);
     lv_obj_set_style_text_color(top_status,lv_color_hex(
         archive_error||archive_full||archive_dropped?0xFF8B87:
         ready?0x7EE6B3:0xFFBB70),0);
@@ -515,7 +514,7 @@ static void gatt_event(esp_gattc_cb_event_t event,esp_gatt_if_t gi,
                 memcpy(item.app,notice.app,sizeof(item.app));
                 memcpy(item.title,notice.title,sizeof(item.title));
                 memcpy(item.body,notice.body,sizeof(item.body));
-                item_event(0,&item);
+                item_event(3,&item);
                 request_next();
             }
         }
