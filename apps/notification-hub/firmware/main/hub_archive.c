@@ -264,12 +264,13 @@ static uint32_t digest_hash(const stored_digest_t *d) {
         h=(h ^ p[i])*16777619u;
     return h;
 }
-bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,
+bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,uint8_t max_count,
                                hub_ai_batch_t *out) {
-    if(!db || !db->mounted || db->failed || !out) return false;
+    if(!db || !db->mounted || db->failed || !out || max_count==0 ||
+       max_count>HUB_AI_MAX_BATCH) return false;
     memset(out,0,sizeof(*out));
     out->after_sequence=cursor;
-    for(uint32_t slot=0;slot<db->rows && out->count<HUB_AI_MAX_BATCH;slot++) {
+    for(uint32_t slot=0;slot<db->rows && out->count<max_count;slot++) {
         hub_archive_record_t r;
         if(!load_entry(db,slot,&r)) {db->failed=true;return false;}
         if(r.sequence<=cursor || is_superseded(db,slot)) continue;
