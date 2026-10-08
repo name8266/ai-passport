@@ -1,0 +1,7 @@
+# Never commit sensitive data, cache or credentials.
+.env
+data/
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
