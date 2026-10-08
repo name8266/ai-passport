@@ -38,7 +38,7 @@ SYSTEM_PROMPT = (
     "只根据提供的通知生成简体中文摘要，禁止捏造内容。"
     "优先提炼: 1. 需要立即关注 2. 待办事项 3. 应用分组概览 4. 重复提醒。"
     "标注无法确定的信息，避免输出敏感验证码、密码或完整账户号。"
-    "严格限定在420个中文字符以内，不要附加未经证实的结论。"
+    "严格限定在220个中文字符以内，不要附加未经证实的结论。"
 )
 SENSITIVE = re.compile(
     r"(验证码|校验码|动态口令|一次性密码|verification code|one.time password|"
@@ -75,7 +75,7 @@ class Config(BaseModel):
     endpoint: str = DEFAULT_DEEPSEEK_ENDPOINT
     model: str = DEFAULT_DEEPSEEK_MODEL
     interval_minutes: int = Field(default=60, ge=15, le=1440)
-    max_records_per_batch: int = Field(default=24, ge=1, le=32)
+    max_records_per_batch: int = Field(default=8, ge=1, le=32)
     max_output_tokens: int = Field(default=600, ge=100, le=1000)
     excluded_apps: list[str] = Field(default_factory=list)
     redact_sensitive: bool = True
@@ -234,7 +234,7 @@ async def edit_settings(request: Request):
                 "endpoint": str(form.get("endpoint", DEFAULT_DEEPSEEK_ENDPOINT)).strip(),
                 "model": str(form.get("model", DEFAULT_DEEPSEEK_MODEL)).strip(),
                 "interval_minutes": int(form.get("interval", 60)),
-                "max_records_per_batch": int(form.get("limit", 24)),
+                "max_records_per_batch": int(form.get("limit", 8)),
                 "excluded_apps": [v.strip() for v in
                                   str(form.get("excluded", "")).splitlines() if v.strip()],
                 "redact_sensitive": "redact_sensitive" in form,
@@ -291,7 +291,9 @@ async def complete(config: Config, payload: str) -> str:
             output = data["choices"][0]["message"]["content"]
             if not isinstance(output, str) or not output.strip():
                 raise HTTPException(502, "Provider sent empty summary")
-            return output.strip()[:1600]
+            # The 8MB ESP32-C3 prototype keeps at most 1023 UTF-8 bytes
+            # of one digest. Truncate on a codepoint boundary.
+            return output.strip().encode("utf-8")[:900].decode("utf-8", "ignore")
     except HTTPException:
         raise
     except (httpx.HTTPError, ValueError, KeyError, IndexError, TypeError) as exc:
