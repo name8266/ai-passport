@@ -295,6 +295,12 @@ bool hub_ai_summarize(const hub_ai_connection_t *conn,
     cJSON_AddStringToObject(request,"model",settings.model);
     cJSON_AddBoolToObject(request,"stream",false);
     cJSON_AddNumberToObject(request,"max_tokens",330);
+    if(strstr(settings.endpoint,"api.deepseek.com/")) {
+        /* Flash summaries need short user-facing output, not a costly chain of thought. */
+        cJSON *thinking=cJSON_CreateObject();
+        cJSON_AddStringToObject(thinking,"type","disabled");
+        cJSON_AddItemToObject(request,"thinking",thinking);
+    }
     cJSON_AddItemToObject(request,"messages",messages);
     cJSON *system=cJSON_CreateObject();
     cJSON_AddStringToObject(system,"role","system");
@@ -306,7 +312,6 @@ bool hub_ai_summarize(const hub_ai_connection_t *conn,
     cJSON_AddItemToArray(messages,system);
     cJSON *user=cJSON_CreateObject();
     cJSON_AddStringToObject(user,"role","user");
-    cJSON *entries=cJSON_CreateArray();
     char payload[1700];
     size_t at=0;
     int count=0;
