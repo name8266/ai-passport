@@ -106,8 +106,9 @@ static uint16_t control_handle, notify_cccd, data_cccd;
 static esp_bd_addr_t phone_address;
 static hub_decoder_t decoder;
 static bool requesting;
-static uint32_t pending_uid;
-static bool pending_valid;
+#define ANCS_REQUEST_BACKLOG 32
+static uint32_t pending_uids[ANCS_REQUEST_BACKLOG];
+static uint8_t pending_head, pending_tail, pending_count;
 static uint32_t in_flight_uid;
 static int64_t request_started;
 static int stage;
@@ -205,7 +206,7 @@ static void item_event(uint8_t type,const item_t *item) {
 }
 static void reset_session(void) {
     ready=false; paired=false; connected=false;
-    requesting=false; pending_valid=false; stage=0;
+    requesting=false; pending_head=pending_tail=pending_count=0; stage=0;
     start_handle=end_handle=notification_handle=data_handle=control_handle=0;
     notify_cccd=data_cccd=0;
     hub_decoder_begin(&decoder,0);
@@ -389,7 +390,16 @@ static void on_button(bsp_btn_t btn,bsp_btn_ev_t ev,void *unused) {
 static void request_next(void);
 static void get_details(uint32_t uid) {
     if(!ready || !control_handle || !paired) return;
-    if(requesting) {pending_uid=uid;pending_valid=true;return;}
+    if(requesting) {
+        if(pending_count==ANCS_REQUEST_BACKLOG) {
+            archive_dropped=true; /* Preview couldn't be requested in time. */
+            return;
+        }
+        pending_uids[pending_tail]=uid;
+        pending_tail=(uint8_t)((pending_tail+1)%ANCS_REQUEST_BACKLOG);
+        pending_count++;
+        return;
+    }
     uint8_t cmd[11]={
         0, (uint8_t)uid,(uint8_t)(uid>>8),(uint8_t)(uid>>16),(uint8_t)(uid>>24),
         0, 1, HUB_TITLE_BYTES-1,0, 3,HUB_BODY_BYTES-1
@@ -409,8 +419,10 @@ static void get_details(uint32_t uid) {
 }
 static void request_next(void) {
     requesting=false;
-    if(pending_valid && ready) {
-        uint32_t uid=pending_uid;pending_valid=false;
+    if(pending_count && ready) {
+        uint32_t uid=pending_uids[pending_head];
+        pending_head=(uint8_t)((pending_head+1)%ANCS_REQUEST_BACKLOG);
+        pending_count--;
         get_details(uid);
     }
 }
