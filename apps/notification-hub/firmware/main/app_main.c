@@ -29,6 +29,7 @@
 #include "lvgl.h"
 #include "hub_protocol.h"
 #include "hub_archive.h"
+#include "hub_ai.h"
 
 static const char *TAG="notify_hub";
 #define HUB_LIMIT 8
@@ -68,7 +69,7 @@ typedef struct {
     char body[HUB_BODY_BYTES];
 } item_t;
 typedef struct { bsp_btn_t btn; bsp_btn_ev_t ev; } button_t;
-typedef enum { ARCHIVE_SAVE=1, ARCHIVE_GROUP=2, ARCHIVE_RECORD=3 } archive_job_kind_t;
+typedef enum { ARCHIVE_SAVE=1, ARCHIVE_GROUP=2, ARCHIVE_RECORD=3, ARCHIVE_AI_LAST=4 } archive_job_kind_t;
 typedef struct {
     archive_job_kind_t kind;
     hub_archive_record_t record;
@@ -83,12 +84,32 @@ typedef struct {
     hub_archive_group_t previous;
     hub_archive_group_t next;
     hub_archive_record_t record;
+    hub_ai_digest_t digest;
 } archive_reply_t;
+typedef enum { AI_LOAD_BATCH=1, AI_STORE_DIGEST=2 } ai_archive_kind_t;
+typedef struct {
+    ai_archive_kind_t kind;
+    uint32_t after_sequence;
+    uint8_t max_records;
+    hub_ai_digest_t digest;
+} ai_archive_req_t;
+typedef struct {
+    bool success;
+    ai_archive_kind_t kind;
+    hub_ai_batch_t batch;
+} ai_archive_resp_t;
 
 static QueueHandle_t button_queue, archive_jobs, archive_replies;
+static QueueHandle_t ai_requests, ai_replies;
+static volatile bool ai_configured, ai_online, ai_enabled, ai_busy;
+static volatile bool ai_failed;
+static volatile bool ai_run_now;
+static hub_ai_digest_t latest_digest;
+static bool latest_digest_ready;
+static uint16_t digest_page;
 static hub_archive_t archive_database; /* only archive_task accesses fields */
 static volatile bool archive_loaded, archive_error, archive_full, archive_dropped;
-static enum { VIEW_GROUPS=0, VIEW_LIST=1, VIEW_DETAIL=2 } view_mode;
+static enum { VIEW_GROUPS=0, VIEW_LIST=1, VIEW_DETAIL=2, VIEW_DIGEST=3 } view_mode;
 static int group_cursor, record_cursor;
 static uint32_t visible_group_count, visible_record_count;
 static char selected_app[HUB_APP_BYTES];
@@ -141,6 +162,101 @@ static void archive_capture(const item_t *source,hub_archive_kind_t kind) {
     snprintf(job.record.body,sizeof(job.record.body),"%s",source->body);
     (void)post_job(&job);
 }
+/* A summary request asks for a page of unprocessed archival snapshots.
+ * The archive task alone owns the FAT journal and digest file.
+ */
+static void handle_ai_archive_request(const ai_archive_req_t *request) {
+    ai_archive_resp_t reply={.kind=request->kind};
+    if(request->kind==AI_LOAD_BATCH) {
+        reply.success=hub_archive_collect_since(&archive_database,
+                    request->after_sequence,request->max_records,&reply.batch);
+    }else if(request->kind==AI_STORE_DIGEST) {
+        /* Commit summary bytes before advancing the NVS checkpoint. */
+        reply.success=hub_archive_save_digest(&archive_database,&request->digest);
+        if(reply.success)
+            reply.success=hub_ai_advance_cursor(request->digest.processed_through);
+        if(reply.success) {
+            latest_digest=request->digest;
+            latest_digest_ready=true;
+            archive_job_t ui_request={.kind=ARCHIVE_AI_LAST};
+            (void)post_job(&ui_request);
+        }
+    }
+    if(ai_replies) (void)xQueueOverwrite(ai_replies,&reply);
+}
+static void ai_task(void *arg) {
+    (void)arg;
+    hub_ai_connection_t conn;
+    if(!hub_ai_load_connection(&conn)) {
+        ESP_LOGW(TAG,"AI disabled: Wi-Fi/gateway not provisioned");
+        vTaskDelete(NULL);return;
+    }
+    ai_configured=true;
+    if(!hub_ai_connect_wifi(&conn)) {
+        ESP_LOGW(TAG,"AI disabled: Wi-Fi startup failed");
+        ai_failed=true;vTaskDelete(NULL);return;
+    }
+    hub_ai_settings_t settings={0};
+    int64_t next_config=0, next_run=0;
+    while(true) {
+        int64_t now=esp_timer_get_time()/1000000;
+        if(now>=next_config) {
+            hub_ai_settings_t changed;
+            if(hub_ai_fetch_settings(&conn,&changed)) {
+                ai_online=true;
+                if(changed.enabled && !settings.enabled)
+                    next_run=now+changed.interval_minutes*60;
+                settings=changed;
+                ai_enabled=settings.enabled;
+            }else ai_online=false;
+            next_config=now+60;
+        }
+        if(ai_online && settings.enabled && (ai_run_now || now>=next_run)) {
+            ai_run_now=false;
+            ai_busy=true;
+            ai_failed=false;
+            uint32_t cursor=hub_ai_read_cursor();
+            int processed_batches=0;
+            bool pending_more=false;
+            for(int batch_index=0;batch_index<4;batch_index++) {
+                ai_archive_req_t ask={.kind=AI_LOAD_BATCH,
+                    .after_sequence=cursor,
+                    .max_records=(uint8_t)(settings.max_records<HUB_AI_MAX_BATCH?
+                                         settings.max_records:HUB_AI_MAX_BATCH)};
+                if(xQueueSend(ai_requests,&ask,pdMS_TO_TICKS(1000))!=pdTRUE)
+                    {ai_failed=true;break;}
+                ai_archive_resp_t response;
+                if(xQueueReceive(ai_replies,&response,pdMS_TO_TICKS(5000))!=pdTRUE ||
+                   response.kind!=AI_LOAD_BATCH || !response.success) {
+                    ai_failed=true;break;
+                }
+                if(response.batch.count==0) {pending_more=false;break;}
+                hub_ai_digest_t result;
+                if(!hub_ai_summarize(&conn,&response.batch,&result)) {
+                    ai_failed=true;break;
+                }
+                ai_archive_req_t save={.kind=AI_STORE_DIGEST,.digest=result};
+                if(xQueueSend(ai_requests,&save,pdMS_TO_TICKS(1000))!=pdTRUE ||
+                   xQueueReceive(ai_replies,&response,pdMS_TO_TICKS(8000))!=pdTRUE ||
+                   response.kind!=AI_STORE_DIGEST || !response.success) {
+                    ai_failed=true;break;
+                }
+                cursor=result.processed_through;
+                processed_batches++;
+                pending_more=true;
+                vTaskDelay(pdMS_TO_TICKS(2000));
+            }
+            now=esp_timer_get_time()/1000000;
+            /* Throttle burst costs. Backlog stays on device and is handled
+             * in later windows, with NVS cursor unchanged after failures. */
+            next_run=now+(ai_failed?120:
+                     pending_more && processed_batches==4?60:
+                     settings.interval_minutes*60);
+            ai_busy=false;
+        }
+        vTaskDelay(pdMS_TO_TICKS(1000));
+    }
+}
 /* Exclusively owns FATFS access; filesystem work never runs inside BLE callback. */
 static void archive_task(void *arg) {
     (void)arg;
@@ -158,7 +274,16 @@ static void archive_task(void *arg) {
         (void)xQueueOverwrite(archive_replies,&start);
     }
     archive_job_t job;
-    while(xQueueReceive(archive_jobs,&job,portMAX_DELAY)==pdTRUE) {
+    while(true) {
+        ai_archive_req_t request;
+        if(xQueueReceive(ai_requests,&request,0)==pdTRUE) {
+            if(ok) handle_ai_archive_request(&request);
+            else {
+                ai_archive_resp_t r={.kind=request.kind,.success=false};
+                (void)xQueueOverwrite(ai_replies,&r);
+            }
+        }
+        if(xQueueReceive(archive_jobs,&job,pdMS_TO_TICKS(150))!=pdTRUE) continue;
         if(!ok) continue;
         if(job.kind==ARCHIVE_SAVE) {
             if(!hub_archive_capture(&archive_database,&job.record)) {
@@ -181,6 +306,8 @@ static void archive_task(void *arg) {
                     (void)hub_archive_get_group(&archive_database,
                           (job.ordinal+1)%total,&reply.next);
                 }
+            } else if(job.kind==ARCHIVE_AI_LAST) {
+                reply.found=hub_archive_last_digest(&archive_database,&reply.digest);
             } else {
                 reply.found=hub_archive_get_record(&archive_database,
                                                   job.app,job.ordinal,&reply.record);
@@ -189,7 +316,6 @@ static void archive_task(void *arg) {
             (void)xQueueOverwrite(archive_replies,&reply);
         }
     }
-    vTaskDelete(NULL);
 }
 static bool uuid_is(const esp_bt_uuid_t *u,const uint8_t *v) {
     return u->len==ESP_UUID_LEN_128 && memcmp(u->uuid.uuid128,v,16)==0;
@@ -620,7 +746,10 @@ void app_main(void) {
     button_queue=xQueueCreate(8,sizeof(button_t));
     archive_jobs=xQueueCreate(24,sizeof(archive_job_t));
     archive_replies=xQueueCreate(1,sizeof(archive_reply_t));
-    if(!button_queue || !archive_jobs || !archive_replies) {ESP_LOGE(TAG,"Queues unavailable");return;}
+    ai_requests=xQueueCreate(1,sizeof(ai_archive_req_t));
+    ai_replies=xQueueCreate(1,sizeof(ai_archive_resp_t));
+    if(!button_queue || !archive_jobs || !archive_replies ||
+       !ai_requests || !ai_replies) {ESP_LOGE(TAG,"Queues unavailable");return;}
     (void)bsp_button_init(on_button,NULL);
     bsp_display_backlight(80);
     if(!bsp_lvgl_lock(1000)) {ESP_LOGE(TAG,"UI lock unavailable");return;}
@@ -635,6 +764,10 @@ void app_main(void) {
         ESP_LOGE(TAG,"Could not start archive worker");
         return;
     }
+    extern void hub_ai_provision_start(void);
+    hub_ai_provision_start();
+    if(xTaskCreate(ai_task,"ai_worker",8192,NULL,3,NULL)!=pdPASS)
+        ESP_LOGW(TAG,"AI worker not started");
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
     esp_bt_controller_config_t config=BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_bt_controller_init(&config));
