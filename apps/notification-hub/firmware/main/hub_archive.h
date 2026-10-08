@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include "wear_levelling.h"
 #include "hub_protocol.h"
+#include "hub_ai.h"
 
 #define HUB_ARCHIVE_GROUP_LIMIT 96
 #define HUB_ARCHIVE_MAX_RECORDS 11000
@@ -74,3 +75,9 @@ bool hub_archive_get_group(const hub_archive_t *db, uint32_t ordinal,
                            hub_archive_group_t *out);
 bool hub_archive_get_record(hub_archive_t *db, const char *app,
                             uint32_t newest_ordinal, hub_archive_record_t *out);
+
+/* All filesystem helpers run exclusively inside the archive worker. */
+bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,
+                               hub_ai_batch_t *out);
+bool hub_archive_save_digest(hub_archive_t *db,const hub_ai_digest_t *digest);
+bool hub_archive_last_digest(hub_archive_t *db,hub_ai_digest_t *out);
