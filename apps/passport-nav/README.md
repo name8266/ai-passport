@@ -34,7 +34,7 @@ source /path/to/esp-idf-v5.5.3/export.sh
 cd apps/passport-nav/firmware
 idf.py set-target esp32c3
 idf.py build
-idf.py merge-bin -o build/passport-nav-full.bin --format raw
+idf.py merge-bin -o passport-nav-full.bin --format raw
 \`\`\`
 To test the parser without ESP-IDF:
 \`\`\`sh
