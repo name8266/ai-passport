@@ -5,6 +5,7 @@
  */
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 #include "hub_protocol.h"
 
 #define HUB_AI_MAX_BATCH 3
