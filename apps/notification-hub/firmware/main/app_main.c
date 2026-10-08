@@ -80,6 +80,8 @@ typedef struct {
     bool found;
     uint32_t total_groups;
     hub_archive_group_t group;
+    hub_archive_group_t previous;
+    hub_archive_group_t next;
     hub_archive_record_t record;
 } archive_reply_t;
 
@@ -90,6 +92,7 @@ static enum { VIEW_GROUPS=0, VIEW_LIST=1, VIEW_DETAIL=2 } view_mode;
 static int group_cursor, record_cursor;
 static uint32_t visible_group_count, visible_record_count;
 static char selected_app[HUB_APP_BYTES];
+static hub_archive_group_t previous_group, next_group;
 static hub_archive_record_t selected_record;
 static bool selected_record_valid;
 static int64_t next_summary_request;
@@ -171,6 +174,12 @@ static void archive_task(void *arg) {
                 reply.total_groups=total;
                 reply.found=hub_archive_get_group(&archive_database,job.ordinal,
                                                    &reply.group);
+                if(total>0) {
+                    (void)hub_archive_get_group(&archive_database,
+                          (job.ordinal+total-1)%total,&reply.previous);
+                    (void)hub_archive_get_group(&archive_database,
+                          (job.ordinal+1)%total,&reply.next);
+                }
             } else {
                 reply.found=hub_archive_get_record(&archive_database,
                                                   job.app,job.ordinal,&reply.record);
@@ -251,6 +260,15 @@ static void build_ui(void) {
                         &lv_font_montserrat_14,0x96A9BA);
     lv_screen_load(root);
 }
+static const char *app_display(const char *bundle) {
+    if(!strcmp(bundle,"com.tencent.xin")) return "WeChat";
+    if(!strcmp(bundle,"com.tencent.mqq")) return "QQ";
+    if(!strcmp(bundle,"com.apple.MobileSMS")) return "Messages";
+    if(!strcmp(bundle,"com.apple.mobilemail")) return "Mail";
+    if(!strcmp(bundle,"net.whatsapp.WhatsApp")) return "WhatsApp";
+    if(!strcmp(bundle,"ph.telegra.Telegraph")) return "Telegram";
+    return bundle[0]?bundle:"Unresolved";
+}
 static void render(void) {
     int battery=bsp_battery_soc();
     if(battery<0) lv_label_set_text(top_battery,"--%");
@@ -270,24 +288,35 @@ static void render(void) {
     if(view_mode==VIEW_GROUPS) {
         lv_label_set_text_fmt(page_no,"APPLICATIONS %d / %lu",
              visible_group_count?group_cursor+1:0,(unsigned long)visible_group_count);
-        lv_label_set_text(app_name,visible_group_count?selected_app:"NO ARCHIVED APPS");
-        lv_label_set_text_fmt(title_text,"%lu saved snapshots",
-            (unsigned long)visible_record_count);
-        lv_label_set_text(body_text,"Open app history to view saved notification previews.");
+        if(!visible_group_count) {
+            lv_label_set_text(app_name,"NO ARCHIVED APPS");
+            lv_label_set_text(title_text,"No saved notifications yet");
+            lv_label_set_text(body_text,"Connect iPhone to begin archiving.");
+        }else {
+            lv_label_set_text_fmt(app_name,"  %.17s  (%lu)",
+                app_display(previous_group.app),(unsigned long)previous_group.count);
+            lv_label_set_text_fmt(title_text,"> %.17s  (%lu)",
+                app_display(selected_app),(unsigned long)visible_record_count);
+            lv_label_set_text_fmt(body_text,"  %.17s  (%lu)",
+                app_display(next_group.app),(unsigned long)next_group.count);
+        }
+        lv_obj_set_style_text_color(title_text,lv_color_hex(0x7EE6B3),0);
         lv_label_set_text(help_text,"UP/DOWN:APPS  OK:OPEN");
     }else if(view_mode==VIEW_LIST) {
+        lv_obj_set_style_text_color(title_text,lv_color_hex(0xFFFFFF),0);
         lv_label_set_text_fmt(page_no,"HISTORY %d / %lu",
             visible_record_count?record_cursor+1:0,(unsigned long)visible_record_count);
-        lv_label_set_text(app_name,selected_app);
+        lv_label_set_text(app_name,app_display(selected_app));
         lv_label_set_text(title_text,selected_record_valid?
             selected_record.title:"No saved preview");
         lv_label_set_text(body_text,selected_record_valid?
             (selected_record.body[0]?selected_record.body:"(Only notification header captured)"):"");
         lv_label_set_text(help_text,"UP/DOWN:ITEM  OK:READ");
     }else {
+        lv_obj_set_style_text_color(title_text,lv_color_hex(0xFFFFFF),0);
         lv_label_set_text_fmt(page_no,"SAVED SNAPSHOT #%lu",
              (unsigned long)selected_record.sequence);
-        lv_label_set_text(app_name,selected_app);
+        lv_label_set_text(app_name,app_display(selected_app));
         lv_label_set_text(title_text,selected_record.title);
         lv_label_set_text(body_text,selected_record.body[0]?
             selected_record.body:"(No preview was provided by iOS)");
@@ -303,8 +332,12 @@ static void refresh(lv_timer_t *timer) {
             if(reply.found) {
                 snprintf(selected_app,sizeof(selected_app),"%s",reply.group.app);
                 visible_record_count=reply.group.count;
+                previous_group=reply.previous;
+                next_group=reply.next;
             }else {
                 selected_app[0]=0;visible_record_count=0;
+                memset(&previous_group,0,sizeof(previous_group));
+                memset(&next_group,0,sizeof(next_group));
             }
         } else if(reply.kind==ARCHIVE_RECORD && view_mode!=VIEW_GROUPS) {
             selected_record_valid=reply.found;
