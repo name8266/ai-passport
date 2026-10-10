@@ -52,7 +52,7 @@ static inline bool hub_ai_sensitive(const char *title,const char *body) {
         if(hub_secret_ascii_contains(title,phrases[i],false) ||
            hub_secret_ascii_contains(body,phrases[i],false))return true;
     for(size_t i=0;i<sizeof(abbreviations)/sizeof(abbreviations[0]);i++)
-        if(hub_secret_ascii_contains(title,abbreviations[i],true) ||
-           hub_secret_ascii_contains(body,abbreviations[i],true))return true;
+        if(hub_secret_ascii_contains(title,abbreviations[i],i>=2) ||
+           hub_secret_ascii_contains(body,abbreviations[i],i>=2))return true;
     return false;
 }

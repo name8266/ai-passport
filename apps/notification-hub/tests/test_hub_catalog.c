@@ -6,6 +6,8 @@
 #include "../firmware/main/hub_archive_gc.h"
 #include "../firmware/main/hub_app_catalog.h"
 #include "../firmware/main/hub_ai_prompt.h"
+#include "../firmware/main/hub_control_event.h"
+#include "../firmware/main/hub_ai_filter.h"
 
 static void test_protected_pending(void) {
     hub_ai_digest_t prior={0},proposal={0},out={0};
@@ -122,6 +124,17 @@ int main(void) {
     assert(!hub_ai_batch_ready(0,true));
     assert(hub_ai_batch_ready(1,true));
     assert(HUB_AI_TASK_LIMIT==5);
+    archive_control_event_t clear=hub_control_make(6);
+    archive_control_event_t wire={0};
+    assert(sizeof(clear)>1);
+    memcpy(&wire,&clear,sizeof(wire));
+    assert(wire.kind==6 && !wire.fingerprint && !wire.revision && !wire.id);
+    clear=hub_control_make(9);
+    clear.fingerprint=123;clear.revision=32;clear.id=7;
+    memcpy(&wire,&clear,sizeof(wire));
+    assert(wire.kind==9 && wire.fingerprint==123 && wire.revision==32 && wire.id==7);
+    assert(!strstr(HUB_AI_SYSTEM_PROMPT,"示例：{"));
+
     assert(!hub_archive_gc_due(0,false));
     assert(!hub_archive_gc_due(63,false));
     assert(hub_archive_gc_due(64,false));
