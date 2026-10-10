@@ -4,6 +4,8 @@
 #include <stdlib.h>
 int main(void) {
     hub_sound_config_t c=hub_sound_defaults();assert(hub_sound_valid(c));
+    assert(!c.enabled);
+    c.enabled=true;
     assert(hub_alert_eligible(c,0,0,0,0,false));
     assert(!hub_alert_eligible(c,1,0,10000,0,false));
     assert(!hub_alert_eligible(c,2,0,10000,0,false));

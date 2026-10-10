@@ -13,11 +13,19 @@
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
 static const char *TAG="hub_ai_web";
 static httpd_handle_t server;
+static volatile int64_t s_http_recent_us;
+static void touch_http(void) {s_http_recent_us=esp_timer_get_time();}
+int64_t hub_ai_web_idle_us(void) {
+    int64_t last=s_http_recent_us;
+    return last>0?esp_timer_get_time()-last:INT64_MAX;
+}
+
 static char csrf_nonce[20];
 static hub_web_dashboard_provider_t dashboard_provider;
 /* Several KiB: keep this snapshot off the small HTTP server task stack. */
@@ -102,6 +110,7 @@ static void page_head(httpd_req_t *req,bool dark,const char *title,const char *s
     put(req,"<aside class=\"notice\">设备热点和局域网管理无需登录：连接者可查看通知预览及操作，请仅在可信网络使用。AI 默认关闭；开启后筛选内容会发送至指定 HTTPS 模型接口。</aside>");
 }
 static esp_err_t settings_page(httpd_req_t *req) {
+    touch_http();
     hub_ai_settings_t settings;
     hub_ai_connection_t conn={0};
     if(!hub_ai_read_settings(&settings))return reject(req,"500 Internal Server Error","配置无效，请检查设备设置");
@@ -204,6 +213,7 @@ static void notification_time(const hub_archive_record_t *record,uint32_t now,
     else snprintf(out,cap,"%u 天前",(unsigned)(age/86400));
 }
 static esp_err_t dashboard_page(httpd_req_t *req) {
+    touch_http();
     uint32_t cursor;
     if(!dashboard_cursor(req,&cursor)) return reject(req,"400 Bad Request","分页参数无效");
     memset(&dashboard_page_snapshot,0,sizeof(dashboard_page_snapshot));
@@ -326,6 +336,7 @@ static bool read_form(httpd_req_t *req,char **out,size_t *length) {
     *out=body;return true;
 }
 static esp_err_t summary_run(httpd_req_t *req) {
+    touch_http();
     char *body=NULL;size_t body_len=0;
     if(!read_form(req,&body,&body_len)) return reject(req,"413 Payload Too Large","请求内容无法读取");
     bool valid=hub_form_validate_csrf(body,csrf_nonce);
@@ -339,6 +350,7 @@ static esp_err_t summary_run(httpd_req_t *req) {
     return httpd_resp_sendstr(req,"已提交总结任务");
 }
 static esp_err_t summary_state_action(httpd_req_t *req) {
+    touch_http();
     char *body=NULL;size_t len=0;
     if(!read_form(req,&body,&len))
         return reject(req,"413 Payload Too Large","请求无效");
@@ -356,6 +368,7 @@ static esp_err_t summary_state_action(httpd_req_t *req) {
     return httpd_resp_sendstr(req,acknowledge?"正在清除摘要":show?"正在显示摘要":"正在隐藏摘要");
 }
 static esp_err_t summary_task_complete(httpd_req_t *req) {
+    touch_http();
     char *body=NULL;size_t len=0;
     if(!read_form(req,&body,&len))
         return reject(req,"413 Payload Too Large","请求内容无效");
@@ -372,6 +385,7 @@ static esp_err_t summary_task_complete(httpd_req_t *req) {
     return httpd_resp_sendstr(req,"待办已确认完成");
 }
 static esp_err_t device_page(httpd_req_t *req) {
+    touch_http();
     if(!hub_app_screen_snapshot(&screen_snapshot))
         return reject(req,"503 Service Unavailable","设备屏幕忙，请稍后刷新");
     issue_nonce();
@@ -396,6 +410,7 @@ static esp_err_t device_page(httpd_req_t *req) {
     return httpd_resp_send_chunk(req,NULL,0);
 }
 static esp_err_t device_control(httpd_req_t *req) {
+    touch_http();
     char *body=NULL;size_t length=0;unsigned action=0;
     if(!read_form(req,&body,&length)) return reject(req,"413 Payload Too Large","无法读取操作");
     bool valid=hub_form_parse_control(body,csrf_nonce,&action);
@@ -413,6 +428,7 @@ static void reboot(void *unused) {
     (void)unused;vTaskDelay(pdMS_TO_TICKS(1500));esp_restart();
 }
 static esp_err_t save(httpd_req_t *req) {
+    touch_http();
     char *body=NULL;
     size_t body_len=0;
     if(!read_form(req,&body,&body_len))return reject(req,"413 Payload Too Large","配置内容过长或无法读取");
@@ -443,6 +459,7 @@ static void reboot_after_clear(void *unused) {
     vTaskDelete(NULL);
 }
 static esp_err_t clear_archive(httpd_req_t *req) {
+    touch_http();
     char *body=NULL;
     size_t body_len=0;
     if(!read_form(req,&body,&body_len))return reject(req,"413 Payload Too Large","确认内容无效");
@@ -458,17 +475,18 @@ static esp_err_t clear_archive(httpd_req_t *req) {
     return done;
 }
 static esp_err_t clear_status(httpd_req_t *req) {
+    touch_http();
     int status=hub_ai_archive_clear_status();
     const char *message=status==1?"通知档案正在清空":status==2?"清空完成，设备即将重启":status==3?"清空失败，请查看设备状态":"没有正在执行的清理任务";
     httpd_resp_set_type(req,"text/plain; charset=utf-8");
     httpd_resp_set_hdr(req,"Cache-Control","no-store");
     return httpd_resp_sendstr(req,message);
 }
-void hub_ai_web_start(void) {
-    if(server)return;
+bool hub_ai_web_start(void) {
+    if(server)return true;
     httpd_config_t cfg=HTTPD_DEFAULT_CONFIG();
     cfg.stack_size=5120;cfg.max_uri_handlers=14;cfg.max_open_sockets=3;cfg.lru_purge_enable=true;
-    if(httpd_start(&server,&cfg)!=ESP_OK) {ESP_LOGE(TAG,"Could not start embedded admin");return;}
+    if(httpd_start(&server,&cfg)!=ESP_OK) {ESP_LOGE(TAG,"Could not start embedded admin");return false;}
     httpd_uri_t device={.uri="/device",.method=HTTP_GET,.handler=device_page};
     httpd_uri_t control={.uri="/device/control",.method=HTTP_POST,.handler=device_control};
     httpd_uri_t index={.uri="/",.method=HTTP_GET,.handler=dashboard_page};
@@ -496,10 +514,13 @@ void hub_ai_web_start(void) {
         httpd_register_uri_handler(server,&summary_show)!=ESP_OK ||
         httpd_register_uri_handler(server,&summary_complete)!=ESP_OK) {
         ESP_LOGE(TAG,"Could not register all device admin routes");
-        (void)httpd_stop(server);server=NULL;return;
+        (void)httpd_stop(server);server=NULL;return false;
     }
+    touch_http();
     ESP_LOGI(TAG,"Embedded admin running at http://192.168.4.1/");
+    return true;
 }
+bool hub_ai_web_is_running(void) {return server!=NULL;}
 bool hub_ai_web_pause(void) {
     if(!server)return true;
     if(httpd_stop(server)!=ESP_OK)return false;

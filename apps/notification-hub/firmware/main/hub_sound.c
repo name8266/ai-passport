@@ -96,12 +96,18 @@ bool hub_sound_start(void) {
         }
     }
     atomic_store(&desired,pack(c));
-    bool ok=xTaskCreate(task,"sound_worker",4096,NULL,3,&worker)==pdPASS;
+    /* Defer optional audio stack until explicitly enabled. */
+    if(!c.enabled)return true;
+    bool ok=xTaskCreate(task,"sound_worker",3584,NULL,3,&worker)==pdPASS;
     atomic_store(&failed,!ok);return ok;
 }
 void hub_sound_set(hub_sound_config_t c) {
     if(!hub_sound_valid(c)) return;
     atomic_store(&desired,pack(c));
+    if(c.enabled && !worker) {
+        if(xTaskCreate(task,"sound_worker",3584,NULL,3,&worker)!=pdPASS)
+            atomic_store(&failed,true);
+    }
     if(worker) xTaskNotify(worker,SAVE,eSetBits);
 }
 void hub_sound_notify(uint8_t event,uint8_t flags) {

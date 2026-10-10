@@ -1,6 +1,6 @@
 #include "hub_alert.h"
 #include <math.h>
-hub_sound_config_t hub_sound_defaults(void) {return (hub_sound_config_t){true,0,30};}
+hub_sound_config_t hub_sound_defaults(void) {return (hub_sound_config_t){false,0,30};}
 bool hub_sound_valid(hub_sound_config_t c) {return c.tone<HUB_TONE_COUNT && c.volume>=10 && c.volume<=60;}
 bool hub_alert_eligible(hub_sound_config_t c,uint8_t event,uint8_t flags,uint64_t now,uint64_t last,bool has_last) {
     /* ANCS silent/pre-existing flags: Apple's official ANCS Appendix. */

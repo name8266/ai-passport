@@ -8,6 +8,7 @@
 #include "../firmware/main/hub_ai_prompt.h"
 #include "../firmware/main/hub_control_event.h"
 #include "../firmware/main/hub_ai_filter.h"
+#include "../firmware/main/hub_memory_policy.h"
 
 static void test_protected_pending(void) {
     hub_ai_digest_t prior={0},proposal={0},out={0};
@@ -117,6 +118,19 @@ int main(void) {
     assert(hub_ai_sensitive(NULL,"PIN 1234"));
     assert(!hub_ai_sensitive("Shipping notice","pickup at gate"));
     assert(!hub_ai_sensitive("Routine meeting","Schedule for Monday"));
+
+    assert(hub_mem_critical(200));
+    assert(hub_mem_critical(HUB_MEM_WARN_BYTES-1));
+    assert(!hub_mem_critical(HUB_MEM_WARN_BYTES));
+    assert(!hub_mem_allow_web(200,200));
+    assert(!hub_mem_allow_web(HUB_MEM_WEB_START_BYTES-1,16000));
+    assert(!hub_mem_allow_web(40000,HUB_MEM_WEB_CONTIGUOUS_BYTES-1));
+    assert(hub_mem_allow_web(HUB_MEM_WEB_START_BYTES,8192));
+    assert(!hub_mem_allow_tls(26000,11000));
+    assert(!hub_mem_allow_tls(HUB_MEM_TLS_START_BYTES-1,25000));
+    assert(!hub_mem_allow_tls(55000,HUB_MEM_TLS_CONTIGUOUS_BYTES-1));
+    assert(hub_mem_allow_tls(HUB_MEM_TLS_START_BYTES,
+                              HUB_MEM_TLS_CONTIGUOUS_BYTES));
     assert(HUB_AI_TRIGGER_COUNT==3);
     assert(!hub_ai_batch_ready(0,false));
     assert(!hub_ai_batch_ready(2,false));

@@ -10,6 +10,7 @@
 #include "hub_app_catalog.h"
 #include "hub_ai_prompt.h"
 #include "hub_ai_state.h"
+#include "hub_memory_policy.h"
 #include "esp_heap_caps.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,9 +25,12 @@
 #include "esp_netif.h"
 #include "esp_netif_sntp.h"
 #include "esp_wifi.h"
+#include "esp_wifi_default.h"
 
 static const char *TAG="hub_ai";
 static bool s_wifi_init;
+static bool s_netif_init;
+static esp_netif_t *s_ap_netif,*s_sta_netif;
 static bool s_station_configured;
 static volatile bool s_online;
 static bool s_sntp_init;
@@ -61,19 +65,27 @@ static void wifi_callback(void *arg,esp_event_base_t base,int32_t id,void *data)
     }else if(base==IP_EVENT && id==IP_EVENT_STA_GOT_IP) s_online=true;
 }
 bool hub_ai_is_online(void) {return s_online;}
+bool hub_ai_wifi_started(void) {return s_wifi_init;}
 uint32_t hub_ai_current_epoch(void) {
     time_t now=0;time(&now);
     return now>=1700000000?(uint32_t)now:0;
 }
 bool hub_ai_connect_wifi(const hub_ai_connection_t *conn) {
-    if(s_wifi_init) return true;
+    if(s_wifi_init) return hub_ai_web_start();
     if(!init_access()) {ESP_LOGE(TAG,"Cannot create admin credentials");return false;}
-    if(esp_netif_init()!=ESP_OK) return false;
+    if(!s_netif_init) {
+        if(esp_netif_init()!=ESP_OK)return false;
+        s_netif_init=true;
+    }
     esp_err_t ev=esp_event_loop_create_default();
     if(ev!=ESP_OK && ev!=ESP_ERR_INVALID_STATE) return false;
-    if(!esp_netif_create_default_wifi_ap()) return false;
+    s_ap_netif=esp_netif_create_default_wifi_ap();
+    if(!s_ap_netif)return false;
     s_station_configured=conn && conn->configured;
-    if(s_station_configured && !esp_netif_create_default_wifi_sta()) return false;
+    if(s_station_configured) {
+        s_sta_netif=esp_netif_create_default_wifi_sta();
+        if(!s_sta_netif)return false;
+    }
     wifi_init_config_t cfg=WIFI_INIT_CONFIG_DEFAULT();
     if(esp_wifi_init(&cfg)!=ESP_OK) return false;
     /* Credentials are owned by hub_ai NVS or a temporary RAM test. Avoid
@@ -104,8 +116,36 @@ bool hub_ai_connect_wifi(const hub_ai_connection_t *conn) {
         if(esp_netif_sntp_init(&time_config)==ESP_OK) s_sntp_init=true;
         else ESP_LOGW(TAG,"Clock sync unavailable; retention waits for valid time");
     }
-    hub_ai_web_start();
+    if(!hub_ai_web_start()) {
+        ESP_LOGW(TAG,"Wi-Fi started but web admin has insufficient resources");
+        return false;
+    }
     ESP_LOGI(TAG,"Open Passport Wi-Fi hotspot enabled (credentials on screen)");
+    return true;
+}
+/* Used only by the temporary admin manager when AI is disabled. Never
+ * tear down Wi-Fi on the BLE/FAT/LVGL hot paths or during a TLS request.
+ * Default Wi-Fi driver callbacks must be detached before recreating netifs.
+ */
+bool hub_ai_wifi_shutdown(void) {
+    if(!s_wifi_init)return true;
+    if(!hub_ai_web_pause())return false;
+    if(s_sntp_init) {
+        esp_netif_sntp_deinit();
+        s_sntp_init=false;
+    }
+    esp_err_t err=esp_wifi_stop();
+    if(err!=ESP_OK)return false;
+    err=esp_wifi_deinit();
+    if(err!=ESP_OK)return false;
+    (void)esp_event_handler_unregister(WIFI_EVENT,ESP_EVENT_ANY_ID,wifi_callback);
+    (void)esp_event_handler_unregister(IP_EVENT,IP_EVENT_STA_GOT_IP,wifi_callback);
+    if(s_sta_netif) {esp_netif_destroy_default_wifi(s_sta_netif);s_sta_netif=NULL;}
+    if(s_ap_netif) {esp_netif_destroy_default_wifi(s_ap_netif);s_ap_netif=NULL;}
+    s_wifi_init=false;
+    s_station_configured=false;
+    s_online=false;
+    ESP_LOGI(TAG,"Idle admin released Wi-Fi driver/Web/STA/AP heap");
     return true;
 }
 static bool ensure_clock(void) {
@@ -230,7 +270,7 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
      * rather than risk taking down BLE capture and the local journal. */
     size_t free_heap=heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
     size_t largest=heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
-    if(free_heap<26000u || largest<11000u) {
+    if(!hub_mem_allow_tls(free_heap,largest)) {
         ESP_LOGW(TAG,"Deferring TLS: heap=%u largest=%u",
                  (unsigned)free_heap,(unsigned)largest);
         hub_ai_web_start();hub_sound_network_end();return false;

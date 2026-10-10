@@ -41,6 +41,16 @@ assert '"/summary/show"' in web
 assert "com.example.app" not in web
 assert "已汇总记录" in web
 assert "未汇总" in web
+default_config=(HUB/"firmware/sdkconfig.defaults").read_text("utf-8")
+assert "CONFIG_BT_NIMBLE_ENABLED=y" in default_config
+assert "CONFIG_BT_BLUEDROID_ENABLED=n" in default_config
+assert "CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1" in default_config
+memory=(MAIN/"hub_memory_policy.h").read_text("utf-8")
+assert "HUB_MEM_TLS_START_BYTES 49152u" in memory
+assert "hub_ai_wifi_shutdown" in (MAIN/"hub_ai.c").read_text("utf-8")
+assert "admin_manage_idle" in controller
+assert "hub_log_memory" in controller
+
 assert "逐项" in web
 
 # Optional artifact scan checks the ACTUAL customer binaries and verifies the

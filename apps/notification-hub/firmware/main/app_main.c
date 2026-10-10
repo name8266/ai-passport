@@ -40,6 +40,7 @@
 #include "hub_archive.h"
 #include "hub_archive_gc.h"
 #include "hub_control_event.h"
+#include "hub_memory_policy.h"
 #include "hub_backlog.h"
 #include "hub_ai.h"
 #include "hub_web_dashboard.h"
@@ -47,9 +48,15 @@
 
 static const char *TAG="notify_hub";
 static void hub_log_memory(const char *phase) {
-    ESP_LOGI(TAG,"%s: internal heap=%u largest=%u",phase,
-        (unsigned)heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT),
-        (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT));
+    size_t free_bytes=heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+    size_t largest=heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+    size_t minimum=heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+    ESP_LOGI(TAG,"%s: internal_heap=%u min_since_boot=%u largest=%u stack_margin=%u",
+        phase,(unsigned)free_bytes,(unsigned)minimum,(unsigned)largest,
+        (unsigned)uxTaskGetStackHighWaterMark(NULL));
+    if(hub_mem_critical(free_bytes))
+        ESP_LOGW(TAG,"Internal heap pressure: %u bytes (BLE/archive priority)",
+                 (unsigned)free_bytes);
 }
 #define HUB_LIMIT 8
 #define INVALID 0
@@ -161,6 +168,9 @@ static volatile bool ai_capacity_full;
 static volatile bool ai_resume_after_ack;
 static volatile bool ai_run_now;
 static volatile bool digest_auto_show;
+static volatile bool admin_starting,admin_stopping,admin_failed;
+static int64_t admin_out_since;
+static int64_t admin_retry_at;
 static hub_ai_digest_t latest_digest;
 static bool latest_digest_ready;
 
@@ -398,24 +408,87 @@ static void handle_ai_archive_request(const ai_archive_req_t *request) {
 }
 
 
+/* Provisioned devices keep Wi-Fi completely dormant while AI is disabled.
+ * Entering "设置与连接" wakes the local management radio on a short-lived task,
+ * never on LVGL or the critical FAT writer. */
+static void admin_start_task(void *arg) {
+    (void)arg;
+    static hub_ai_connection_t admin_connection;
+    memset(&admin_connection,0,sizeof(admin_connection));
+    (void)hub_ai_load_connection(&admin_connection);
+    size_t available=heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+    size_t largest=heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+    bool memory_ok=hub_ai_wifi_started() || hub_mem_allow_web(available,largest);
+    bool ok=memory_ok && hub_ai_connect_wifi(&admin_connection);
+    admin_failed=!ok;
+    admin_starting=false;
+    hub_log_memory(ok?"after on-demand admin":"admin deferred - insufficient RAM/network");
+    vTaskDelete(NULL);
+}
+static void request_admin_start(void) {
+    if(admin_starting || admin_stopping || hub_ai_web_is_running() || ai_busy)return;
+    int64_t now=esp_timer_get_time();
+    if(now<admin_retry_at)return;
+    admin_retry_at=now+10000000LL;
+    admin_starting=true;
+    if(xTaskCreate(admin_start_task,"admin_wake",4096,NULL,3,NULL)!=pdPASS) {
+        admin_failed=true;admin_starting=false;
+        ESP_LOGW(TAG,"Cannot allocate admin startup stack; BLE remains active");
+    }
+}
+/* In provisioned, AI-disabled mode, reclaim the driver and HTTP memory
+ * after two minutes outside setup and without HTTP requests. */
+static void admin_stop_task(void *arg) {
+    (void)arg;
+    if(!hub_ai_wifi_shutdown())
+        ESP_LOGW(TAG,"Could not release idle Wi-Fi; retry on next setup");
+    admin_stopping=false;
+    hub_log_memory("after Wi-Fi/Web release");
+    vTaskDelete(NULL);
+}
+static void admin_manage_idle(int64_t now) {
+    if(view_mode==VIEW_CONFIG) {
+        admin_out_since=0;
+        if(!archive_initializing && !ai_busy)request_admin_start();
+        return;
+    }
+    if(!ai_configured || ai_enabled || admin_stopping ||
+       !hub_ai_wifi_started() || !hub_ai_web_is_running()) {
+        admin_out_since=0;return;
+    }
+    if(!admin_out_since)admin_out_since=now;
+    if(now-admin_out_since<120000000LL ||
+       hub_ai_web_idle_us()<120000000LL)return;
+    admin_stopping=true;
+    if(xTaskCreate(admin_stop_task,"admin_idle",2560,NULL,3,NULL)!=pdPASS) {
+        admin_stopping=false;
+        ESP_LOGW(TAG,"Cannot allocate Wi-Fi shutdown worker");
+    }
+}
 static bool receive_ai_completion(uint32_t expected,uint32_t timeout_ms);
 static void ai_task(void *arg) {
     (void)arg;
     static hub_ai_connection_t conn;
+    static hub_ai_settings_t settings;
     ai_configured=hub_ai_load_connection(&conn);
-    /* Start SoftAP + local admin even before user's home Wi-Fi is known.
-     * The Passport, not an external Mac/NAS gateway, owns everything. */
+    bool settings_loaded=hub_ai_read_settings(&settings);
+    ai_enabled=settings_loaded && settings.enabled;
+    /* Once provisioned, an AI-disabled device is a BLE archive: no radio,
+     * TCP/IP sockets, HTTP server or worker stack are needed in idle mode.
+     * First-install devices still expose setup AP immediately. */
+    if(conn.configured && !ai_enabled) {
+        ESP_LOGI(TAG,"Provisioned idle: Wi-Fi/Web deferred until settings page");
+        vTaskDelete(NULL);
+        return;
+    }
     if(!hub_ai_connect_wifi(&conn)) {
         ESP_LOGW(TAG,"Embedded Wi-Fi admin startup failed");
         ai_failed=true;vTaskDelete(NULL);return;
     }
     hub_log_memory("after Wi-Fi/admin");
-    static hub_ai_settings_t settings;
-    /* Web changes reboot the application. An unused TLS worker should not
-     * retain its 8 KiB stack when AI is disabled, leaving room for audio DMA. */
-    bool settings_loaded=hub_ai_read_settings(&settings);
-    ai_enabled=settings_loaded && settings.enabled;
-    if(settings_loaded && !settings.enabled) {
+    /* A setup-only device releases the TLS worker after Web starts.
+     * Audio is lazy, so idle BLE / dashboard tasks retain maximum RAM. */
+    if(!ai_enabled) {
         ai_enabled=false;vTaskDelete(NULL);return;
     }
     int64_t next_config=0, next_run=0;
@@ -895,8 +968,13 @@ static void render(void) {
     }else if(view_mode==VIEW_CONFIG) {
         char ap[33]={0};
         bool ok=hub_ai_get_hotspot_ssid(ap,sizeof(ap));
-        hub_ui_set_text(page_no,"免密码连接热点");
-        hub_ui_set_text_fmt(body_text,"%s\n\n192.168.4.1\n打开即可管理，无需登录",ok?ap:"正在启动");
+        bool serving=hub_ai_web_is_running();
+        hub_ui_set_text(page_no,serving?"管理热点已就绪":admin_failed?"内存不足或网络未就绪":"正在启动管理网络");
+        if(serving)hub_ui_set_text_fmt(body_text,"%s\n\n192.168.4.1\n免密码访问，请仅用于可信环境",
+                                       ok?ap:"PassportHub");
+        else hub_ui_set_text(body_text,admin_failed?
+                   "管理功能暂时不可用。\n保留蓝牙收通知，请稍后重试。":
+                   "正在准备管理热点。\n蓝牙和本地存档仍可使用。");
         hub_ui_set_text(help_text,"网页内设置  长按确认返回");
     }else if(view_mode==VIEW_DIGEST) {
         if(ai_busy) hub_ui_set_text(page_no,"正在生成综合简报");
@@ -1054,6 +1132,12 @@ static void refresh(lv_timer_t *timer) {
         (void)post_job(&latest);
     }
     int64_t now=esp_timer_get_time();
+    admin_manage_idle(now);
+    static int64_t next_heap_log=0;
+    if(now>=next_heap_log) {
+        hub_log_memory("stable/runtime");
+        next_heap_log=now+30000000LL;
+    }
     if(archive_loaded && now>=next_summary_request) {
         if(view_mode==VIEW_GROUPS) request_group(group_cursor);
         else if(view_mode==VIEW_LIST && (!selected_record_valid || record_cursor==0)) request_record();

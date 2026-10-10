@@ -83,6 +83,9 @@ jobs:
             # Verify the generated effective Kconfig, not just sdkconfig.defaults.
             grep -qx "CONFIG_WL_SECTOR_SIZE_512=y" sdkconfig
             grep -qx "CONFIG_WL_SECTOR_MODE_SAFE=y" sdkconfig
+            grep -qx "CONFIG_BT_NIMBLE_ENABLED=y" sdkconfig
+            grep -qx "CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1" sdkconfig
+            echo "NimBLE memory profile: verified"
             echo "Wear-levelling safety mode: verified"
             idf.py merge-bin -o notification-hub-full.bin --format raw
       - name: Prepare customer-grade dual firmware package

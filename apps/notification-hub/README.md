@@ -1,8 +1,14 @@
-# Passport Notification Hub — Public 1.0.0 RC1
+# Passport Notification Hub — Public 1.0.0 RC2
 
 **Release candidate for customer installation.** Automated host regressions, memory sanitizers, ESP-IDF 5.5.3 firmware build and release hygiene checks are required. Actual iPhone connectivity, power-cut fault injection and endurance testing remain deployment acceptance criteria.
 
 Passport is an ESP32-C3 (8 MB Flash, no PSRAM, 240×320 screen, three buttons) accessory. It consumes Apple's ANCS notification metadata and limited previews, keeps bounded local history, and can generate structured AI digests directly from the device using user-supplied HTTPS credentials. No companion iOS application, NAS or additional gateway is required.
+
+### RC2 memory and lifecycle changes
+
+The ANCS transport now uses ESP-IDF 5.5.3 NimBLE instead of Bluedroid (a conditional Bluedroid source path remains available for rollback). Host regressions and firmware compilation are required; **actual iPhone pairing and notification delivery still require device validation**. Provisioned devices with AI disabled no longer initialize Wi-Fi/Web during startup: long OK enters the on-device settings page and starts administration on demand. Leaving setup with no web requests for two minutes shuts down HTTP and Wi-Fi in a temporary task. First-install/unprovisioned devices keep the setup hotspot available; AI-enabled devices keep network access for automatic summaries.
+
+Sound is disabled by default and its worker starts only when enabled. Heap telemetry records current/minimum internal memory, largest free block and stack watermark. Web requires a 24 KB/8 KB minimum, and TLS 48 KB/20 KB; these are safeguards, not measured reserve claims. If resource thresholds fail, the optional service is deferred rather than risking BLE capture. A device-level stress test is still mandatory.
 
 ### Clean customer setup
 
