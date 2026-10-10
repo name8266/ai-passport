@@ -185,7 +185,8 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
         int w=snprintf(payload+at,sizeof(payload)-at,
             "\n[类别:%s][应用:%s] %s - %s",
             hub_catalog_category(app),hub_catalog_display(app),title,body);
-        if(w<0 || (size_t)w>=sizeof(payload)-at) break;
+        /* Never checkpoint notifications that did not fit in the request. */
+        if(w<0 || (size_t)w>=sizeof(payload)-at) return false;
         at+=(size_t)w;
         count++;
     }

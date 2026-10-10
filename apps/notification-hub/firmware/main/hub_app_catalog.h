@@ -18,6 +18,9 @@ static inline const hub_app_entry_t *hub_catalog_find(const char *id) {
         {"com.apple.MobileSMS","短信","社交"},
         {"com.apple.mobilephone","电话","社交"},
         {"com.bytedance.feishu","飞书","工作"},
+        {"com.ss.iphone.feishu","飞书","工作"},
+        {"com.google.Drive","Google Drive","工作"},
+        {"com.google.Calendar","Google Calendar","工作"},
         {"com.larksuite.suite","飞书","工作"},
         {"com.alibaba.DingTalk","钉钉","工作"},
         {"com.laiwang.DingTalk","钉钉","工作"},
@@ -46,6 +49,7 @@ static inline const hub_app_entry_t *hub_catalog_find(const char *id) {
         {"com.baidu.map","百度地图","出行"},
         {"com.apple.Maps","地图","出行"},
         {"com.ss.iphone.ugc.Aweme","抖音","娱乐"},
+        {"com.google.ios.youtube","YouTube","娱乐"},
         {"tv.danmaku.bilianime","哔哩哔哩","娱乐"},
         {"com.sina.weibo","微博","娱乐"},
         {"com.apple.Preferences","系统设置","系统"},
@@ -68,7 +72,7 @@ static inline const char *hub_catalog_category(const char *id) {
     if(entry)return entry->category;
     if(!id)return "其他";
     if(strncmp(id,"com.apple.",10)==0)return "系统";
-    if(strncmp(id,"com.microsoft.",14)==0 ||
-       strncmp(id,"com.google.",11)==0)return "工作";
+    /* Do not classify all Google/Microsoft apps as work: YouTube, games,
+     * browsers and personal applications would become false positives. */
     return "其他";
 }
