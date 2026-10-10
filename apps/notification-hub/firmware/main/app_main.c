@@ -1511,12 +1511,15 @@ void app_main(void) {
     (void)esp_ble_gatt_set_local_mtu(247);
     ESP_ERROR_CHECK(esp_ble_gap_register_callback(gap_event));
     ESP_ERROR_CHECK(esp_ble_gattc_register_callback(gatt_event));
+    ESP_ERROR_CHECK(esp_ble_gattc_app_register(0));
+#endif
+    /* ANCS fragment timeouts must remain active for both Bluedroid and
+     * NimBLE, or a truncated response can stall notification processing. */
     const esp_timer_create_args_t watchdog={
         .callback=check_request_timeout,.name="ancs_timeout"};
     ESP_ERROR_CHECK(esp_timer_create(&watchdog,&request_watchdog));
     ESP_ERROR_CHECK(esp_timer_start_periodic(request_watchdog,1000000));
-    ESP_ERROR_CHECK(esp_ble_gattc_app_register(0));
-#endif
+
     if(xTaskCreate(archive_task,"archive_worker",4096,NULL,4,NULL)!=pdPASS) {
         archive_error=true;
         ESP_LOGE(TAG,"Could not start archive worker");
