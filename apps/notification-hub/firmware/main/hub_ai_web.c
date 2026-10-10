@@ -158,7 +158,7 @@ static esp_err_t settings_page(httpd_req_t *req) {
     snprintf(number,sizeof(number),"%d",settings.max_records);
     html_input(req,"max_records","兼容旧配置（公测19固定3条）",number,"number","");
     put(req,"</div><div class=\"field\">");
-    html_input(req,"excluded_apps","排除的应用标识（逗号分隔）",settings.excluded_apps,"text","例如 com.example.app");
+    html_input(req,"excluded_apps","排除的应用标识（逗号分隔）",settings.excluded_apps,"text","应用标识之间以逗号分隔");
     put(req,"</div><div class=\"field\">");
     html_check(req,"redact_sensitive","跳过含验证码、密码等敏感词的通知",settings.redact_sensitive);
     put(req,"</div><div class=\"field\"><label for=\"retention_days\">通知保留期限</label><select id=\"retention_days\" name=\"retention_days\">");
@@ -231,7 +231,7 @@ static esp_err_t dashboard_page(httpd_req_t *req) {
     if(loaded && dashboard_page_snapshot.archive_dropped)
         put(req,"<small>通知高峰期间有记录未能及时写入；建议减少通知量或稍后检查设备。</small>");
     if(loaded && dashboard_page_snapshot.ai_capacity_full)
-        put(req,"<small>未完成事项已达5项，暂停AI摘要且新通知仍保存在设备中。确认已处理后点击「已读清除」，即可自动恢复三条触发。</small>");
+        put(req,"<small>未完成事项已达5项，自动摘要暂停，新通知保存在设备中。可以逐项点击「完成」释放容量；仅在不再需要保留任何待办时使用「已读清除」。</small>");
     put(req,"</div></section>");
 
     put(req,"<section class=\"section\"><h2 class=\"section-title\">最近摘要</h2><div class=\"card\">");
@@ -301,7 +301,7 @@ static esp_err_t dashboard_page(httpd_req_t *req) {
         put(req,"</article>");
     }
     if(loaded && dashboard_page_snapshot.archive_rows) {
-        char count[80];snprintf(count,sizeof(count),"<small>存档序号共 %" PRIu32 " 条 · 保留 %u 天</small>",
+        char count[80];snprintf(count,sizeof(count),"<small>存档序号共 %" PRIu32 " 条 · 已汇总记录最长保留 %u 天（未汇总记录不按期删除）</small>",
             dashboard_page_snapshot.archive_rows,(unsigned)dashboard_page_snapshot.retention_days);put(req,count);
     }
     put(req,"</div>");

@@ -105,6 +105,16 @@ int main(void) {
     assert(strstr(HUB_AI_SYSTEM_PROMPT,"不可信"));
     assert(strstr(HUB_AI_SYSTEM_PROMPT,"open_items"));
     assert(strstr(HUB_AI_SYSTEM_PROMPT,"JSON"));
+    /* Sensitive content is rejected before a remote model sees the payload. */
+    assert(hub_ai_sensitive("您的验证码","123456"));
+    assert(hub_ai_sensitive("Your VERIFICATION CODE","843123"));
+    assert(hub_ai_sensitive("One-Time Passcode","843123"));
+    assert(hub_ai_sensitive("Reset PASSWORD","link"));
+    assert(hub_ai_sensitive("Bank Card number","ending 34"));
+    assert(hub_ai_sensitive("安全校验","请使用OTP"));
+    assert(hub_ai_sensitive(NULL,"PIN 1234"));
+    assert(!hub_ai_sensitive("Shipping notice","pickup at gate"));
+    assert(!hub_ai_sensitive("Routine meeting","Schedule for Monday"));
     assert(HUB_AI_TRIGGER_COUNT==3);
     assert(!hub_ai_batch_ready(0,false));
     assert(!hub_ai_batch_ready(2,false));

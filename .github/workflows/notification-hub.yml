@@ -1,7 +1,7 @@
 name: Notification Hub
 on:
   push:
-    branches: [feature/notification-hub, codex/notification-public-beta]
+    branches: [feature/notification-hub, codex/notification-public-beta, 'release/notification-hub-public-*']
     paths:
       - "apps/notification-hub/**"
       - ".github/workflows/notification-hub.yml"
@@ -35,6 +35,8 @@ jobs:
           /tmp/hub_protocol
       - name: Full archive, UI, protocol, font and firmware host regressions
         run: ./tools/validate.sh --host
+      - name: Public default-state and customer-delivery source checks
+        run: python3 apps/notification-hub/tests/test_public_release.py
 
   sanitizers:
     runs-on: ubuntu-latest
@@ -83,14 +85,23 @@ jobs:
             grep -qx "CONFIG_WL_SECTOR_MODE_SAFE=y" sdkconfig
             echo "Wear-levelling safety mode: verified"
             idf.py merge-bin -o notification-hub-full.bin --format raw
-      - name: Prepare Chinese-named firmware and checksum
+      - name: Prepare customer-grade dual firmware package
+        shell: bash
         run: |
-          cp apps/notification-hub/firmware/build/notification-hub-full.bin "Passport通知中心-公测19-合并固件.bin"
-          sha256sum "Passport通知中心-公测19-合并固件.bin"
-      - name: Upload merged firmware
+          set -euo pipefail
+          mkdir -p release
+          cp apps/notification-hub/firmware/build/notification-hub-full.bin \
+            "release/Passport通知中心-Public1.0.0RC1-全新安装.bin"
+          cp apps/notification-hub/firmware/build/FoloToy-AI-Passport.bin \
+            "release/Passport通知中心-Public1.0.0RC1-应用升级.bin"
+          cp "apps/notification-hub/客户安装说明.md" "release/客户安装说明.md"
+          (cd release && sha256sum -- *bin > "校验值-SHA256.txt")
+          python3 apps/notification-hub/tests/test_public_release.py release
+          cat "release/校验值-SHA256.txt"
+      - name: Upload public customer installation package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: Passport通知中心-公测19
-          path: Passport通知中心-公测19-合并固件.bin
+          name: Passport通知中心-Public1.0.0RC1
+          path: release/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30

@@ -35,6 +35,7 @@
 #include "hub_protocol.h"
 #include "hub_archive.h"
 #include "hub_archive_gc.h"
+#include "hub_control_event.h"
 #include "hub_backlog.h"
 #include "hub_ai.h"
 #include "hub_web_dashboard.h"
@@ -97,12 +98,6 @@ typedef struct {
     uint32_t task_revision;
     uint32_t action_id;
 } archive_job_t;
-typedef struct {
-    uint8_t kind;
-    uint32_t fingerprint;
-    uint32_t revision;
-    uint32_t id;
-} archive_control_event_t;
 typedef struct { uint32_t id; bool done; } archive_control_reply_t;
 typedef struct {
     archive_job_kind_t kind;
@@ -196,7 +191,7 @@ static hub_decoder_t decoder;
 
 bool hub_ai_archive_clear_request(void) {
     if(!archive_control || archive_clear_status!=0) return false;
-    uint8_t command=ARCHIVE_CLEAR;
+    archive_control_event_t command=hub_control_make(ARCHIVE_CLEAR);
     archive_clear_status=1;
     archive_initializing=true;
     if(xQueueSend(archive_control,&command,0)!=pdTRUE) {
@@ -269,9 +264,10 @@ static bool post_job(const archive_job_t *job) {
        job->kind==ARCHIVE_AI_ACK || job->kind==ARCHIVE_AI_HIDE ||
        job->kind==ARCHIVE_AI_COMPLETE || job->kind==ARCHIVE_AI_SHOW) {
         /* Durable user actions must never be overwritten by browse updates. */
-        archive_control_event_t command={.kind=(uint8_t)job->kind,
-            .fingerprint=job->task_fingerprint,.revision=job->task_revision,
-            .id=job->action_id};
+        archive_control_event_t command=hub_control_make((uint8_t)job->kind);
+        command.fingerprint=job->task_fingerprint;
+        command.revision=job->task_revision;
+        command.id=job->action_id;
         return archive_control && xQueueSend(archive_control,&command,
                                                pdMS_TO_TICKS(100))==pdTRUE;
     }
