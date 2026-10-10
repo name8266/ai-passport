@@ -8,6 +8,8 @@ This release focuses on correctness, not additional features. The AI proposes **
 
 DeepSeek endpoints now request JSON mode; responses are rejected if fields exceed fixed byte budgets. Digest snapshots use a compatible version 3 checkpoint for restart reconciliation with NVS, and archive compaction rebases this checkpoint. Explicit acknowledgment writes two cleared tombstones. Wear Levelling is configured for 512-byte safe mode, and processed notification logs are reclaimed in batches (64 committed snapshots or a full archive), instead of after every three-notification request. This reduces flash write amplification but means raw previews may remain physically present until the next compaction.
 
+**Archive-format compatibility warning:** Beta 18 explicitly switches wear levelling to 512-byte safe sectors. Older builds may have formatted the 4 MiB FATFS archive with 4096-byte sectors; such an archive may fail to mount after upgrading. The firmware refuses to auto-format a nonblank archive, and this project does **not** yet provide lossless archive migration/export. Back up valuable stored notifications *before* flashing Beta 18. Flashing only the application partition does not resolve filesystem-layout incompatibility.
+
 ESP32-C3 has no PSRAM; all buffers and task counts are fixed. These mitigations are tested by host regressions and firmware compilation; they are not substitutes for abrupt-power-loss fault injection or extended paired-iPhone testing. **Beta 18 is not a production release.** This section supersedes historical Beta 15/17 behaviors mentioned below.
 
 
