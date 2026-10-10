@@ -8,7 +8,7 @@ Passport is an ESP32-C3 (8 MB Flash, no PSRAM, 240×320 screen, three buttons) a
 
 The ANCS transport now uses ESP-IDF 5.5.3 NimBLE instead of Bluedroid (a conditional Bluedroid source path remains available for rollback). Host regressions and firmware compilation are required; **actual iPhone pairing and notification delivery still require device validation**. Provisioned devices with AI disabled no longer initialize Wi-Fi/Web during startup: long OK enters the on-device settings page and starts administration on demand. Leaving setup with no web requests for two minutes shuts down HTTP and Wi-Fi in a temporary task. First-install/unprovisioned devices keep the setup hotspot available; AI-enabled devices keep network access for automatic summaries.
 
-Sound is disabled by default and its worker starts only when enabled. Heap telemetry records current/minimum internal memory, largest free block and stack watermark. Web requires a 24 KB/8 KB minimum, and TLS 48 KB/20 KB; these are safeguards, not measured reserve claims. If resource thresholds fail, the optional service is deferred rather than risking BLE capture. A device-level stress test is still mandatory.
+Sound is disabled by default and its worker starts only when enabled. Heap telemetry records current/minimum internal memory, largest free block and stack watermark. Web requires a 40 KB/16 KB minimum, and TLS 48 KB/20 KB; these are safeguards, not measured reserve claims. If resource thresholds fail, the optional service is deferred rather than risking BLE capture. A device-level stress test is still mandatory.
 
 ### Clean customer setup
 

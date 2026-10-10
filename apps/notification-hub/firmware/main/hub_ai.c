@@ -117,7 +117,8 @@ bool hub_ai_connect_wifi(const hub_ai_connection_t *conn) {
         else ESP_LOGW(TAG,"Clock sync unavailable; retention waits for valid time");
     }
     if(!hub_ai_web_start()) {
-        ESP_LOGW(TAG,"Wi-Fi started but web admin has insufficient resources");
+        ESP_LOGW(TAG,"Wi-Fi management could not start safely; release radio");
+        (void)hub_ai_wifi_shutdown(); /* do not leave BLE starved */
         return false;
     }
     ESP_LOGI(TAG,"Open Passport Wi-Fi hotspot enabled (credentials on screen)");

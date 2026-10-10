@@ -14,6 +14,7 @@
 #include "esp_log.h"
 #include "esp_random.h"
 #include "esp_system.h"
+#include "esp_heap_caps.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -496,6 +497,13 @@ static esp_err_t clear_status(httpd_req_t *req) {
 }
 bool hub_ai_web_start(void) {
     if(server)return true;
+    size_t free_bytes=heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+    size_t largest=heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+    if(!hub_mem_allow_web(free_bytes,largest)) {
+        ESP_LOGW(TAG,"Web deferred: internal=%u largest=%u (BLE/archive preserved)",
+                 (unsigned)free_bytes,(unsigned)largest);
+        return false;
+    }
     httpd_config_t cfg=HTTPD_DEFAULT_CONFIG();
     cfg.stack_size=5120;cfg.max_uri_handlers=14;cfg.max_open_sockets=3;cfg.lru_purge_enable=true;
     if(httpd_start(&server,&cfg)!=ESP_OK) {ESP_LOGE(TAG,"Could not start embedded admin");return false;}

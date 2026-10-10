@@ -6,8 +6,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #define HUB_MEM_WARN_BYTES 16384u
-#define HUB_MEM_WEB_START_BYTES 24576u
-#define HUB_MEM_WEB_CONTIGUOUS_BYTES 8192u
+#define HUB_MEM_WEB_START_BYTES 40960u
+#define HUB_MEM_WEB_CONTIGUOUS_BYTES 16384u
 #define HUB_MEM_TLS_START_BYTES 49152u
 #define HUB_MEM_TLS_CONTIGUOUS_BYTES 20480u
 static inline bool hub_mem_allow_web(size_t free_bytes,size_t largest_bytes) {
