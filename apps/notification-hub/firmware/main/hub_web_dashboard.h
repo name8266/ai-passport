@@ -36,6 +36,7 @@ void hub_ai_web_set_dashboard_provider(hub_web_dashboard_provider_t provider);
 bool hub_app_request_ai_summary(void);
 bool hub_app_ack_ai_digest(void);
 bool hub_app_hide_ai_digest(void);
+bool hub_app_show_ai_digest(void);
 bool hub_app_complete_ai_task(uint32_t fingerprint,uint32_t revision);
 
 /* Text-only mirror of current LVGL labels; never a camera/LCD pixel capture. */

@@ -83,6 +83,16 @@ int main(void) {
     assert(hub_archive_last_digest(&db,&restored));
     assert(!strcmp(restored.summary,"saved"));
     assert(restored.day_tag==hub_ai_day_tag(2000000000u));
+    /* Hide/show is reversible and persisted without acknowledging tasks. */
+    assert(hub_archive_hide_digest(&db));
+    assert(hub_archive_last_digest(&db,&restored) && restored.hidden);
+    uint32_t hidden_revision=hub_archive_digest_revision(&db);
+    assert(hub_archive_show_digest(&db));
+    assert(hub_archive_last_digest(&db,&restored) && !restored.hidden);
+    assert(hub_archive_digest_revision(&db)==hidden_revision+1);
+    assert(hub_archive_show_digest(&db)); /* idempotent: no needless flash write */
+    assert(hub_archive_digest_revision(&db)==hidden_revision+1);
+
     /* Simulate power loss after digest fsync and before NVS advance. */
     test_cursor=0;
     assert(hub_archive_reconcile_cursor(&db));
@@ -198,11 +208,18 @@ int main(void) {
     assert(!hub_archive_complete_task(&db,complete_id,original_revision-1));
     assert(!hub_archive_complete_task(&db,0,original_revision));
     assert(hub_archive_complete_task(&db,complete_id,original_revision));
-    assert(hub_archive_digest_revision(&db)==original_revision+1);
+    assert(hub_archive_digest_revision(&db)==original_revision+2);
     assert(!hub_archive_complete_task(&db,complete_id,original_revision));
     assert(hub_archive_last_digest(&db,&restored));
     assert(restored.task_count==1 && !strcmp(restored.tasks[0].task,"领取快递"));
     assert(restored.summary[0]);
+    /* Torn newest snapshot must fall back to the preceding COMPLETED copy,
+     * never the earlier version with a revived task. */
+    FILE *torn=fopen(((original_revision+2u)&1u)?ACTIVE_SLOT1:ACTIVE_SLOT0,"ab");
+    assert(torn);fputc(0xaa,torn);assert(fclose(torn)==0);
+    assert(hub_archive_last_digest(&db,&restored));
+    assert(restored.task_count==1 && !strcmp(restored.tasks[0].task,"领取快递"));
+
     fclose(db.file);assert(hub_archive_open(&db,103));
     assert(hub_archive_last_digest(&db,&restored) && restored.task_count==1);
     /* Exact revision guards against deleting an item replaced during AI. */

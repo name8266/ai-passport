@@ -716,7 +716,15 @@ bool hub_archive_last_digest(hub_archive_t *db,hub_ai_digest_t *out) {
 bool hub_archive_hide_digest(hub_archive_t *db) {
     hub_ai_digest_t *d=&s_archive_digest_scratch;
     if(!hub_archive_last_digest(db,d))return false;
+    if(d->hidden)return true;
     d->hidden=true;
+    return write_active(d);
+}
+bool hub_archive_show_digest(hub_archive_t *db) {
+    hub_ai_digest_t *d=&s_archive_digest_scratch;
+    if(!hub_archive_last_digest(db,d))return false;
+    if(!d->hidden)return true;
+    d->hidden=false;
     return write_active(d);
 }
 /* Per-item completion is a compare-and-swap update of the active digest.
@@ -730,6 +738,9 @@ bool hub_archive_complete_task(hub_archive_t *db,uint32_t fingerprint,
     uint32_t current=0;
     if(!latest_active(d,&current,NULL) || current!=expected_revision ||
        !hub_ai_complete_pending(d,fingerprint))return false;
+    /* Keep both checksum slots on the completed state so a torn newest slot
+     * cannot resurrect a task. This is a rare user action, not the hot path. */
+    if(!write_active(d))return false;
     return write_active(d);
 }
 bool hub_archive_ack_digest(hub_archive_t *db) {

@@ -86,7 +86,8 @@ typedef struct { bsp_btn_t btn; bsp_btn_ev_t ev; uint32_t remote_id; } button_t;
 static QueueHandle_t remote_button_replies;
 static uint32_t remote_button_id;
 typedef enum { ARCHIVE_SAVE=1, ARCHIVE_GROUP=2, ARCHIVE_RECORD=3, ARCHIVE_AI_LAST=4, ARCHIVE_INITIALIZE=5, ARCHIVE_CLEAR=6,
-               ARCHIVE_AI_ACK=7, ARCHIVE_AI_HIDE=8, ARCHIVE_AI_COMPLETE=9 } archive_job_kind_t;
+               ARCHIVE_AI_ACK=7, ARCHIVE_AI_HIDE=8, ARCHIVE_AI_COMPLETE=9,
+               ARCHIVE_AI_SHOW=10 } archive_job_kind_t;
 typedef struct {
     archive_job_kind_t kind;
     char app[HUB_APP_BYTES];
@@ -94,12 +95,15 @@ typedef struct {
     uint32_t generation;
     uint32_t task_fingerprint;
     uint32_t task_revision;
+    uint32_t action_id;
 } archive_job_t;
 typedef struct {
     uint8_t kind;
     uint32_t fingerprint;
     uint32_t revision;
+    uint32_t id;
 } archive_control_event_t;
+typedef struct { uint32_t id; bool done; } archive_control_reply_t;
 typedef struct {
     archive_job_kind_t kind;
     bool found;
@@ -139,6 +143,8 @@ typedef struct {
 typedef struct {uint32_t id,before_slot;} web_archive_request_t;
 
 static QueueHandle_t button_queue, archive_jobs, archive_captures, archive_control, archive_replies;
+static QueueHandle_t archive_control_replies;
+static uint32_t archive_control_id;
 static QueueHandle_t web_archive_requests,web_archive_replies;
 static SemaphoreHandle_t web_archive_mutex;
 static uint32_t web_archive_id;
@@ -261,10 +267,11 @@ static uint32_t received_count;
 static bool post_job(const archive_job_t *job) {
     if(job->kind==ARCHIVE_INITIALIZE ||
        job->kind==ARCHIVE_AI_ACK || job->kind==ARCHIVE_AI_HIDE ||
-       job->kind==ARCHIVE_AI_COMPLETE) {
+       job->kind==ARCHIVE_AI_COMPLETE || job->kind==ARCHIVE_AI_SHOW) {
         /* Durable user actions must never be overwritten by browse updates. */
         archive_control_event_t command={.kind=(uint8_t)job->kind,
-            .fingerprint=job->task_fingerprint,.revision=job->task_revision};
+            .fingerprint=job->task_fingerprint,.revision=job->task_revision,
+            .id=job->action_id};
         return archive_control && xQueueSend(archive_control,&command,
                                                pdMS_TO_TICKS(100))==pdTRUE;
     }
@@ -281,11 +288,29 @@ bool hub_app_hide_ai_digest(void) {
     archive_job_t job={.kind=ARCHIVE_AI_HIDE};
     return post_job(&job);
 }
+bool hub_app_show_ai_digest(void) {
+    if(!archive_loaded || archive_initializing)return false;
+    archive_job_t job={.kind=ARCHIVE_AI_SHOW};
+    return post_job(&job);
+}
 bool hub_app_complete_ai_task(uint32_t fingerprint,uint32_t revision) {
     if(!archive_loaded || archive_initializing || !fingerprint || !revision)return false;
     archive_job_t job={.kind=ARCHIVE_AI_COMPLETE,
-        .task_fingerprint=fingerprint,.task_revision=revision};
-    return post_job(&job);
+        .task_fingerprint=fingerprint,.task_revision=revision,
+        .action_id=++archive_control_id};
+    if(!archive_control_replies || !post_job(&job))return false;
+    /* Confirm the Flash write, not merely enqueue the request. Older late
+     * completions are discarded by action ID after a browser timeout. */
+    int64_t deadline=esp_timer_get_time()+3000000LL;
+    archive_control_reply_t result;
+    while(esp_timer_get_time()<deadline) {
+        int64_t left=deadline-esp_timer_get_time();
+        uint32_t wait_ms=(uint32_t)((left+999)/1000);
+        if(xQueueReceive(archive_control_replies,&result,
+                         pdMS_TO_TICKS(wait_ms))!=pdTRUE)break;
+        if(result.id==job.action_id)return result.done;
+    }
+    return false;
 }
 static void request_group(int index) {
     archive_job_t request={.kind=ARCHIVE_GROUP,.ordinal=(uint32_t)index};
@@ -603,7 +628,8 @@ static void archive_task(void *arg) {
         if(xQueueReceive(archive_control,&command,0)==pdTRUE)
             job=(archive_job_t){.kind=(archive_job_kind_t)command.kind,
                 .task_fingerprint=command.fingerprint,
-                .task_revision=command.revision};
+                .task_revision=command.revision,
+                .action_id=command.id};
         else if(xQueueReceive(archive_jobs,&job,pdMS_TO_TICKS(10))!=pdTRUE) continue;
         if(job.kind==ARCHIVE_INITIALIZE) {
             /* Only an explicit confirmation on the initialization screen posts this job. */
@@ -640,13 +666,19 @@ static void archive_task(void *arg) {
         }
         if(!ok) continue;
         if(job.kind==ARCHIVE_AI_ACK || job.kind==ARCHIVE_AI_HIDE ||
-           job.kind==ARCHIVE_AI_COMPLETE) {
+           job.kind==ARCHIVE_AI_COMPLETE || job.kind==ARCHIVE_AI_SHOW) {
             bool done=job.kind==ARCHIVE_AI_ACK?
                 hub_archive_ack_digest(&archive_database):
                 job.kind==ARCHIVE_AI_HIDE?
                 hub_archive_hide_digest(&archive_database):
+                job.kind==ARCHIVE_AI_SHOW?
+                hub_archive_show_digest(&archive_database):
                 hub_archive_complete_task(&archive_database,
                     job.task_fingerprint,job.task_revision);
+            if(job.kind==ARCHIVE_AI_COMPLETE && archive_control_replies) {
+                archive_control_reply_t completion={.id=job.action_id,.done=done};
+                (void)xQueueOverwrite(archive_control_replies,&completion);
+            }
             if(done) {
                 if(job.kind==ARCHIVE_AI_ACK || job.kind==ARCHIVE_AI_COMPLETE) {
                     ai_capacity_full=false;
@@ -1265,13 +1297,14 @@ void app_main(void) {
     archive_jobs=xQueueCreate(1,sizeof(archive_job_t));
     archive_captures=xQueueCreate(8,sizeof(hub_archive_record_t));
     archive_control=xQueueCreate(2,sizeof(archive_control_event_t));
+    archive_control_replies=xQueueCreate(1,sizeof(archive_control_reply_t));
     archive_replies=xQueueCreate(1,sizeof(archive_reply_t));
     ai_requests=xQueueCreate(1,sizeof(ai_archive_req_t));
     ai_replies=xQueueCreate(1,sizeof(uint32_t));
     web_archive_requests=xQueueCreate(1,sizeof(web_archive_request_t));
     web_archive_replies=xQueueCreate(1,sizeof(uint32_t));
     web_archive_mutex=xSemaphoreCreateMutex();
-    if(!button_queue || !remote_button_replies || !archive_jobs || !archive_captures || !archive_control || !archive_replies ||
+    if(!button_queue || !remote_button_replies || !archive_jobs || !archive_captures || !archive_control || !archive_control_replies || !archive_replies ||
        !ai_requests || !ai_replies || !web_archive_requests || !web_archive_replies ||
        !web_archive_mutex) {ESP_LOGE(TAG,"Queues unavailable");return;}
     hub_ai_web_set_dashboard_provider(provide_web_dashboard);

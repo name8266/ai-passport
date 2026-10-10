@@ -168,7 +168,7 @@ static esp_err_t settings_page(httpd_req_t *req) {
         snprintf(option,sizeof(option),"<option value=\"%u\"%s>%u 天</option>",
                  value,settings.retention_days==value?" selected":"",value);put(req,option);
     }
-    put(req,"</select><small>已汇总的通知会自动回收，未处理通知继续按保留期限清理；摘要保留至已读清除。</small></div></div></section><div class=\"actions\"><button type=\"submit\">保存设置</button></div></form>");
+    put(req,"</select><small>仅已处理的旧通知按期限或空间压力回收；未汇总通知即使过期也保留，可能令存档最终满额。</small></div></div></section><div class=\"actions\"><button type=\"submit\">保存设置</button></div></form>");
 
     put(req,"<section class=\"section\"><h2 class=\"section-title\">通知档案</h2><div class=\"danger\"><p>清空此设备的通知历史和 AI 摘要，释放整个 4 MiB 存档区。此操作不能撤销；Wi-Fi、管理员和 AI 配置会保留。</p><form method=\"POST\" action=\"/clear\"><input type=\"hidden\" name=\"csrf\" value=\"");
     html_escaped(req,csrf_nonce);
@@ -237,7 +237,7 @@ static esp_err_t dashboard_page(httpd_req_t *req) {
     put(req,"<section class=\"section\"><h2 class=\"section-title\">最近摘要</h2><div class=\"card\">");
     if(loaded && dashboard_page_snapshot.has_summary) {
         const hub_ai_digest_t *d=&dashboard_page_snapshot.summary;
-        if(d->hidden) put(req,"<div class=\"hint\">摘要已隐藏，但仍会参与下一轮汇总；设备长按上键可查看。</div>");
+        if(d->hidden) put(req,"<div class=\"hint\">摘要已隐藏但仍参与下一轮汇总，可随时重新显示。</div>");
         else {
             put(req,"<div class=\"notice-body\">");
             html_escaped(req,d->summary);put(req,"</div>");
@@ -268,11 +268,11 @@ static esp_err_t dashboard_page(httpd_req_t *req) {
         put(req,"<form method=\"POST\" action=\"/summary/ack\"><input type=\"hidden\" name=\"csrf\" value=\"");
         html_escaped(req,csrf_nonce);
         put(req,"\"><button type=\"submit\">已读清除</button></form>");
-        put(req,"<form method=\"POST\" action=\"/summary/hide\"><input type=\"hidden\" name=\"csrf\" value=\"");
+        put(req,d->hidden?"<form method=\"POST\" action=\"/summary/show\"><input type=\"hidden\" name=\"csrf\" value=\"":"<form method=\"POST\" action=\"/summary/hide\"><input type=\"hidden\" name=\"csrf\" value=\"");
         html_escaped(req,csrf_nonce);
-        put(req,"\"><button type=\"submit\"");
-        if(d->hidden)put(req," disabled");
-        put(req,">关闭显示</button></form></div>");
+        put(req,"\"><button type=\"submit\">");
+        put(req,d->hidden?"重新显示":"关闭显示");
+        put(req,"</button></form></div>");
     } else if(loaded && dashboard_page_snapshot.ai_busy) {
         put(req,"<div class=\"hint\">正在整理最近通知…</div>");
     } else {
@@ -346,12 +346,14 @@ static esp_err_t summary_state_action(httpd_req_t *req) {
     memset(body,0,len);free(body);
     if(!valid)return reject(req,"422 Unprocessable Entity","表单已过期，请刷新");
     bool acknowledge=strcmp(req->uri,"/summary/ack")==0;
-    if(!(acknowledge?hub_app_ack_ai_digest():hub_app_hide_ai_digest()))
+    bool show=strcmp(req->uri,"/summary/show")==0;
+    if(!(acknowledge?hub_app_ack_ai_digest():
+         show?hub_app_show_ai_digest():hub_app_hide_ai_digest()))
         return reject(req,"409 Conflict","设备忙，未能保存操作，请重试");
     httpd_resp_set_status(req,"303 See Other");
     httpd_resp_set_hdr(req,"Location","/");
     httpd_resp_set_hdr(req,"Cache-Control","no-store");
-    return httpd_resp_sendstr(req,acknowledge?"正在清除摘要":"正在隐藏摘要");
+    return httpd_resp_sendstr(req,acknowledge?"正在清除摘要":show?"正在显示摘要":"正在隐藏摘要");
 }
 static esp_err_t summary_task_complete(httpd_req_t *req) {
     char *body=NULL;size_t len=0;
@@ -363,11 +365,11 @@ static esp_err_t summary_task_complete(httpd_req_t *req) {
     memset(body,0,len);free(body);
     if(!valid)return reject(req,"422 Unprocessable Entity","待办表单已过期，请刷新");
     if(!hub_app_complete_ai_task(fingerprint,revision))
-        return reject(req,"409 Conflict","设备忙，请刷新后重试");
+        return reject(req,"409 Conflict","待办已更新或设备繁忙，请刷新后重试");
     httpd_resp_set_status(req,"303 See Other");
     httpd_resp_set_hdr(req,"Location","/");
     httpd_resp_set_hdr(req,"Cache-Control","no-store");
-    return httpd_resp_sendstr(req,"操作已提交，请刷新查看");
+    return httpd_resp_sendstr(req,"待办已确认完成");
 }
 static esp_err_t device_page(httpd_req_t *req) {
     if(!hub_app_screen_snapshot(&screen_snapshot))
@@ -465,7 +467,7 @@ static esp_err_t clear_status(httpd_req_t *req) {
 void hub_ai_web_start(void) {
     if(server)return;
     httpd_config_t cfg=HTTPD_DEFAULT_CONFIG();
-    cfg.stack_size=5120;cfg.max_uri_handlers=13;cfg.max_open_sockets=3;cfg.lru_purge_enable=true;
+    cfg.stack_size=5120;cfg.max_uri_handlers=14;cfg.max_open_sockets=3;cfg.lru_purge_enable=true;
     if(httpd_start(&server,&cfg)!=ESP_OK) {ESP_LOGE(TAG,"Could not start embedded admin");return;}
     httpd_uri_t device={.uri="/device",.method=HTTP_GET,.handler=device_page};
     httpd_uri_t control={.uri="/device/control",.method=HTTP_POST,.handler=device_control};
@@ -478,6 +480,7 @@ void hub_ai_web_start(void) {
     httpd_uri_t summary={.uri="/summary/run",.method=HTTP_POST,.handler=summary_run};
     httpd_uri_t summary_ack={.uri="/summary/ack",.method=HTTP_POST,.handler=summary_state_action};
     httpd_uri_t summary_hide={.uri="/summary/hide",.method=HTTP_POST,.handler=summary_state_action};
+    httpd_uri_t summary_show={.uri="/summary/show",.method=HTTP_POST,.handler=summary_state_action};
     httpd_uri_t summary_complete={.uri="/summary/complete",.method=HTTP_POST,.handler=summary_task_complete};
     if(httpd_register_uri_handler(server,&device)!=ESP_OK ||
        httpd_register_uri_handler(server,&control)!=ESP_OK ||
@@ -490,6 +493,7 @@ void hub_ai_web_start(void) {
        httpd_register_uri_handler(server,&summary)!=ESP_OK ||
         httpd_register_uri_handler(server,&summary_ack)!=ESP_OK ||
         httpd_register_uri_handler(server,&summary_hide)!=ESP_OK ||
+        httpd_register_uri_handler(server,&summary_show)!=ESP_OK ||
         httpd_register_uri_handler(server,&summary_complete)!=ESP_OK) {
         ESP_LOGE(TAG,"Could not register all device admin routes");
         (void)httpd_stop(server);server=NULL;return;

@@ -7,6 +7,7 @@
 Beta 19 is a **quality-focused test candidate**, not a claim of production reliability. The on-device ESP32-C3 architecture, 8 MB Flash, no PSRAM, and three-button behavior remain unchanged.
 
 - **Complete one task** from the web dashboard without acknowledging/clearing the entire digest. The action uses a CSRF nonce, item fingerprint and exact persisted snapshot revision; stale forms and hash collisions are rejected. Completing a task frees one of five bounded pending slots.
+- **Reopen hidden summaries:** the web dashboard offers a reversible show/hide action without clearing context. Individual completion waits for the archive worker to confirm the persisted write and rejects stale revisions. Prior natural-language summary text may still mention a manually completed item until the next AI refresh; the structured task list is authoritative.
 - **Retention cannot delete pending AI inputs:** the scheduled age-based compaction only removes records within the already committed AI cursor. Unprocessed records remain until acknowledged or manually cleared, potentially filling Flash; the UI reports full/drop states instead of silently losing data.
 - **Maintain task due information:** explicit new deadlines for the same task/source improve the existing item; omitted deadlines do not erase an earlier known one.
 - **Privacy notice:** the user's requested open setup hotspot and LAN-wide dashboard are retained; a prominent notice explains that network clients can read notification previews and submit control requests. CSRF tokens are not authentication.

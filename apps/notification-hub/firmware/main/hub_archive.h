@@ -98,6 +98,7 @@ bool hub_archive_reconcile_cursor(hub_archive_t *db);
 /* Paired checksummed snapshots: state survives resets without growing logs. */
 uint32_t hub_archive_digest_revision(hub_archive_t *db);
 bool hub_archive_hide_digest(hub_archive_t *db);
+bool hub_archive_show_digest(hub_archive_t *db);
 bool hub_archive_ack_digest(hub_archive_t *db);
 /* Compare revision and unique task fingerprint before completing one item. */
 bool hub_archive_complete_task(hub_archive_t *db,uint32_t fingerprint,
