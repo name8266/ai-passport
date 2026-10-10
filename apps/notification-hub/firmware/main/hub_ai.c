@@ -29,12 +29,6 @@ static bool s_wifi_init;
 static bool s_station_configured;
 static volatile bool s_online;
 static bool s_sntp_init;
-/* Passport is currently operated in China (UTC+8). A configurable time-zone
- * can replace this without migrating archived daily summary records. */
-uint16_t hub_ai_day_tag(uint32_t epoch) {
-    if(epoch<1700000000u) return 0;
-    return (uint16_t)(0x8000u | (((epoch+28800u)/86400u)&0x7fffu));
-}
 static char s_ap_ssid[33];
 static bool init_access(void) {
     uint8_t mac[6]={0};

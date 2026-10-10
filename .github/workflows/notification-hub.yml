@@ -31,6 +31,8 @@ jobs:
             apps/notification-hub/firmware/main/hub_protocol.c \
             -o /tmp/hub_protocol
           /tmp/hub_protocol
+      - name: Full archive, UI, protocol, font and firmware host regressions
+        run: ./tools/validate.sh --host
 
   firmware:
     runs-on: ubuntu-latest

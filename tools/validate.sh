@@ -87,6 +87,11 @@ run_host_tests() {
         -o "${test_dir}/test_hub_ui"
     "${test_dir}/test_hub_ui"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror \
+        -Iapps/notification-hub/firmware/main \
+        apps/notification-hub/tests/test_hub_catalog.c \
+        -o "${test_dir}/test_hub_catalog"
+    "${test_dir}/test_hub_catalog"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror \
         -Iapps/notification-hub/tests/sound_stubs -Iapps/notification-hub/tests/stubs \
         -Iapps/notification-hub/firmware/main apps/notification-hub/tests/test_hub_sound.c \
         apps/notification-hub/firmware/main/hub_alert.c -lm -o "${test_dir}/test_hub_sound"

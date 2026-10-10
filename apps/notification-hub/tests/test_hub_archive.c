@@ -28,6 +28,7 @@ static size_t counted_read(void *p,size_t size,size_t n,FILE *f) {reads++;return
 static unsigned cursor_updates;
 static uint32_t test_cursor;
 uint32_t hub_ai_read_cursor(void) {return test_cursor;}
+uint32_t hub_ai_current_epoch(void) {return 0; /* offline host test */}
 bool hub_ai_set_cursor(uint32_t cursor) {cursor_updates++;test_cursor=cursor;return true;}
 bool hub_ai_reset_cursor(void) {return hub_ai_set_cursor(0);}
 bool hub_ai_advance_cursor(uint32_t cursor) {if(cursor>test_cursor)test_cursor=cursor;return true;}
@@ -62,13 +63,15 @@ int main(void) {
     assert(hub_archive_get_record(&db,"",1,&got) && got.sequence==2);
     assert(!hub_archive_get_record(&db,"",2,&got));
     assert(hub_archive_get_record(&db,"",0,&got) && got.sequence==3);
-    hub_ai_digest_t digest={.processed_through=3,.included=2};strcpy(digest.summary,"saved");
+    hub_ai_digest_t digest={.processed_through=3,.included=2,
+        .day_tag=hub_ai_day_tag(2000000000u)};strcpy(digest.summary,"saved");
     assert(hub_archive_save_digest(&db,&digest));
     FILE *f=fopen(DIGEST_PATH,"ab");assert(f);fputc(1,f);fclose(f);
     assert(!hub_archive_save_digest(&db,&digest));
     assert(!hub_archive_collect_since(&db,0,8,&batch));
     memset(&digest,0,sizeof(digest));assert(hub_archive_last_digest(&db,&digest));
     assert(!strcmp(digest.summary,"saved"));
+    assert(digest.day_tag==hub_ai_day_tag(2000000000u));
     fclose(db.file);f=fopen(HUB_ARCHIVE_PATH,"ab");assert(f);fputc(1,f);fclose(f);
     assert(!hub_archive_open(&db,3) && db.failed);fclose(db.file);
     test_blank=false;test_mount_error=true;

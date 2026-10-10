@@ -98,4 +98,9 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
                  const hub_ai_settings_t *configuration,
                  const hub_ai_batch_t *batch,const hub_ai_digest_t *prior,
                  hub_ai_digest_t *out);
-uint16_t hub_ai_day_tag(uint32_t epoch);
+/* Compact local-day key stored in the legacy 16-bit digest version field.
+ * Fixed China Standard Time (UTC+8); unknown timestamps return zero. */
+static inline uint16_t hub_ai_day_tag(uint32_t epoch) {
+    if(epoch<1700000000u) return 0;
+    return (uint16_t)(0x8000u | (((epoch+28800u)/86400u)&0x7fffu));
+}
