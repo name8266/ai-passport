@@ -5,7 +5,59 @@
 #include "hub_ai.h"
 #include <string.h>
 
-#define HUB_AI_SUMMARY_MAX_UTF8_BYTES 768u
+/* A rolling digest is a 1-2 sentence overview, never an ever-growing log. */
+#define HUB_AI_SUMMARY_MAX_UTF8_BYTES 420u
+static inline bool hub_ai_summary_concise(const char *summary,size_t capacity) {
+    if(!summary || !capacity)return false;
+    const char *end=(const char *)memchr(summary,0,capacity);
+    if(!end || end==summary || (size_t)(end-summary)>HUB_AI_SUMMARY_MAX_UTF8_BYTES)
+        return false;
+    unsigned sentences=0;
+    size_t len=(size_t)(end-summary);
+    for(size_t i=0;i<len;i++) {
+        unsigned char c=(unsigned char)summary[i];
+        if(c=='\n' || c=='\r')return false;
+        if(c=='.' && i>0 && i+1<len &&
+           summary[i-1]>='0' && summary[i-1]<='9' &&
+           summary[i+1]>='0' && summary[i+1]<='9')continue;
+        if(c=='.' || c=='?' || c=='!')sentences++;
+        if(i+2<len) {
+            const unsigned char *u=(const unsigned char *)summary+i;
+            if((u[0]==0xE3 && u[1]==0x80 && u[2]==0x82) ||
+               (u[0]==0xEF && u[1]==0xBC && (u[2]==0x81 || u[2]==0x9F)))sentences++;
+        }
+        if(sentences>2)return false;
+    }
+    return true;
+}
+/* Stable, allocation-free importance ordering for a five-item C3 display.
+ * Explicit deadlines and urgent actions are prioritized; equal scores keep
+ * original order. Never delete an earlier unacknowledged task to make space. */
+static inline unsigned hub_ai_task_importance(const hub_ai_task_t *t) {
+    if(!t)return 0;
+    unsigned score=t->due[0]?24u:0u;
+    static const char *const urgent[]={
+        "紧急","立即","逾期","截止","尽快","今天","明天",
+        "urgent","deadline","overdue"
+    };
+    for(size_t i=0;i<sizeof(urgent)/sizeof(urgent[0]);i++)
+        if(strstr(t->task,urgent[i]) || strstr(t->due,urgent[i]))
+            score+=10;
+    return score;
+}
+static inline void hub_ai_rank_pending(hub_ai_digest_t *state) {
+    if(!state || state->task_count>HUB_AI_TASK_LIMIT)return;
+    for(uint8_t i=1;i<state->task_count;i++) {
+        hub_ai_task_t entry=state->tasks[i];
+        unsigned importance=hub_ai_task_importance(&entry);
+        uint8_t j=i;
+        while(j>0 && hub_ai_task_importance(&state->tasks[j-1])<importance) {
+            state->tasks[j]=state->tasks[j-1];
+            j--;
+        }
+        state->tasks[j]=entry;
+    }
+}
 /* Explicit for both AI/filtered paths; avoids reuse of cleared/old tasks. */
 static inline void hub_ai_clear_output(hub_ai_digest_t *out) {
     if(out)memset(out,0,sizeof(*out));
@@ -72,9 +124,7 @@ static inline hub_ai_merge_result_t hub_ai_merge_pending(
     if(!proposal || !out || proposal==out ||
        proposal->task_count>HUB_AI_TASK_LIMIT || !proposal->summary[0])
         return HUB_AI_MERGE_INVALID;
-    const char *ending=memchr(proposal->summary,0,sizeof(proposal->summary));
-    if(!ending || (size_t)(ending-proposal->summary)>
-                   HUB_AI_SUMMARY_MAX_UTF8_BYTES)
+    if(!hub_ai_summary_concise(proposal->summary,sizeof(proposal->summary)))
         return HUB_AI_MERGE_INVALID;
     if(prior && !prior->cleared && prior->task_count>HUB_AI_TASK_LIMIT)
         return HUB_AI_MERGE_INVALID;
@@ -97,5 +147,6 @@ static inline hub_ai_merge_result_t hub_ai_merge_pending(
         if(out->task_count==HUB_AI_TASK_LIMIT) return HUB_AI_MERGE_FULL;
         out->tasks[out->task_count++]=*p;
     }
+    hub_ai_rank_pending(out);
     return HUB_AI_MERGE_OK;
 }

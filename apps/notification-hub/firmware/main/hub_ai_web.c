@@ -164,10 +164,10 @@ static esp_err_t settings_page(httpd_req_t *req) {
     html_input(req,"api_key","API Key","","password","留空以保留已保存的密钥");
     put(req,"<small>");put(req,settings.api_key[0]?"密钥已保存，不会回显。":"尚未配置 API Key。");put(req,"</small></div><div class=\"field\">");
     char number[24];snprintf(number,sizeof(number),"%d",settings.interval_minutes);
-    html_input(req,"interval","兼容配置（当前每3条新通知自动总结）",number,"number","");
+    html_input(req,"interval","兼容配置（首3条启动，之后增量更新）",number,"number","");
     put(req,"</div><div class=\"field\">");
     snprintf(number,sizeof(number),"%d",settings.max_records);
-    html_input(req,"max_records","兼容旧配置（公测19固定3条）",number,"number","");
+    html_input(req,"max_records","兼容旧配置（每次最多8条预览）",number,"number","");
     put(req,"</div><div class=\"field\">");
     html_input(req,"excluded_apps","排除的应用标识（逗号分隔）",settings.excluded_apps,"text","应用标识之间以逗号分隔");
     put(req,"</div><div class=\"field\">");
@@ -231,6 +231,12 @@ static esp_err_t dashboard_page(httpd_req_t *req) {
     put(req,"</b>Wi‑Fi</div><div class=\"status-chip\"><b>");
     if(!loaded) put(req,"");
     else if(dashboard_page_snapshot.ai_busy) put(req,"正在总结");
+    else if(dashboard_page_snapshot.ai_settle_seconds) {
+        char waiting[48];
+        snprintf(waiting,sizeof(waiting),"等待合并 %lus",
+                 (unsigned long)dashboard_page_snapshot.ai_settle_seconds);
+        put(req,waiting);
+    }
     else if(dashboard_page_snapshot.ai_capacity_full) put(req,"待办已满");
     else if(dashboard_page_snapshot.ai_failed) put(req,"最近请求失败");
     else put(req,dashboard_page_snapshot.ai_enabled?"已开启":"已关闭");

@@ -45,6 +45,37 @@ static void test_protected_pending(void) {
     prior.cleared=true;
     assert(hub_ai_merge_pending(&prior,&proposal,&out)==HUB_AI_MERGE_OK);
     assert(out.task_count==1 && !strcmp(out.tasks[0].task,"联系物业"));
+    /* 1-2 sentence summary is enforced in bytes and sentence count. */
+    assert(hub_ai_summary_concise("有一场会议。",sizeof("有一场会议。")));
+    assert(hub_ai_summary_concise("会议延期。快递已到。",sizeof("会议延期。快递已到。")));
+    assert(hub_ai_summary_concise("温度25.6度，状态正常。",sizeof("温度25.6度，状态正常。")));
+    assert(!hub_ai_summary_concise("第一句。第二句。第三句。",sizeof("第一句。第二句。第三句。")));
+    assert(!hub_ai_summary_concise("第一句。\n第二句。",sizeof("第一句。\n第二句。")));
+    char oversized[HUB_AI_SUMMARY_MAX_UTF8_BYTES+2];
+    memset(oversized,'a',sizeof(oversized)-1);
+    oversized[sizeof(oversized)-1]=0;
+    assert(!hub_ai_summary_concise(oversized,sizeof(oversized)));
+    /* Important deadlines are surfaced first without inventing tasks. */
+    hub_ai_digest_t ordered={0};
+    ordered.task_count=3;
+    strcpy(ordered.tasks[0].task,"整理参考资料");
+    strcpy(ordered.tasks[1].task,"今晚截止的审批");
+    strcpy(ordered.tasks[1].due,"今晚");
+    strcpy(ordered.tasks[2].task,"确认会议地点");
+    hub_ai_rank_pending(&ordered);
+    assert(!strcmp(ordered.tasks[0].task,"今晚截止的审批"));
+    assert(ordered.task_count==3);
+    /* An informational update must succeed even when 5 old tasks exist. */
+    hub_ai_digest_t fully_booked={0},notice={0},retained={0};
+    strcpy(fully_booked.summary,"此前事项。");
+    fully_booked.task_count=HUB_AI_TASK_LIMIT;
+    for(uint8_t i=0;i<HUB_AI_TASK_LIMIT;i++) {
+        snprintf(fully_booked.tasks[i].task,sizeof(fully_booked.tasks[i].task),"事项%d",i+1);
+        strcpy(fully_booked.tasks[i].source,"工作");
+    }
+    strcpy(notice.summary,"之前事项仍待处理，新通知仅供参考。");
+    assert(hub_ai_merge_pending(&fully_booked,&notice,&retained)==HUB_AI_MERGE_OK);
+    assert(retained.task_count==HUB_AI_TASK_LIMIT);
     /* A filtered batch must never reuse a previously cleared task array. */
     out.task_count=HUB_AI_TASK_LIMIT;
     strcpy(out.tasks[0].task,"旧待办不得复活");
@@ -104,8 +135,8 @@ int main(void) {
     assert(hub_ai_day_tag(0)==0);
     assert(hub_ai_day_tag(midnight)==hub_ai_day_tag(midnight+15u*3600u));
     assert(hub_ai_day_tag(midnight)!=hub_ai_day_tag(midnight+16u*3600u));
-    assert(strstr(HUB_AI_SYSTEM_PROMPT,"此前未清除摘要"));
-    assert(strstr(HUB_AI_SYSTEM_PROMPT,"不可信"));
+    assert(strstr(HUB_AI_SYSTEM_PROMPT,"自上次用户已读清空以来"));
+    assert(strstr(HUB_AI_SYSTEM_PROMPT,"通知标题、预览"));
     assert(strstr(HUB_AI_SYSTEM_PROMPT,"open_items"));
     assert(strstr(HUB_AI_SYSTEM_PROMPT,"JSON"));
     /* Sensitive content is rejected before a remote model sees the payload. */
@@ -136,11 +167,21 @@ int main(void) {
     assert(hub_mem_allow_tls(HUB_MEM_TLS_START_BYTES,
                               HUB_MEM_TLS_CONTIGUOUS_BYTES));
     assert(HUB_AI_TRIGGER_COUNT==3);
-    assert(!hub_ai_batch_ready(0,false));
-    assert(!hub_ai_batch_ready(2,false));
-    assert(hub_ai_batch_ready(3,false));
-    assert(!hub_ai_batch_ready(0,true));
-    assert(hub_ai_batch_ready(1,true));
+    /* Initial epoch needs 3; after the first durable digest, EACH
+     * additional preview triggers an independent incremental update. */
+    assert(!hub_ai_batch_ready(0,false,false));
+    assert(!hub_ai_batch_ready(1,false,false));
+    assert(!hub_ai_batch_ready(2,false,false));
+    assert(hub_ai_batch_ready(3,false,false));
+    assert(hub_ai_batch_ready(1,false,true));
+    assert(hub_ai_batch_ready(2,false,true));
+    assert(!hub_ai_batch_ready(0,false,true));
+    assert(hub_ai_batch_ready(1,true,false)); /* explicit manual override */
+    assert(hub_ai_batch_size(false)==3 && hub_ai_batch_size(true)==1);
+    /* After ACK has_prior is false and a new 1-2 preview batch waits. */
+    assert(!hub_ai_batch_ready(1,false,false));
+    assert(!hub_ai_batch_ready(2,false,false));
+    assert(hub_ai_batch_ready(3,false,false));
     assert(HUB_AI_TASK_LIMIT==5);
     archive_control_event_t clear=hub_control_make(6);
     archive_control_event_t wire={0};

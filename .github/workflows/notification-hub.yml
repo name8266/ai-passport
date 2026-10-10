@@ -60,7 +60,9 @@ jobs:
             "$base/firmware/main/hub_web_auth.c" -lm -o /tmp/passport-sanitizers/forms
           clang "${flags[@]}" "${inc[@]}" "$base/tests/test_hub_protocol.c" \
             "$base/firmware/main/hub_protocol.c" -o /tmp/passport-sanitizers/protocol
-          for suite in archive catalog forms protocol; do
+          clang "${flags[@]}" "${inc[@]}" "$base/tests/test_hub_debounce.c" \
+            -o /tmp/passport-sanitizers/debounce
+          for suite in archive catalog forms protocol debounce; do
             echo "Sanitizer suite: ${suite}"
             ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
               UBSAN_OPTIONS=halt_on_error=1 \
@@ -94,18 +96,19 @@ jobs:
           set -euo pipefail
           mkdir -p release
           cp apps/notification-hub/firmware/build/notification-hub-full.bin \
-            "release/Passport通知中心-Public1.0.0RC2-全新安装.bin"
+            "release/Passport通知中心-Public1.0.0RC3-全新安装.bin"
           cp apps/notification-hub/firmware/build/FoloToy-AI-Passport.bin \
-            "release/Passport通知中心-Public1.0.0RC2-应用升级.bin"
+            "release/Passport通知中心-Public1.0.0RC3-应用升级.bin"
           cp "apps/notification-hub/客户安装说明.md" "release/客户安装说明.md"
           cp "apps/notification-hub/RC2内存验收.md" "release/RC2内存验收.md"
+          cp "apps/notification-hub/RC3摘要增量验收.md" "release/RC3摘要增量验收.md"
           (cd release && sha256sum -- *bin > "校验值-SHA256.txt")
           python3 apps/notification-hub/tests/test_public_release.py release
           cat "release/校验值-SHA256.txt"
       - name: Upload public customer installation package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: Passport通知中心-Public1.0.0RC2
+          name: Passport通知中心-Public1.0.0RC3
           path: release/
           if-no-files-found: error
           retention-days: 30

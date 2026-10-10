@@ -43,6 +43,7 @@
 #include "hub_memory_policy.h"
 #include "hub_backlog.h"
 #include "hub_ai.h"
+#include "hub_ai_debounce.h"
 #include "hub_web_dashboard.h"
 #include "hub_app_catalog.h"
 
@@ -135,8 +136,10 @@ typedef struct {
     ai_archive_kind_t kind;
     uint32_t id;
     uint32_t after_sequence;
+    uint32_t max_sequence; /* frozen inclusive journal ceiling; 0 = live */
     uint8_t max_records;
     uint32_t expected_revision;
+    bool first_digest; /* first 3 notices may present card; increments don't hijack UI */
     hub_ai_digest_t digest;
 } ai_archive_req_t;
 typedef struct {
@@ -167,6 +170,11 @@ static volatile bool ai_failed;
 static volatile bool ai_capacity_full;
 static volatile bool ai_resume_after_ack;
 static volatile bool ai_run_now;
+/* Posted by the FAT archive writer only AFTER a capture reached Flash. */
+static uint32_t ai_preview_commit_revision;
+static uint32_t ai_journal_last_sequence;
+static uint32_t ai_ack_epoch_revision;
+static uint32_t ai_wait_remaining_seconds;
 static volatile bool digest_auto_show;
 static volatile bool admin_starting,admin_stopping,admin_failed;
 static int64_t admin_out_since;
@@ -376,11 +384,13 @@ static void handle_ai_archive_request(const ai_archive_req_t *request) {
     memset(reply,0,sizeof(*reply));reply->kind=request->kind;
     if(request->kind==AI_LOAD_BATCH) {
         reply->revision=hub_archive_digest_revision(&archive_database);
-        reply->success=hub_archive_collect_since(&archive_database,
-                     request->after_sequence,request->max_records,&reply->batch);
-        if(reply->success && reply->batch.count &&
-           hub_archive_last_digest(&archive_database,&reply->prior))
-            reply->has_prior=true;
+        reply->has_prior=hub_archive_last_digest(&archive_database,&reply->prior);
+        /* First digest requires three new previews; subsequent digests use
+         * exactly one new preview and the persisted entire-epoch context. */
+        uint8_t limit=hub_ai_batch_size(reply->has_prior);
+        reply->success=hub_archive_collect_until(&archive_database,
+                     request->after_sequence,request->max_sequence,
+                     limit,&reply->batch);
         /* Metadata-only snapshots are not message bodies. The detail
          * attributes arrive as new preview records and are never skipped. */
         if(reply->success && !reply->batch.count &&
@@ -401,7 +411,7 @@ static void handle_ai_archive_request(const ai_archive_req_t *request) {
             reply->committed_cursor=hub_ai_read_cursor();
             archive_job_t ui_request={.kind=ARCHIVE_AI_LAST};
             (void)post_job(&ui_request);
-            digest_auto_show=true;
+            digest_auto_show=request->first_digest && !request->digest.hidden;
         }
     }
     if(ai_replies) (void)xQueueOverwrite(ai_replies,&request->id);
@@ -492,85 +502,170 @@ static void ai_task(void *arg) {
         ai_enabled=false;vTaskDelete(NULL);return;
     }
     int64_t next_config=0, next_run=0;
+    hub_ai_debounce_t settle={0};
+    uint32_t seen_previews=__atomic_load_n(&ai_preview_commit_revision,
+                                            __ATOMIC_RELAXED);
+    uint32_t seen_epoch=__atomic_load_n(&ai_ack_epoch_revision,__ATOMIC_RELAXED);
+    static ai_archive_req_t operation; /* Fixed allocation, no extra worker/queue. */
     while(true) {
-        int64_t now=esp_timer_get_time()/1000000;
+        int64_t now_us=esp_timer_get_time();
+        int64_t now=now_us/1000000;
+        uint64_t now_ms=(uint64_t)(now_us/1000);
+        uint32_t current_epoch=__atomic_load_n(&ai_ack_epoch_revision,__ATOMIC_RELAXED);
+        if(current_epoch!=seen_epoch) {
+            /* An ACK (or complete archive erase) ends this burst regardless of
+             * whether 1-2 previews were still waiting for the HTTP request. */
+            seen_epoch=current_epoch;
+            seen_previews=__atomic_load_n(&ai_preview_commit_revision,__ATOMIC_RELAXED);
+            hub_ai_debounce_reset(&settle);
+            __atomic_store_n(&ai_wait_remaining_seconds,0u,__ATOMIC_RELAXED);
+            ai_run_now=false;
+            next_run=now;
+        }
         if(ai_resume_after_ack) {
             ai_resume_after_ack=false;
-            next_run=now; /* still respects the normal three-alert threshold */
+            next_run=now;
         }
         if(now>=next_config) {
             bool was_enabled=settings.enabled;
             if(hub_ai_fetch_settings(&conn,&settings)) {
                 ai_online=true;
-                if(settings.enabled && !was_enabled)
-                    next_run=now+10;
+                if(settings.enabled && !was_enabled)next_run=now;
                 ai_enabled=settings.enabled;
             }else ai_online=false;
-            next_config=now+60;
+            next_config=now+(settle.active?5:30);
         }
-        if(archive_loaded && !archive_error && ai_online && settings.enabled && (ai_run_now || now>=next_run)) {
-            bool force_run=ai_run_now;
-            ai_run_now=false;
-            ai_busy=true;
-            ai_failed=false;
-            uint32_t cursor=hub_ai_read_cursor();
-            int processed_batches=0;
-            bool pending_more=false;
-            for(int batch_index=0;batch_index<4;batch_index++) {
-                static ai_archive_req_t operation;
-                operation=(ai_archive_req_t){.kind=AI_LOAD_BATCH,
-                    .id=++ai_operation_id,.after_sequence=cursor,
-                    .max_records=HUB_AI_TRIGGER_COUNT};
-                if(xQueueSend(ai_requests,&operation,pdMS_TO_TICKS(1000))!=pdTRUE)
-                    {ai_failed=true;break;}
-                ai_archive_resp_t *response=&ai_response;
-                if(!receive_ai_completion(operation.id,5000) ||
-                   response->kind!=AI_LOAD_BATCH || !response->success) {
-                    ai_failed=true;break;
-                }
-                if(response->batch.count==0) {pending_more=false;break;}
-                if(!hub_ai_batch_ready(response->batch.count,force_run)) {
-                    pending_more=false;break;
-                }
-                if(response->has_prior &&
-                   response->prior.task_count>=HUB_AI_TASK_LIMIT) {
-                    ai_capacity_full=true;
-                    ai_failed=true;
-                    ESP_LOGW(TAG,"Pending tasks full, original notifications retained");
-                    break;
-                }
-                uint32_t prior_revision=response->revision;
-                static hub_ai_digest_t result;
-                if(!hub_ai_summarize_context(&conn,&settings,&response->batch,
-                       response->has_prior?&response->prior:NULL,&result)) {
-                    ai_failed=true;break;
-                }
-                /* xQueueSend copies the complete request; reuse the LOAD
-                 * scratch buffer for STORE after its reply has arrived. */
-                operation=(ai_archive_req_t){.kind=AI_STORE_DIGEST,.id=++ai_operation_id,
-                    .expected_revision=prior_revision,.digest=result};
-                if(xQueueSend(ai_requests,&operation,pdMS_TO_TICKS(1000))!=pdTRUE ||
-                   !receive_ai_completion(operation.id,8000) ||
-                   response->kind!=AI_STORE_DIGEST || !response->success) {
-                    ai_failed=true;break;
-                }
-                cursor=response->committed_cursor;
-                ai_capacity_full=false;
-                force_run=false;
-                processed_batches++;
-                pending_more=true;
-                vTaskDelay(pdMS_TO_TICKS(2000));
+        if(!archive_loaded || archive_error || !ai_online || !settings.enabled) {
+            hub_ai_debounce_reset(&settle);
+            __atomic_store_n(&ai_wait_remaining_seconds,0u,__ATOMIC_RELAXED);
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            continue;
+        }
+        uint32_t committed=__atomic_load_n(&ai_preview_commit_revision,__ATOMIC_RELAXED);
+        bool force_run=ai_run_now; /* explicit manual override */
+        if(settle.active && committed!=seen_previews) {
+            hub_ai_debounce_arrived(&settle,now_ms,committed-seen_previews);
+            seen_previews=committed;
+        }
+        uint32_t remaining=hub_ai_debounce_left_ms(&settle,now_ms);
+        __atomic_store_n(&ai_wait_remaining_seconds,
+                         (remaining+999u)/1000u,__ATOMIC_RELAXED);
+        if(settle.active && !force_run && !hub_ai_debounce_due(&settle,now_ms)) {
+            vTaskDelay(pdMS_TO_TICKS(1000));
+            continue;
+        }
+        if(!settle.active) {
+            if(!force_run && now<next_run && ai_failed) {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                continue; /* model/network failure backoff */
             }
-            now=esp_timer_get_time()/1000000;
-            /* Throttle burst costs. Backlog stays on device and is handled
-             * in later windows, with NVS cursor unchanged after failures. */
-            next_run=now+(ai_failed?120:10);
-            ESP_LOGI(TAG,"AI window: batches=%d failed=%d backlog=%d capture_queue=%u",
-                     processed_batches,ai_failed,pending_more,
-                     (unsigned)uxQueueMessagesWaiting(archive_captures));
-            hub_log_memory("after AI window");
-            ai_busy=false;
+            if(!force_run && now<next_run && committed==seen_previews) {
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                continue;
+            }
+            if(!force_run) {
+                /* First 3 new previews begin a 15 s quiet window. Once an
+                 * unacknowledged digest exists, 1 preview suffices. */
+                uint32_t before_probe=committed;
+                operation=(ai_archive_req_t){.kind=AI_LOAD_BATCH,
+                    .id=++ai_operation_id,.after_sequence=hub_ai_read_cursor(),
+                    .max_records=HUB_AI_MAX_BATCH};
+                ai_archive_resp_t *probe=&ai_response;
+                if(xQueueSend(ai_requests,&operation,pdMS_TO_TICKS(1000))!=pdTRUE ||
+                   !receive_ai_completion(operation.id,5000) ||
+                   probe->kind!=AI_LOAD_BATCH || !probe->success) {
+                    ai_failed=true;
+                    next_run=now+120;
+                    seen_previews=before_probe;
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                    continue;
+                }
+                if(!hub_ai_batch_ready(probe->batch.count,false,probe->has_prior)) {
+                    next_run=now+10;
+                    seen_previews=before_probe;
+                    vTaskDelay(pdMS_TO_TICKS(1000));
+                    continue;
+                }
+                hub_ai_debounce_begin(&settle,now_ms);
+                /* If the third notification and additional previews arrived
+                 * in the same archive drain, those are extensions too. */
+                uint32_t first_count=hub_ai_batch_size(probe->has_prior);
+                if(probe->batch.count>first_count)
+                    hub_ai_debounce_arrived(&settle,now_ms,
+                        (uint32_t)probe->batch.count-first_count);
+                seen_previews=before_probe;
+                uint32_t initial_left=hub_ai_debounce_left_ms(&settle,now_ms);
+                __atomic_store_n(&ai_wait_remaining_seconds,
+                    (initial_left+999u)/1000u,__ATOMIC_RELAXED);
+                ai_failed=false;
+                ESP_LOGI(TAG,"AI settle armed: previews=%u prior=%u wait=%us max=120s",
+                         (unsigned)probe->batch.count,(unsigned)probe->has_prior,
+                         (unsigned)((initial_left+999u)/1000u));
+                vTaskDelay(pdMS_TO_TICKS(1000));
+                continue;
+            }
         }
+        /* Wait expired (or user explicitly requested manual summary).
+         * Freeze an inclusive Flash sequence here. Incoming notifications
+         * after this point cannot extend the old burst or join its request. */
+        uint32_t window_end=__atomic_load_n(&ai_journal_last_sequence,
+                                             __ATOMIC_RELAXED);
+        seen_previews=__atomic_load_n(&ai_preview_commit_revision,__ATOMIC_RELAXED);
+        ai_run_now=false;
+        hub_ai_debounce_reset(&settle);
+        __atomic_store_n(&ai_wait_remaining_seconds,0u,__ATOMIC_RELAXED);
+        ai_busy=true;
+        ai_failed=false;
+        uint32_t cursor=hub_ai_read_cursor();
+        int processed_batches=0;
+        bool backlog=false;
+        for(int batch_index=0;batch_index<4;batch_index++) {
+            operation=(ai_archive_req_t){.kind=AI_LOAD_BATCH,
+                .id=++ai_operation_id,.after_sequence=cursor,
+                .max_sequence=window_end,.max_records=HUB_AI_MAX_BATCH};
+            if(xQueueSend(ai_requests,&operation,pdMS_TO_TICKS(1000))!=pdTRUE) {
+                ai_failed=true;break;
+            }
+            ai_archive_resp_t *response=&ai_response;
+            if(!receive_ai_completion(operation.id,5000) ||
+               response->kind!=AI_LOAD_BATCH || !response->success) {
+                ai_failed=true;break;
+            }
+            if(response->batch.count==0){backlog=false;break;}
+            if(!hub_ai_batch_ready(response->batch.count,force_run,response->has_prior)){
+                backlog=false;break;
+            }
+            uint32_t prior_revision=response->revision;
+            static hub_ai_digest_t result;
+            if(!hub_ai_summarize_context(&conn,&settings,&response->batch,
+                   response->has_prior?&response->prior:NULL,&result)) {
+                ai_failed=true;
+                ai_capacity_full=hub_ai_last_capacity_issue();
+                break; /* source not committed on any failure */
+            }
+            operation=(ai_archive_req_t){.kind=AI_STORE_DIGEST,
+                .id=++ai_operation_id,.expected_revision=prior_revision,
+                .first_digest=!response->has_prior,.digest=result};
+            if(xQueueSend(ai_requests,&operation,pdMS_TO_TICKS(1000))!=pdTRUE ||
+               !receive_ai_completion(operation.id,8000) ||
+               response->kind!=AI_STORE_DIGEST || !response->success) {
+                ai_failed=true;break;
+            }
+            cursor=response->committed_cursor;
+            ai_capacity_full=false;
+            force_run=false;
+            processed_batches++;
+            backlog=true;
+            vTaskDelay(pdMS_TO_TICKS(2000));
+        }
+        now=esp_timer_get_time()/1000000;
+        next_run=now+(ai_failed?120:10);
+        ESP_LOGI(TAG,"AI settled: updates=%d failed=%d backlog=%d captured=%lu",
+                 processed_batches,ai_failed,backlog,
+                 (unsigned long)__atomic_load_n(&ai_preview_commit_revision,
+                                                 __ATOMIC_RELAXED));
+        hub_log_memory("after AI settle");
+        ai_busy=false;
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
@@ -624,6 +719,12 @@ static void archive_task(void *arg) {
             if(!ok || !hub_archive_capture(&archive_database,&captured)) {
                 archive_full=archive_database.full;archive_error=archive_database.failed;
                 archive_dropped=true;
+            }else {
+                __atomic_store_n(&ai_journal_last_sequence,archive_database.rows,
+                                 __ATOMIC_RELAXED);
+                if(captured.kind==HUB_ARCHIVE_PREVIEW)
+                    (void)__atomic_add_fetch(&ai_preview_commit_revision,1u,
+                                             __ATOMIC_RELAXED);
             }
         }
         static ai_archive_req_t request;
@@ -652,6 +753,8 @@ static void archive_task(void *arg) {
             web_archive_snapshot.wifi_online=hub_ai_is_online();
             web_archive_snapshot.ai_enabled=ai_enabled;
             web_archive_snapshot.ai_busy=ai_busy;
+            web_archive_snapshot.ai_settle_seconds=
+                __atomic_load_n(&ai_wait_remaining_seconds,__ATOMIC_RELAXED);
             web_archive_snapshot.ai_failed=ai_failed;
             web_archive_snapshot.ai_capacity_full=ai_capacity_full;
             web_archive_snapshot.archive_full=archive_full;
@@ -757,6 +860,11 @@ static void archive_task(void *arg) {
             }
             archive_initializing=false;
             archive_clear_status=cleared?2:3;
+            if(cleared) {
+                __atomic_store_n(&ai_journal_last_sequence,archive_database.rows,
+                                 __ATOMIC_RELAXED);
+                (void)__atomic_add_fetch(&ai_ack_epoch_revision,1u,__ATOMIC_RELAXED);
+            }
             continue;
         }
         if(!ok) continue;
@@ -776,6 +884,9 @@ static void archive_task(void *arg) {
             }
             if(done) {
                 if(job.kind==ARCHIVE_AI_ACK || job.kind==ARCHIVE_AI_COMPLETE) {
+                    if(job.kind==ARCHIVE_AI_ACK)
+                        (void)__atomic_add_fetch(&ai_ack_epoch_revision,1u,
+                                                 __ATOMIC_RELAXED);
                     ai_capacity_full=false;
                     ai_failed=false;
                     ai_resume_after_ack=true;
@@ -984,6 +1095,10 @@ static void render(void) {
         hub_ui_set_text(help_text,"网页内设置  长按确认返回");
     }else if(view_mode==VIEW_DIGEST) {
         if(ai_busy) hub_ui_set_text(page_no,"正在生成综合简报");
+        else if(__atomic_load_n(&ai_wait_remaining_seconds,__ATOMIC_RELAXED))
+            hub_ui_set_text_fmt(page_no,"%lus 后增量更新",
+                (unsigned long)__atomic_load_n(&ai_wait_remaining_seconds,
+                                               __ATOMIC_RELAXED));
         else if(ai_capacity_full) hub_ui_set_text(page_no,"待办已满，保留新通知");
         else if(ai_failed) hub_ui_set_text(page_no,"总结失败，请重试");
         else if(latest_digest_ready && latest_digest.day_tag &&
@@ -1001,7 +1116,7 @@ static void render(void) {
                 at+=(size_t)n;
             }
         }
-        hub_ui_set_text(body_text,latest_digest_ready?digest_text:!ai_enabled?"智能摘要尚未开启。\n\n在网页设置中开启。":ai_capacity_full?"待办达到5项上限，自动总结暂停。原通知仍在本机，按确认清除已读摘要后恢复。":ai_failed?"摘要失败，请检查网络或存档。":"等待3条新通知");
+        hub_ui_set_text(body_text,latest_digest_ready?digest_text:!ai_enabled?"智能摘要尚未开启。\n\n在网页设置中开启。":ai_capacity_full?"待办达到5项上限。请在网页逐项完成后继续，新通知仍保留。":ai_failed?"摘要失败，请检查网络或存档。":"等待首次3条新通知");
         hub_ui_set_text(help_text,"确认=已读清除  长按确认=关闭");
     }else if(view_mode==VIEW_GROUPS) {
         if(!visible_group_count) {

@@ -541,7 +541,8 @@ static uint32_t digest_hash(const stored_digest_t *d) {
         h=(h ^ p[i])*16777619u;
     return h;
 }
-bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,uint8_t max_count,
+bool hub_archive_collect_until(hub_archive_t *db,uint32_t cursor,
+                               uint32_t last_sequence,uint8_t max_count,
                                hub_ai_batch_t *out) {
     if(!db || !db->mounted || db->failed || !out || max_count==0 ||
        max_count>HUB_AI_MAX_BATCH) return false;
@@ -549,10 +550,12 @@ bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,uint8_t max_cou
     out->after_sequence=cursor;
     /* Open verifies sequence == slot+1. Start at the checkpoint in O(1),
      * then read sequentially; never rescan already processed history. */
-    if(cursor>=db->rows) return true;
+    uint32_t last=(last_sequence && last_sequence<db->rows)?
+                   last_sequence:db->rows;
+    if(cursor>=last)return true;
     if(fseek(db->file,(long)cursor*sizeof(hub_archive_record_t),SEEK_SET)!=0)
         {db->failed=true;return false;}
-    for(uint32_t slot=cursor;slot<db->rows && out->count<max_count;slot++) {
+    for(uint32_t slot=cursor;slot<last && out->count<max_count;slot++) {
         hub_archive_record_t r;
         if(fread(&r,sizeof(r),1,db->file)!=1 || !valid(&r) || r.sequence!=slot+1)
             {db->failed=true;return false;}
@@ -575,6 +578,10 @@ bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,uint8_t max_cou
         out->items[i].sensitive=hub_ai_sensitive(r.title,r.body);
     }
     return true;
+}
+bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,
+                               uint8_t max_count,hub_ai_batch_t *out) {
+    return hub_archive_collect_until(db,cursor,0u,max_count,out);
 }
 
 /* Dual-slot generation journal: fsync the next slot before replacing the
@@ -751,10 +758,15 @@ bool hub_archive_ack_digest(hub_archive_t *db) {
     memset(d->summary,0,sizeof(d->summary));
     memset(d->tasks,0,sizeof(d->tasks));
     d->task_count=0;d->included=0;d->cleared=true;d->hidden=false;
-    /* A second, bounded tombstone copy prevents a single torn slot from
-     * resurrecting the old acknowledged digest on the next boot. */
-    if(!write_active(d))return false;
-    return write_active(d);
+    /* Acknowledgement ends this entire epoch, including up to two previews
+     * still waiting for their first trigger. They stay in the raw archive
+     * until GC but never feed the next epoch's three-notice threshold. */
+    d->processed_through=db->rows;
+    /* Two durable tombstones prevent a torn slot resurrecting old tasks.
+     * If power fails before NVS checkpoint, startup reconciliation restores
+     * the cursor from the newest persisted tombstone. */
+    if(!write_active(d) || !write_active(d))return false;
+    return hub_ai_advance_cursor(d->processed_through);
 }
 bool hub_archive_initialize(hub_archive_t *db,bool confirmed) {
     if(!confirmed || !db || !db->failed || db->mounted) return false;

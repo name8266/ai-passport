@@ -12,6 +12,7 @@ typedef struct {
     bool wifi_online;
     bool ai_enabled;
     bool ai_busy;
+    uint32_t ai_settle_seconds; /* countdown until the next incremental request */
     bool ai_failed;
     bool ai_capacity_full;
     bool archive_full;

@@ -194,11 +194,14 @@ static bool abort_json_request(cJSON *request,cJSON *unattached) {
     cJSON_Delete(unattached);cJSON_Delete(request);
     hub_ai_web_start();hub_sound_network_end();return false;
 }
+static bool s_last_capacity_issue;
+bool hub_ai_last_capacity_issue(void) {return s_last_capacity_issue;}
 bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
                       const hub_ai_settings_t *configuration,
                       const hub_ai_batch_t *batch,const hub_ai_digest_t *prior,
                       hub_ai_digest_t *out) {
     (void)conn;
+    s_last_capacity_issue=false;
     if(!out) return false;
     /* Reused result objects must never resurrect read/cleared tasks. */
     hub_ai_clear_output(out);
@@ -211,10 +214,8 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
     /* Unacknowledged summaries are context even after the journal compacts
      * and renumbers records or midnight passes. */
     bool use_prior=prior && !prior->cleared && prior->summary[0];
-    if(use_prior && prior->task_count>=HUB_AI_TASK_LIMIT) {
-        ESP_LOGW(TAG,"Pending tasks full; leave original notifications untouched");
-        return false;
-    }
+    /* With 5 old tasks, informational updates are still valid. A sixth
+     * pending task is rejected by the merge, retaining the source preview. */
     static char payload[3584];
     size_t at=0;
     int count=0;
@@ -258,7 +259,7 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
             memcpy(out->tasks,prior->tasks,sizeof(out->tasks));
             out->task_count=prior->task_count;
         }
-        out->hidden=false;
+        out->hidden=use_prior?prior->hidden:false;
         out->cleared=false;
         out->included=use_prior?prior->included:0;
         out->processed_through=batch->through_sequence;
@@ -360,7 +361,8 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
             if(cJSON_IsObject(document) && cJSON_IsString(summary) &&
                summary->valuestring && summary->valuestring[0] &&
                cJSON_IsArray(items) && cJSON_GetArraySize(items)<=HUB_AI_TASK_LIMIT &&
-               strlen(summary->valuestring)<=HUB_AI_SUMMARY_MAX_UTF8_BYTES) {
+               hub_ai_summary_concise(summary->valuestring,
+                                      strlen(summary->valuestring)+1u)) {
                 static hub_ai_digest_t proposed;
                 memset(&proposed,0,sizeof(proposed));
                 hub_utf8_copy(proposed.summary,sizeof(proposed.summary),
@@ -398,9 +400,11 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
                         unsigned cumulative=(unsigned)(use_prior?prior->included:0)+
                                             (unsigned)count;
                         out->included=(uint16_t)(cumulative>65535u?65535u:cumulative);
-                        out->hidden=false;out->cleared=false;
+                        out->hidden=use_prior?prior->hidden:false;
+                        out->cleared=false;
                         ok=true;
                     }else {
+                        s_last_capacity_issue=(merged==HUB_AI_MERGE_FULL);
                         ESP_LOGW(TAG,"Digest task merge=%d rejected, notifications kept",merged);
                     }
                 }

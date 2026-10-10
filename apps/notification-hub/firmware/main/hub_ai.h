@@ -18,9 +18,13 @@
 #define HUB_AI_SOURCE_BYTES 32
 #define HUB_AI_DUE_BYTES 36
 #define HUB_AI_TRIGGER_COUNT 3
-/* Exactly three unprocessed previews, or any positive batch on explicit request. */
-static inline bool hub_ai_batch_ready(uint8_t count,bool manual) {
-    return count>=HUB_AI_TRIGGER_COUNT || (manual && count>0);
+/* First summary after acknowledgement waits for 3 previews. After that,
+ * every new preview incrementally updates the same persisted digest. */
+static inline bool hub_ai_batch_ready(uint8_t count,bool manual,bool has_digest) {
+    return count>0 && (has_digest || manual || count>=HUB_AI_TRIGGER_COUNT);
+}
+static inline uint8_t hub_ai_batch_size(bool has_digest) {
+    return has_digest?1u:HUB_AI_TRIGGER_COUNT;
 }
 #define HUB_AI_DEFAULT_ENDPOINT "https://api.deepseek.com/chat/completions"
 #define HUB_AI_DEFAULT_MODEL "deepseek-flash"
@@ -82,6 +86,8 @@ typedef struct {
 bool hub_ai_load_connection(hub_ai_connection_t *out);
 bool hub_ai_connect_wifi(const hub_ai_connection_t *conn);
 bool hub_ai_is_online(void);
+/* Set on overflow only; ordinary informational updates keep working. */
+bool hub_ai_last_capacity_issue(void;
 bool hub_ai_wifi_started(void);
 /* Only call from a dedicated short-lived task after admin inactivity. */
 bool hub_ai_wifi_shutdown(void);

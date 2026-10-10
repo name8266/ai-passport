@@ -1,4 +1,7 @@
-# Passport Notification Hub — Public 1.0.0 RC2
+# Passport Notification Hub — Public 1.0.0 RC3
+
+**RC3 rolling digest:** The first summary after user acknowledgement needs three new archived previews and a 15-second quiet period. One further notification adds 9 seconds; each later notification adds 5 seconds, never exceeding 120 seconds from window start. Once the first digest exists, each new notification can open a fresh quiet period; the AI incrementally updates the same 1–2 sentence digest and up to five genuine priority tasks. Acknowledgement resets the entire epoch and its pending queue boundary. See [RC3摘要增量验收.md](./RC3摘要增量验收.md).
+
 
 **Release candidate for customer installation.** Automated host regressions, memory sanitizers, ESP-IDF 5.5.3 firmware build and release hygiene checks are required. Actual iPhone connectivity, power-cut fault injection and endurance testing remain deployment acceptance criteria.
 

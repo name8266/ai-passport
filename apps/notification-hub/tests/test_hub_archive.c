@@ -71,7 +71,9 @@ int main(void) {
     hub_ai_digest_t restored;
     assert(hub_archive_last_digest(&db,&restored) && restored.hidden);
     assert(hub_archive_ack_digest(&db));
+    assert(test_cursor==db.rows); /* ACK resets first-trigger epoch cursor */
     assert(!hub_archive_last_digest(&db,&restored));
+    assert(restored.cleared && restored.processed_through==db.rows);
     assert(hub_archive_digest_revision(&db)==4);
     /* Corrupt newest tombstone; fallback MUST still be cleared, never old. */
     FILE *f=fopen(ACTIVE_SLOT0,"ab");assert(f);fputc(1,f);fclose(f);
@@ -334,6 +336,59 @@ int main(void) {
     assert(removed==0 && db.rows==still_pending);
     assert(hub_archive_get_record(&db,"ttl.app",0,&got) &&
            !strcmp(got.title,"未总结的旧通知"));
+
+    /* One rolling epoch: 3 for first summary, each later 1 increment.
+     * An ACK skips 1-2 pending previews in the OLD epoch, and reboot replay
+     * restores the exact new boundary even if NVS commit is interrupted. */
+    uint32_t epoch_end=db.rows;
+    assert(hub_ai_set_cursor(epoch_end));
+    hub_ai_digest_t old_digest={.processed_through=epoch_end,.included=7};
+    strcpy(old_digest.summary,"旧周期的重要提醒。");
+    assert(hub_archive_save_digest(&db,&old_digest));
+    hub_archive_record_t next={.kind=HUB_ARCHIVE_PREVIEW,.session=200};
+    strcpy(next.app,"calendar.app");
+    for(unsigned i=0;i<2;i++) {
+        next.uid=50000+i;
+        strcpy(next.title,"旧周期未分析通知");
+        assert(hub_archive_capture(&db,&next));
+    }
+    assert(hub_archive_collect_since(&db,epoch_end,3,&batch));
+    assert(batch.count==2 && !hub_ai_batch_ready(batch.count,false,false));
+    assert(hub_archive_ack_digest(&db));
+    uint32_t ack_boundary=db.rows;
+    assert(test_cursor==ack_boundary);
+    assert(!hub_archive_last_digest(&db,&restored) && restored.cleared);
+    assert(restored.processed_through==ack_boundary);
+    assert(hub_archive_collect_since(&db,ack_boundary,3,&batch) && batch.count==0);
+    /* Crash after tombstone fsync but before NVS cursor update. */
+    assert(hub_ai_set_cursor(epoch_end));
+    assert(hub_archive_reconcile_cursor(&db) && test_cursor==ack_boundary);
+    for(unsigned i=0;i<2;i++) {
+        next.uid=51000+i;
+        strcpy(next.title,"新周期通知");
+        assert(hub_archive_capture(&db,&next));
+    }
+    assert(hub_archive_collect_since(&db,ack_boundary,3,&batch));
+    assert(batch.count==2 && !hub_ai_batch_ready(batch.count,false,false));
+    next.uid=51002;
+    assert(hub_archive_capture(&db,&next));
+    assert(hub_archive_collect_since(&db,ack_boundary,3,&batch));
+    assert(batch.count==3 && hub_ai_batch_ready(batch.count,false,false));
+    const uint32_t frozen_sequence=batch.through_sequence;
+    /* A snapshot taken when the 120-second burst cap expires excludes any
+     * source notification saved AFTER the frozen checkpoint. */
+    next.uid=51003;assert(hub_archive_capture(&db,&next));
+    assert(hub_archive_collect_until(&db,ack_boundary,frozen_sequence,8,&batch));
+    assert(batch.count==3 && batch.through_sequence==frozen_sequence);
+    hub_ai_digest_t new_digest={.processed_through=frozen_sequence,.included=3};
+    strcpy(new_digest.summary,"三条新通知已经汇总。");
+    assert(hub_archive_save_digest(&db,&new_digest));
+    assert(hub_ai_advance_cursor(frozen_sequence));
+    assert(hub_archive_collect_since(&db,hub_ai_read_cursor(),1,&batch));
+    assert(batch.count==1 && hub_ai_batch_ready(batch.count,false,true));
+    assert(hub_archive_ack_digest(&db));
+    assert(test_cursor==db.rows);
+    puts("ACK epoch boundary, crash recovery, initial three and one-by-one increments: PASS");
 
     fclose(db.file);
     assert(unlink(HUB_ARCHIVE_PATH)==0);
