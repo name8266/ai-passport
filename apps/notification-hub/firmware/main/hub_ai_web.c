@@ -301,7 +301,7 @@ static esp_err_t dashboard_page(httpd_req_t *req) {
         put(req,"</article>");
     }
     if(loaded && dashboard_page_snapshot.archive_rows) {
-        char count[80];snprintf(count,sizeof(count),"<small>存档序号共 %" PRIu32 " 条 · 已汇总记录最长保留 %u 天（未汇总记录不按期删除）</small>",
+        char count[160];snprintf(count,sizeof(count),"<small>存档序号共 %" PRIu32 " 条 · 已汇总记录最长保留 %u 天（未汇总记录不按期删除）</small>",
             dashboard_page_snapshot.archive_rows,(unsigned)dashboard_page_snapshot.retention_days);put(req,count);
     }
     put(req,"</div>");
