@@ -242,13 +242,12 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
     char *json=cJSON_PrintUnformatted(request);
     cJSON_Delete(request);
     if(!json) {hub_ai_web_start();hub_sound_network_end();return false;}
-    bool ok=false;
+    bool ok=false, http_ok=false;
     hub_response_t response={.cap=5120};
     esp_http_client_config_t cfg={
         .url=settings->endpoint,
         .timeout_ms=30000,
-        /* This board connects over IPv4 STA. Some home DNS servers do not
-         * answer AAAA queries; AF_UNSPEC can spend the whole timeout there. */
+        /* The device connects over IPv4 STA; do not block on AAAA-only DNS. */
         .addr_type=HTTP_ADDR_TYPE_INET,
         .crt_bundle_attach=esp_crt_bundle_attach,
         .disable_auto_redirect=true,
@@ -260,7 +259,8 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
     static char auth[208];
     esp_http_client_handle_t client=esp_http_client_init(&cfg);
     if(client) {
-        if(snprintf(auth,sizeof(auth),"Bearer %s",settings->api_key)<(int)sizeof(auth)) {
+        int length=snprintf(auth,sizeof(auth),"Bearer %s",settings->api_key);
+        if(length>0 && length<(int)sizeof(auth)) {
             esp_http_client_set_header(client,"Authorization",auth);
             esp_http_client_set_header(client,"Content-Type","application/json");
             esp_http_client_set_method(client,HTTP_METHOD_POST);
@@ -269,31 +269,34 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
             int status=esp_http_client_get_status_code(client);
             ESP_LOGI(TAG,"Direct model HTTPS status=%d err=%d response_bytes=%u",
                 status,e,(unsigned)response.used);
-            if(e==ESP_OK && status==200 && !response.overflow) {
-                cJSON *answer=cJSON_Parse(response.data);
-                cJSON *choices=cJSON_GetObjectItemCaseSensitive(answer,"choices");
-                cJSON *one=cJSON_GetArrayItem(choices,0);
-                cJSON *message=cJSON_GetObjectItemCaseSensitive(one,"message");
-                cJSON *content=cJSON_GetObjectItemCaseSensitive(message,"content");
-                if(cJSON_IsString(content) && content->valuestring &&
-                   content->valuestring[0]) {
-                    memset(out,0,sizeof(*out));
-                    hub_utf8_copy(out->summary,sizeof(out->summary),
-                        (const uint8_t *)content->valuestring,strlen(content->valuestring));
-                    out->processed_through=batch->through_sequence;
-                    out->day_tag=batch->day_tag;
-                    unsigned cumulative=(unsigned)(use_prior?prior->included:0)+(unsigned)count;
-                    out->included=(uint16_t)(cumulative>65535u?65535u:cumulative);
-                    ok=out->summary[0]!=0;
-                }
-                cJSON_Delete(answer);
-            }else{
-                ESP_LOGW(TAG,"Direct model HTTPS status=%d err=%d",status,e);
-            }
+            http_ok=(e==ESP_OK && status==200 && !response.overflow && response.data);
+            if(!http_ok) ESP_LOGW(TAG,"Direct model HTTPS status=%d err=%d",status,e);
         }
+        /* CRITICAL: free the TLS session and its handshake/socket buffers
+         * BEFORE allocating cJSON's response DOM. The former implementation
+         * kept both alive, causing severe transient heap exhaustion on C3. */
         esp_http_client_cleanup(client);
     }
+    memset(auth,0,sizeof(auth));
     memset(json,0,strlen(json));cJSON_free(json);
+    if(http_ok) {
+        cJSON *answer=cJSON_Parse(response.data);
+        cJSON *choices=cJSON_GetObjectItemCaseSensitive(answer,"choices");
+        cJSON *one=cJSON_GetArrayItem(choices,0);
+        cJSON *message=cJSON_GetObjectItemCaseSensitive(one,"message");
+        cJSON *content=cJSON_GetObjectItemCaseSensitive(message,"content");
+        if(cJSON_IsString(content) && content->valuestring && content->valuestring[0]) {
+            memset(out,0,sizeof(*out));
+            hub_utf8_copy(out->summary,sizeof(out->summary),
+                (const uint8_t *)content->valuestring,strlen(content->valuestring));
+            out->processed_through=batch->through_sequence;
+            out->day_tag=batch->day_tag;
+            unsigned cumulative=(unsigned)(use_prior?prior->included:0)+(unsigned)count;
+            out->included=(uint16_t)(cumulative>65535u?65535u:cumulative);
+            ok=out->summary[0]!=0;
+        }
+        cJSON_Delete(answer);
+    }
     hub_response_release(&response);
     memset(auth,0,sizeof(auth));
     hub_ai_web_start();
