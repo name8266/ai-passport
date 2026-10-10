@@ -92,7 +92,9 @@ uint8_t hub_ai_read_brightness(void);
 uint32_t hub_ai_current_epoch(void); /* 0 until SNTP provides a valid clock */
 bool hub_ai_save_settings(const hub_ai_settings_t *settings,
                           const hub_ai_connection_t *wifi);
-void hub_ai_web_start(void);
+bool hub_ai_web_start(void);
+bool hub_ai_web_is_running(void);
+int64_t hub_ai_web_idle_us(void);
 /* Single AI worker temporarily releases the admin server's task/socket RAM.
  * SoftAP remains on; restart with hub_ai_web_start after HTTPS cleanup. */
 bool hub_ai_web_pause(void);
