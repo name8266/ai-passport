@@ -17,9 +17,12 @@ int main(void) {
     assert(hub_ai_day_tag(0)==0);
     assert(hub_ai_day_tag(midnight)==hub_ai_day_tag(midnight+15u*3600u));
     assert(hub_ai_day_tag(midnight)!=hub_ai_day_tag(midnight+16u*3600u));
-    assert(strstr(HUB_AI_SYSTEM_PROMPT,"此前同日摘要"));
+    assert(strstr(HUB_AI_SYSTEM_PROMPT,"此前尚未清除的摘要"));
     assert(strstr(HUB_AI_SYSTEM_PROMPT,"不得编造"));
-    assert(strstr(HUB_AI_SYSTEM_PROMPT,"【待办】"));
-    puts("Catalog, fixed timezone grouping and smart digest prompt: PASS");
+    assert(strstr(HUB_AI_SYSTEM_PROMPT,"open_items"));
+    assert(strstr(HUB_AI_SYSTEM_PROMPT,"JSON"));
+    assert(HUB_AI_TRIGGER_COUNT==3);
+    assert(HUB_AI_TASK_LIMIT==5);
+    puts("Catalog, fixed timezone, 3-message trigger and structured digest prompt: PASS");
     return 0;
 }

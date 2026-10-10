@@ -93,6 +93,12 @@ bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,uint8_t max_cou
                                hub_ai_batch_t *out);
 bool hub_archive_save_digest(hub_archive_t *db,const hub_ai_digest_t *digest);
 bool hub_archive_last_digest(hub_archive_t *db,hub_ai_digest_t *out);
+/* Paired checksummed snapshots: state survives resets without growing logs. */
+uint32_t hub_archive_digest_revision(hub_archive_t *db);
+bool hub_archive_hide_digest(hub_archive_t *db);
+bool hub_archive_ack_digest(hub_archive_t *db);
+/* Physically reclaim handled snapshots only after the new digest is durable. */
+bool hub_archive_prune_processed(hub_archive_t *db,uint32_t *removed_rows);
 
 /* Explicit destructive recovery, only for an unavailable archive. */
 bool hub_archive_initialize(hub_archive_t *db, bool confirmed);

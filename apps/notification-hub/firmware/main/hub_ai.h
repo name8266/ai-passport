@@ -13,6 +13,11 @@
 #define HUB_AI_TITLE_BYTES 64
 #define HUB_AI_BODY_BYTES 96
 #define HUB_AI_SUMMARY_BYTES 1024
+#define HUB_AI_TASK_LIMIT 5
+#define HUB_AI_TASK_BYTES 80
+#define HUB_AI_SOURCE_BYTES 32
+#define HUB_AI_DUE_BYTES 36
+#define HUB_AI_TRIGGER_COUNT 3
 #define HUB_AI_DEFAULT_ENDPOINT "https://api.deepseek.com/chat/completions"
 #define HUB_AI_DEFAULT_MODEL "deepseek-flash"
 
@@ -31,10 +36,20 @@ typedef struct {
 } hub_ai_batch_t;
 
 typedef struct {
+    char task[HUB_AI_TASK_BYTES];
+    char source[HUB_AI_SOURCE_BYTES];
+    char due[HUB_AI_DUE_BYTES];
+} hub_ai_task_t;
+
+typedef struct {
     uint32_t processed_through;
     uint16_t included; /* cumulative notification count in this digest */
     uint16_t day_tag;
     char summary[HUB_AI_SUMMARY_BYTES];
+    hub_ai_task_t tasks[HUB_AI_TASK_LIMIT];
+    uint8_t task_count;
+    bool hidden; /* Closing hides the card, never deletes its context. */
+    bool cleared; /* Read acknowledgment retains the checkpoint, not the text. */
 } hub_ai_digest_t;
 
 typedef struct {
@@ -93,7 +108,7 @@ bool hub_ai_summarize_settings(const hub_ai_connection_t *conn,
                       const hub_ai_settings_t *configuration,
                       const hub_ai_batch_t *batch,hub_ai_digest_t *out);
 
-/* Rolling context is used only when the stored digest belongs to this day. */
+/* Rolling context persists until acknowledged, including across calendar days. */
 bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
                  const hub_ai_settings_t *configuration,
                  const hub_ai_batch_t *batch,const hub_ai_digest_t *prior,

@@ -163,10 +163,9 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
     if(!configuration || !configuration->enabled || !configuration->api_key[0])
         return false;
     const hub_ai_settings_t *settings=configuration;
-    /* A digest remains active until explicitly acknowledged; day boundaries
-     * must not silently discard outstanding tasks. */
-    bool use_prior=prior &&
-        prior->processed_through<=batch->after_sequence && prior->summary[0];
+    /* Unacknowledged summaries are context even after the journal compacts
+     * and renumbers records or midnight passes. */
+    bool use_prior=prior && !prior->cleared && prior->summary[0];
     static char payload[3584];
     size_t at=0;
     int count=0;
@@ -175,6 +174,19 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
         use_prior?prior->summary:"（无；从本批开始）");
     if(head<0 || (size_t)head>=sizeof(payload))return false;
     at=(size_t)head;
+    if(use_prior) {
+        int n=snprintf(payload+at,sizeof(payload)-at,
+            "\n【尚未完成事项】(%u项)\n",(unsigned)prior->task_count);
+        if(n<0 || (size_t)n>=sizeof(payload)-at)return false;
+        at+=(size_t)n;
+        for(uint8_t i=0;i<prior->task_count && i<HUB_AI_TASK_LIMIT;i++) {
+            n=snprintf(payload+at,sizeof(payload)-at,
+                "- 事项:%s / 来源:%s / 截止:%s\n",
+                prior->tasks[i].task,prior->tasks[i].source,prior->tasks[i].due);
+            if(n<0 || (size_t)n>=sizeof(payload)-at)return false;
+            at+=(size_t)n;
+        }
+    }
     for(int i=0;i<batch->count;i++) {
         const char *app=batch->items[i].app;
         const char *title=batch->items[i].title;
@@ -192,6 +204,12 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
     if(count==0) {
         snprintf(out->summary,sizeof(out->summary),"%s",
             use_prior?prior->summary:"本时段无可分析的通知；可能被隐私规则过滤。");
+        if(use_prior) {
+            memcpy(out->tasks,prior->tasks,sizeof(out->tasks));
+            out->task_count=prior->task_count;
+        }
+        out->hidden=false;
+        out->cleared=false;
         out->included=use_prior?prior->included:0;
         out->processed_through=batch->through_sequence;
         out->day_tag=batch->day_tag;
@@ -214,7 +232,7 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
         return abort_json_request(request,messages);
     if(!cJSON_AddStringToObject(request,"model",settings->model) ||
        !cJSON_AddBoolToObject(request,"stream",false) ||
-       !cJSON_AddNumberToObject(request,"max_tokens",450))
+       !cJSON_AddNumberToObject(request,"max_tokens",750))
         return abort_json_request(request,NULL);
     if(strstr(settings->endpoint,"api.deepseek.com/")) {
         /* Flash summaries need short user-facing output, not a costly chain of thought. */
@@ -280,14 +298,49 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
         cJSON *message=cJSON_GetObjectItemCaseSensitive(one,"message");
         cJSON *content=cJSON_GetObjectItemCaseSensitive(message,"content");
         if(cJSON_IsString(content) && content->valuestring && content->valuestring[0]) {
-            memset(out,0,sizeof(*out));
-            hub_utf8_copy(out->summary,sizeof(out->summary),
-                (const uint8_t *)content->valuestring,strlen(content->valuestring));
-            out->processed_through=batch->through_sequence;
-            out->day_tag=batch->day_tag;
-            unsigned cumulative=(unsigned)(use_prior?prior->included:0)+(unsigned)count;
-            out->included=(uint16_t)(cumulative>65535u?65535u:cumulative);
-            ok=out->summary[0]!=0;
+            /* Parse structured output; never checkpoint malformed responses. */
+            cJSON *document=cJSON_Parse(content->valuestring);
+            cJSON *summary=cJSON_GetObjectItemCaseSensitive(document,"summary");
+            cJSON *items=cJSON_GetObjectItemCaseSensitive(document,"open_items");
+            if(cJSON_IsObject(document) && cJSON_IsString(summary) &&
+               summary->valuestring && summary->valuestring[0] &&
+               cJSON_IsArray(items) &&
+               cJSON_GetArraySize(items)<=HUB_AI_TASK_LIMIT) {
+                hub_ai_digest_t parsed={0};
+                hub_utf8_copy(parsed.summary,sizeof(parsed.summary),
+                    (const uint8_t *)summary->valuestring,strlen(summary->valuestring));
+                int n=cJSON_GetArraySize(items);
+                bool valid=true;
+                for(int i=0;i<n;i++) {
+                    cJSON *item=cJSON_GetArrayItem(items,i);
+                    cJSON *task=cJSON_GetObjectItemCaseSensitive(item,"task");
+                    cJSON *source=cJSON_GetObjectItemCaseSensitive(item,"source");
+                    cJSON *due=cJSON_GetObjectItemCaseSensitive(item,"due");
+                    if(!cJSON_IsObject(item) || !cJSON_IsString(task) ||
+                       !cJSON_IsString(source) || !cJSON_IsString(due) ||
+                       !task->valuestring || !task->valuestring[0]) {
+                        valid=false;break;
+                    }
+                    hub_utf8_copy(parsed.tasks[i].task,sizeof(parsed.tasks[i].task),
+                        (const uint8_t *)task->valuestring,strlen(task->valuestring));
+                    hub_utf8_copy(parsed.tasks[i].source,sizeof(parsed.tasks[i].source),
+                        (const uint8_t *)source->valuestring,strlen(source->valuestring));
+                    hub_utf8_copy(parsed.tasks[i].due,sizeof(parsed.tasks[i].due),
+                        (const uint8_t *)due->valuestring,strlen(due->valuestring));
+                    parsed.task_count++;
+                }
+                if(valid && parsed.summary[0]) {
+                    parsed.processed_through=batch->through_sequence;
+                    parsed.day_tag=batch->day_tag;
+                    unsigned cumulative=(unsigned)(use_prior?prior->included:0)+(unsigned)count;
+                    parsed.included=(uint16_t)(cumulative>65535u?65535u:cumulative);
+                    parsed.hidden=false;
+                    parsed.cleared=false;
+                    *out=parsed;
+                    ok=true;
+                }
+            }
+            cJSON_Delete(document);
         }
         cJSON_Delete(answer);
     }

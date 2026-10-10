@@ -432,11 +432,13 @@ static bool record_expired(const hub_archive_record_t *row,uint32_t now,
            row->elapsed_seconds<=now && now-row->elapsed_seconds>=age_seconds;
 }
 
-bool hub_archive_expire(hub_archive_t *db,uint32_t now_epoch,
-                        uint16_t retention_days,uint32_t *removed_rows) {
+static bool compact_archive(hub_archive_t *db,uint32_t now_epoch,
+                         uint16_t retention_days,uint32_t *removed_rows,
+                         bool prune_committed) {
     if(removed_rows) *removed_rows=0;
     if(!db || !db->mounted || db->failed || !db->file ||
-       now_epoch<1700000000u || retention_days<1 || retention_days>365)
+       (!prune_committed && now_epoch<1700000000u) ||
+       retention_days<1 || retention_days>365)
         return false;
     uint32_t age_seconds=(uint32_t)retention_days*86400u;
     uint32_t expired=0,retained_cursor=0;
@@ -447,7 +449,8 @@ bool hub_archive_expire(hub_archive_t *db,uint32_t now_epoch,
         if(fread(&row,sizeof(row),1,db->file)!=1 || !valid(&row) || row.sequence!=i+1) {
             db->failed=true;return false;
         }
-        if(record_expired(&row,now_epoch,age_seconds)) expired++;
+        if((prune_committed && row.sequence<=old_cursor) ||
+           record_expired(&row,now_epoch,age_seconds)) expired++;
         else if(row.sequence<=old_cursor) retained_cursor++;
     }
     if(!expired) return true;
@@ -460,7 +463,8 @@ bool hub_archive_expire(hub_archive_t *db,uint32_t now_epoch,
     for(uint32_t i=0;i<db->rows && ok;i++) {
         if(fread(&row,sizeof(row),1,db->file)!=1 || !valid(&row) || row.sequence!=i+1)
             {ok=false;break;}
-        if(record_expired(&row,now_epoch,age_seconds)) continue;
+        if((prune_committed && row.sequence<=old_cursor) ||
+           record_expired(&row,now_epoch,age_seconds)) continue;
         row.sequence=++kept;
         row.checksum=checksum(&row);
         ok=fwrite(&row,sizeof(row),1,compacted)==1;
@@ -507,6 +511,13 @@ bool hub_archive_expire(hub_archive_t *db,uint32_t now_epoch,
     return true;
 }
 
+bool hub_archive_expire(hub_archive_t *db,uint32_t now_epoch,
+                        uint16_t retention_days,uint32_t *removed_rows) {
+    return compact_archive(db,now_epoch,retention_days,removed_rows,false);
+}
+bool hub_archive_prune_processed(hub_archive_t *db,uint32_t *removed_rows) {
+    return compact_archive(db,1700000000u,365,removed_rows,true);
+}
 #define DIGEST_MAGIC 0x534D4D59u
 typedef struct {
     uint32_t magic;
@@ -524,19 +535,10 @@ static uint32_t digest_hash(const stored_digest_t *d) {
         h=(h ^ p[i])*16777619u;
     return h;
 }
-static bool digest_writable(void) {
-    FILE *f=fopen(DIGEST_PATH,"rb");
-    if(!f) return errno==ENOENT;
-    bool ok=fseek(f,0,SEEK_END)==0;
-    long size=ok?ftell(f):-1;
-    if(fclose(f)!=0) ok=false;
-    return ok && size>=0 && size%(long)sizeof(stored_digest_t)==0 &&
-           (unsigned long)size+sizeof(stored_digest_t)<=HUB_ARCHIVE_DIGEST_BYTES;
-}
 bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,uint8_t max_count,
                                hub_ai_batch_t *out) {
     if(!db || !db->mounted || db->failed || !out || max_count==0 ||
-       max_count>HUB_AI_MAX_BATCH || !digest_writable()) return false;
+       max_count>HUB_AI_MAX_BATCH) return false;
     memset(out,0,sizeof(*out));
     out->after_sequence=cursor;
     /* Open verifies sequence == slot+1. Start at the checkpoint in O(1),
@@ -554,8 +556,8 @@ bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,uint8_t max_cou
         }
         uint16_t day=hub_ai_day_tag(r.reserved==HUB_ARCHIVE_TIME_EPOCH?
                                      r.elapsed_seconds:hub_ai_current_epoch());
-        if(out->count && out->day_tag && day && day!=out->day_tag) break;
-        if(!out->day_tag) out->day_tag=day;
+        /* Rolling state remains active across midnight. */
+        if(day) out->day_tag=day;
         out->through_sequence=r.sequence;
         uint8_t i=out->count++;
         out->items[i].sequence=r.sequence;
@@ -568,30 +570,75 @@ bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,uint8_t max_cou
     }
     return true;
 }
-bool hub_archive_save_digest(hub_archive_t *db,const hub_ai_digest_t *summary) {
-    if(!db || !db->mounted || db->failed || !summary ||
-       !summary->summary[0] || !memchr(summary->summary,0,sizeof(summary->summary)))
-        return false;
-    stored_digest_t d={.magic=DIGEST_MAGIC,
-        .processed_through=summary->processed_through,
-        .included=summary->included,.version=summary->day_tag?summary->day_tag:1};
-    snprintf(d.text,sizeof(d.text),"%s",summary->summary);
-    d.checksum=digest_hash(&d);
-    FILE *file=fopen(DIGEST_PATH,"ab+");
-    if(!file) return false;
-    if(fseek(file,0,SEEK_END)!=0) {fclose(file);return false;}
-    long size=ftell(file);
-    /* Do not append after a torn write: all later records would be misaligned. */
-    if(size<0 || size%(long)sizeof(d)!=0 ||
-       (unsigned long)size+sizeof(d)>HUB_ARCHIVE_DIGEST_BYTES) {
-        fclose(file);return false;
-    }
-    bool ok=fwrite(&d,sizeof(d),1,file)==1 && sync_file(file);
-    if(fclose(file)!=0) ok=false;
-    if(!ok) ESP_LOGE(TAG,"AI digest couldn't be saved to Flash");
+
+/* Dual-slot generation journal: fsync the next slot before replacing the
+ * previous good slot. FAT 8.3 filenames are intentional. */
+#define ACTIVE_MAGIC 0x32474844u
+#define ACTIVE_VERSION 2u
+#define ACTIVE_SLOT0 "/archive/sum0.dat"
+#define ACTIVE_SLOT1 "/archive/sum1.dat"
+typedef struct {
+    uint32_t magic,version,generation;
+    hub_ai_digest_t digest;
+    uint32_t checksum;
+} active_record_t;
+static uint32_t active_hash(const active_record_t *r) {
+    const uint8_t *p=(const uint8_t *)r;
+    uint32_t h=2166136261u;
+    for(size_t i=0;i<offsetof(active_record_t,checksum);i++)
+        h=(h^p[i])*16777619u;
+    return h;
+}
+static bool read_slot(const char *path,active_record_t *r) {
+    FILE *f=fopen(path,"rb");
+    if(!f)return false;
+    bool ok=fread(r,sizeof(*r),1,f)==1;
+    if(ok && fgetc(f)!=EOF)ok=false;
+    if(fclose(f)!=0)ok=false;
+    if(!ok || r->magic!=ACTIVE_MAGIC || r->version!=ACTIVE_VERSION ||
+       !r->generation || r->checksum!=active_hash(r) ||
+       r->digest.task_count>HUB_AI_TASK_LIMIT ||
+       !memchr(r->digest.summary,0,sizeof(r->digest.summary)))return false;
+    for(uint8_t i=0;i<r->digest.task_count;i++)
+        if(!memchr(r->digest.tasks[i].task,0,HUB_AI_TASK_BYTES) ||
+           !memchr(r->digest.tasks[i].source,0,HUB_AI_SOURCE_BYTES) ||
+           !memchr(r->digest.tasks[i].due,0,HUB_AI_DUE_BYTES))return false;
+    return true;
+}
+static bool latest_active(hub_ai_digest_t *out,uint32_t *generation) {
+    static active_record_t slot0,slot1;
+    bool a=read_slot(ACTIVE_SLOT0,&slot0),b=read_slot(ACTIVE_SLOT1,&slot1);
+    if(!a && !b)return false;
+    const active_record_t *best=a && (!b || slot0.generation>slot1.generation)?
+        &slot0:&slot1;
+    if(out)*out=best->digest;
+    if(generation)*generation=best->generation;
+    return true;
+}
+static bool write_active(const hub_ai_digest_t *d) {
+    if(!d || d->task_count>HUB_AI_TASK_LIMIT ||
+       (!d->cleared && !d->summary[0]))return false;
+    uint32_t gen=0;
+    (void)latest_active(NULL,&gen);
+    if(gen==UINT32_MAX)return false;
+    static active_record_t record;
+    memset(&record,0,sizeof(record));
+    record.magic=ACTIVE_MAGIC;
+    record.version=ACTIVE_VERSION;
+    record.generation=gen+1u;
+    record.digest=*d;
+    record.checksum=active_hash(&record);
+    FILE *f=fopen((record.generation&1u)?ACTIVE_SLOT1:ACTIVE_SLOT0,"wb");
+    if(!f)return false;
+    bool ok=fwrite(&record,sizeof(record),1,f)==1 && sync_file(f);
+    if(fclose(f)!=0)ok=false;
+    if(ok)(void)unlink_if_present(DIGEST_PATH);
     return ok;
 }
-bool hub_archive_last_digest(hub_archive_t *db,hub_ai_digest_t *out) {
+bool hub_archive_save_digest(hub_archive_t *db,const hub_ai_digest_t *summary) {
+    return db && db->mounted && !db->failed && write_active(summary);
+}
+static bool hub_archive_legacy_digest(hub_archive_t *db,hub_ai_digest_t *out) {
     if(!db || !db->mounted || !out) return false;
     FILE *file=fopen(DIGEST_PATH,"rb");
     if(!file) return false;
@@ -617,6 +664,32 @@ bool hub_archive_last_digest(hub_archive_t *db,hub_ai_digest_t *out) {
     return ok;
 }
 
+
+uint32_t hub_archive_digest_revision(hub_archive_t *db) {
+    uint32_t gen=0;
+    if(db && db->mounted && !db->failed)(void)latest_active(NULL,&gen);
+    return gen;
+}
+bool hub_archive_last_digest(hub_archive_t *db,hub_ai_digest_t *out) {
+    if(!db || !db->mounted || db->failed || !out)return false;
+    if(latest_active(out,NULL))return !out->cleared && out->summary[0];
+    return hub_archive_legacy_digest(db,out);
+}
+bool hub_archive_hide_digest(hub_archive_t *db) {
+    hub_ai_digest_t d;
+    if(!hub_archive_last_digest(db,&d))return false;
+    d.hidden=true;
+    return write_active(&d);
+}
+bool hub_archive_ack_digest(hub_archive_t *db) {
+    if(!db || !db->mounted || db->failed)return false;
+    hub_ai_digest_t d={0};
+    (void)hub_archive_last_digest(db,&d);
+    memset(d.summary,0,sizeof(d.summary));
+    memset(d.tasks,0,sizeof(d.tasks));
+    d.task_count=0;d.included=0;d.cleared=true;d.hidden=false;
+    return write_active(&d);
+}
 bool hub_archive_initialize(hub_archive_t *db,bool confirmed) {
     if(!confirmed || !db || !db->failed || db->mounted) return false;
     const esp_partition_t *p=esp_partition_find_first(

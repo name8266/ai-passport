@@ -84,7 +84,8 @@ typedef struct {
 typedef struct { bsp_btn_t btn; bsp_btn_ev_t ev; uint32_t remote_id; } button_t;
 static QueueHandle_t remote_button_replies;
 static uint32_t remote_button_id;
-typedef enum { ARCHIVE_SAVE=1, ARCHIVE_GROUP=2, ARCHIVE_RECORD=3, ARCHIVE_AI_LAST=4, ARCHIVE_INITIALIZE=5, ARCHIVE_CLEAR=6 } archive_job_kind_t;
+typedef enum { ARCHIVE_SAVE=1, ARCHIVE_GROUP=2, ARCHIVE_RECORD=3, ARCHIVE_AI_LAST=4, ARCHIVE_INITIALIZE=5, ARCHIVE_CLEAR=6,
+               ARCHIVE_AI_ACK=7, ARCHIVE_AI_HIDE=8 } archive_job_kind_t;
 typedef struct {
     archive_job_kind_t kind;
     char app[HUB_APP_BYTES];
@@ -115,6 +116,7 @@ typedef struct {
     uint32_t id;
     uint32_t after_sequence;
     uint8_t max_records;
+    uint32_t expected_revision;
     hub_ai_digest_t digest;
 } ai_archive_req_t;
 typedef struct {
@@ -123,6 +125,8 @@ typedef struct {
     hub_ai_batch_t batch;
     hub_ai_digest_t prior;
     bool has_prior;
+    uint32_t revision;
+    uint32_t committed_cursor;
 } ai_archive_resp_t;
 typedef struct {uint32_t id,before_slot;} web_archive_request_t;
 
@@ -139,6 +143,7 @@ static QueueHandle_t ai_requests, ai_replies;
 static volatile bool ai_configured, ai_online, ai_enabled, ai_busy;
 static volatile bool ai_failed;
 static volatile bool ai_run_now;
+static volatile bool digest_auto_show;
 static hub_ai_digest_t latest_digest;
 static bool latest_digest_ready;
 
@@ -286,26 +291,40 @@ static void handle_ai_archive_request(const ai_archive_req_t *request) {
     ai_archive_resp_t *reply=&ai_response;
     memset(reply,0,sizeof(*reply));reply->kind=request->kind;
     if(request->kind==AI_LOAD_BATCH) {
+        reply->revision=hub_archive_digest_revision(&archive_database);
         reply->success=hub_archive_collect_since(&archive_database,
-                    request->after_sequence,request->max_records,&reply->batch);
-        if(reply->success && reply->batch.count && reply->batch.day_tag &&
-           hub_archive_last_digest(&archive_database,&reply->prior) &&
-           reply->prior.day_tag==reply->batch.day_tag &&
-           reply->prior.processed_through<=request->after_sequence)
+                     request->after_sequence,request->max_records,&reply->batch);
+        if(reply->success && reply->batch.count &&
+           hub_archive_last_digest(&archive_database,&reply->prior))
             reply->has_prior=true;
-        /* Metadata carries no body to summarize. A later detail is appended at
-         * a new sequence, so skipping a metadata-only tail cannot lose it. */
+        /* Metadata-only snapshots are not message bodies. The detail
+         * attributes arrive as new preview records and are never skipped. */
         if(reply->success && !reply->batch.count &&
            reply->batch.through_sequence>request->after_sequence)
             reply->success=hub_ai_advance_cursor(reply->batch.through_sequence);
     }else if(request->kind==AI_STORE_DIGEST) {
-        /* Commit summary bytes before advancing the NVS checkpoint. */
-        reply->success=hub_archive_save_digest(&archive_database,&request->digest);
+        /* An ACK/HIDE during HTTPS increments revision. Reject stale work. */
+        reply->success=request->expected_revision==
+            hub_archive_digest_revision(&archive_database);
+        if(reply->success)
+            reply->success=hub_archive_save_digest(&archive_database,&request->digest);
         if(reply->success)
             reply->success=hub_ai_advance_cursor(request->digest.processed_through);
         if(reply->success) {
+            /* Never prune before the new context and checkpoint are durable. */
+            uint32_t removed=0;
+            if(!hub_archive_prune_processed(&archive_database,&removed)) {
+                ESP_LOGW(TAG,"Processed notification cleanup deferred");
+                archive_error=archive_database.failed;
+            } else {
+                archive_full=archive_database.full;
+                ESP_LOGI(TAG,"Reclaimed %lu processed archive rows",
+                         (unsigned long)removed);
+            }
+            reply->committed_cursor=hub_ai_read_cursor();
             archive_job_t ui_request={.kind=ARCHIVE_AI_LAST};
             (void)post_job(&ui_request);
+            digest_auto_show=true;
         }
     }
     if(ai_replies) (void)xQueueOverwrite(ai_replies,&request->id);
@@ -340,12 +359,13 @@ static void ai_task(void *arg) {
             if(hub_ai_fetch_settings(&conn,&settings)) {
                 ai_online=true;
                 if(settings.enabled && !was_enabled)
-                    next_run=now+settings.interval_minutes*60;
+                    next_run=now+10;
                 ai_enabled=settings.enabled;
             }else ai_online=false;
             next_config=now+60;
         }
         if(archive_loaded && !archive_error && ai_online && settings.enabled && (ai_run_now || now>=next_run)) {
+            bool force_run=ai_run_now;
             ai_run_now=false;
             ai_busy=true;
             ai_failed=false;
@@ -356,8 +376,8 @@ static void ai_task(void *arg) {
                 static ai_archive_req_t operation;
                 operation=(ai_archive_req_t){.kind=AI_LOAD_BATCH,
                     .id=++ai_operation_id,.after_sequence=cursor,
-                    .max_records=(uint8_t)(settings.max_records<HUB_AI_MAX_BATCH?
-                                         settings.max_records:HUB_AI_MAX_BATCH)};
+                    .max_records=(uint8_t)(settings.max_records<HUB_AI_TRIGGER_COUNT?
+                                         HUB_AI_TRIGGER_COUNT:settings.max_records)};
                 if(xQueueSend(ai_requests,&operation,pdMS_TO_TICKS(1000))!=pdTRUE)
                     {ai_failed=true;break;}
                 ai_archive_resp_t *response=&ai_response;
@@ -366,6 +386,10 @@ static void ai_task(void *arg) {
                     ai_failed=true;break;
                 }
                 if(response->batch.count==0) {pending_more=false;break;}
+                if(response->batch.count<HUB_AI_TRIGGER_COUNT && !force_run) {
+                    pending_more=false;break;
+                }
+                uint32_t prior_revision=response->revision;
                 static hub_ai_digest_t result;
                 if(!hub_ai_summarize_context(&conn,&settings,&response->batch,
                        response->has_prior?&response->prior:NULL,&result)) {
@@ -373,13 +397,15 @@ static void ai_task(void *arg) {
                 }
                 /* xQueueSend copies the complete request; reuse the LOAD
                  * scratch buffer for STORE after its reply has arrived. */
-                operation=(ai_archive_req_t){.kind=AI_STORE_DIGEST,.id=++ai_operation_id,.digest=result};
+                operation=(ai_archive_req_t){.kind=AI_STORE_DIGEST,.id=++ai_operation_id,
+                    .expected_revision=prior_revision,.digest=result};
                 if(xQueueSend(ai_requests,&operation,pdMS_TO_TICKS(1000))!=pdTRUE ||
                    !receive_ai_completion(operation.id,8000) ||
                    response->kind!=AI_STORE_DIGEST || !response->success) {
                     ai_failed=true;break;
                 }
-                cursor=result.processed_through;
+                cursor=response->committed_cursor;
+                force_run=false;
                 processed_batches++;
                 pending_more=true;
                 vTaskDelay(pdMS_TO_TICKS(2000));
@@ -387,9 +413,7 @@ static void ai_task(void *arg) {
             now=esp_timer_get_time()/1000000;
             /* Throttle burst costs. Backlog stays on device and is handled
              * in later windows, with NVS cursor unchanged after failures. */
-            next_run=now+(ai_failed?120:
-                     pending_more && processed_batches==4?60:
-                     settings.interval_minutes*60);
+            next_run=now+(ai_failed?120:10);
             ESP_LOGI(TAG,"AI window: batches=%d failed=%d backlog=%d capture_queue=%u",
                      processed_batches,ai_failed,pending_more,
                      (unsigned)uxQueueMessagesWaiting(archive_captures));
@@ -544,6 +568,16 @@ static void archive_task(void *arg) {
             continue;
         }
         if(!ok) continue;
+        if(job.kind==ARCHIVE_AI_ACK || job.kind==ARCHIVE_AI_HIDE) {
+            bool done=job.kind==ARCHIVE_AI_ACK?
+                hub_archive_ack_digest(&archive_database):
+                hub_archive_hide_digest(&archive_database);
+            if(done) {
+                archive_job_t refresh={.kind=ARCHIVE_AI_LAST};
+                (void)post_job(&refresh);
+            }
+            continue;
+        }
         {
             static archive_reply_t reply;
             memset(&reply,0,sizeof(reply));
@@ -739,8 +773,19 @@ static void render(void) {
                 latest_digest.day_tag==hub_ai_day_tag(hub_ai_current_epoch()))
             hub_ui_set_text_fmt(page_no,"今日已分析 %u 条",(unsigned)latest_digest.included);
         else hub_ui_set_text(page_no,"最近一次综合摘要");
-        hub_ui_set_text(body_text,latest_digest_ready?latest_digest.summary:!ai_enabled?"智能摘要尚未开启。\n\n在网页设置中开启。":ai_failed?"摘要失败，请检查网络或存档。":"等待下一次摘要");
-        hub_ui_set_text(help_text,"上下滚动  长按下重新总结");
+        static char digest_text[1440];
+        if(latest_digest_ready) {
+            size_t at=(size_t)snprintf(digest_text,sizeof(digest_text),"%s",latest_digest.summary);
+            if(at>=sizeof(digest_text)) at=sizeof(digest_text)-1;
+            for(uint8_t i=0;i<latest_digest.task_count && i<3;i++) {
+                int n=snprintf(digest_text+at,sizeof(digest_text)-at,
+                               "\n待办：%s",latest_digest.tasks[i].task);
+                if(n<0 || (size_t)n>=sizeof(digest_text)-at) break;
+                at+=(size_t)n;
+            }
+        }
+        hub_ui_set_text(body_text,latest_digest_ready?digest_text:!ai_enabled?"智能摘要尚未开启。\n\n在网页设置中开启。":ai_failed?"摘要失败，请检查网络或存档。":"等待3条新通知");
+        hub_ui_set_text(help_text,"确认=已读清除  长按确认=关闭");
     }else if(view_mode==VIEW_GROUPS) {
         if(!visible_group_count) {
             hub_ui_set_text(page_no,"全部通知");
@@ -825,6 +870,10 @@ static void refresh(lv_timer_t *timer) {
             if(view_mode==VIEW_GROUPS) {
                 view_mode=VIEW_CONFIG;
             }else if(view_mode==VIEW_DIGEST || view_mode==VIEW_CONFIG) {
+                if(view_mode==VIEW_DIGEST) {
+                    archive_job_t hide={.kind=ARCHIVE_AI_HIDE};
+                    (void)post_job(&hide);
+                }
                 view_mode=VIEW_LIST;selected_app[0]=0;record_cursor=0;
                 selected_record_valid=false;request_record();
             } else if(view_mode==VIEW_DETAIL) view_mode=VIEW_LIST;
@@ -834,7 +883,13 @@ static void refresh(lv_timer_t *timer) {
             }
         }else if(btn.ev==BSP_BTN_CLICK) {
             if(btn.btn==BSP_BTN_OK) {
-                if(view_mode==VIEW_GROUPS && visible_group_count && !group_pending) {
+                if(view_mode==VIEW_DIGEST) {
+                    archive_job_t ack={.kind=ARCHIVE_AI_ACK};
+                    (void)post_job(&ack);
+                    latest_digest_ready=false;
+                    view_mode=VIEW_LIST;selected_app[0]=0;record_cursor=0;
+                    selected_record_valid=false;request_record();
+                } else if(view_mode==VIEW_GROUPS && visible_group_count && !group_pending) {
                     view_mode=VIEW_LIST; record_cursor=0;
                     selected_record_valid=false;request_record();
                 } else if(view_mode==VIEW_LIST && selected_record_valid) {
@@ -857,6 +912,12 @@ static void refresh(lv_timer_t *timer) {
                 }
             }
         }
+    }
+    if(digest_auto_show && !archive_initializing) {
+        digest_auto_show=false;
+        view_mode=VIEW_DIGEST;
+        archive_job_t latest={.kind=ARCHIVE_AI_LAST};
+        (void)post_job(&latest);
     }
     int64_t now=esp_timer_get_time();
     if(archive_loaded && now>=next_summary_request) {

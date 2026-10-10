@@ -66,12 +66,19 @@ int main(void) {
     hub_ai_digest_t digest={.processed_through=3,.included=2,
         .day_tag=hub_ai_day_tag(2000000000u)};strcpy(digest.summary,"saved");
     assert(hub_archive_save_digest(&db,&digest));
-    FILE *f=fopen(DIGEST_PATH,"ab");assert(f);fputc(1,f);fclose(f);
-    assert(!hub_archive_save_digest(&db,&digest));
-    assert(!hub_archive_collect_since(&db,0,8,&batch));
-    memset(&digest,0,sizeof(digest));assert(hub_archive_last_digest(&db,&digest));
-    assert(!strcmp(digest.summary,"saved"));
-    assert(digest.day_tag==hub_ai_day_tag(2000000000u));
+    assert(hub_archive_digest_revision(&db)==1);
+    assert(hub_archive_hide_digest(&db));
+    hub_ai_digest_t restored;
+    assert(hub_archive_last_digest(&db,&restored) && restored.hidden);
+    assert(hub_archive_ack_digest(&db));
+    assert(!hub_archive_last_digest(&db,&restored));
+    assert(hub_archive_digest_revision(&db)==3);
+    assert(hub_archive_save_digest(&db,&digest));
+    FILE *f=fopen(ACTIVE_SLOT1,"ab");assert(f);fputc(1,f);fclose(f);
+    /* Corrupt the older slot: the new checksummed generation still wins. */
+    assert(hub_archive_last_digest(&db,&restored));
+    assert(!strcmp(restored.summary,"saved"));
+    assert(restored.day_tag==hub_ai_day_tag(2000000000u));
     fclose(db.file);f=fopen(HUB_ARCHIVE_PATH,"ab");assert(f);fputc(1,f);fclose(f);
     assert(!hub_archive_open(&db,3) && db.failed);fclose(db.file);
     test_blank=false;test_mount_error=true;
@@ -146,12 +153,16 @@ int main(void) {
     preview.uid=999;assert(hub_archive_capture(&db,&preview));
     assert(hub_archive_get_record(&db,"example.app",0,&got) && got.sequence==1002);
     digest=(hub_ai_digest_t){.processed_through=1002};strcpy(digest.summary,"bounded");
-    unsigned saved=0;while(hub_archive_save_digest(&db,&digest)) saved++;
-    assert(saved>0 && saved<512);
+    for(unsigned i=0;i<48;i++)assert(hub_archive_save_digest(&db,&digest));
     assert(hub_archive_last_digest(&db,&digest) && !strcmp(digest.summary,"bounded"));
-    assert(!hub_archive_collect_since(&db,0,8,&batch));
-    puts("500 notifications / 1000 snapshots: AI scan 1000 reads in 63 batches; bidirectional browsing linear; digest capacity blocks new API work: PASS");
-    assert(unlink(DIGEST_PATH)==0);
+    assert(hub_archive_digest_revision(&db)>48);
+    FILE *state_file=fopen(ACTIVE_SLOT0,"rb");assert(state_file);
+    assert(fseek(state_file,0,SEEK_END)==0);
+    assert(ftell(state_file)==(long)sizeof(active_record_t));
+    assert(fclose(state_file)==0);
+    puts("Rolling digest two-slot durability, bounded Flash, read/hide and JSON-ready task state: PASS");
+    assert(unlink(ACTIVE_SLOT0)==0);
+    assert(unlink(ACTIVE_SLOT1)==0);
     fclose(db.file);
     assert(unlink(HUB_ARCHIVE_PATH)==0);
     assert(hub_archive_open(&db,101));
@@ -212,7 +223,7 @@ int main(void) {
     assert(hub_archive_expire(&db,now,30,&removed));
     assert(removed==1 && db.rows==rows_before+1);
     assert(cursor_updates==1 && test_cursor==rows_before);
-    assert(!hub_archive_last_digest(&db,&digest));
+    assert(hub_archive_last_digest(&db,&digest) && !strcmp(digest.summary,"stale summary"));
     uint8_t count=0;uint32_t next=0;bool older=false;
     hub_archive_record_t recent[HUB_ARCHIVE_WEB_PAGE_SIZE];
     assert(hub_archive_get_recent(&db,UINT32_MAX,HUB_ARCHIVE_WEB_PAGE_SIZE,
@@ -240,7 +251,10 @@ int main(void) {
     assert(hub_archive_get_recent(&db,UINT32_MAX,HUB_ARCHIVE_WEB_PAGE_SIZE,
                                   recent,&count,&next,&older));
     assert(count==HUB_ARCHIVE_WEB_PAGE_SIZE && !strcmp(recent[0].title,"recent"));
-    puts("30-day retention preserves unknown/recent records, clears stale digest, and recovers an interrupted journal swap: PASS");
+    puts("30-day retention preserves unread records and rolling digest; compaction power-loss recovery: PASS");
+    assert(hub_archive_prune_processed(&db,&removed));
+    assert(removed==rows_before && db.rows==1 && test_cursor==0);
+    assert(hub_archive_last_digest(&db,&digest) && !strcmp(digest.summary,"stale summary"));
     fclose(db.file);
     assert(unlink(HUB_ARCHIVE_PATH)==0);
     assert(chdir("/")==0);assert(rmdir(dir)==0);
