@@ -18,11 +18,15 @@
 #include "hub_sound.h"
 #include "esp_timer.h"
 #include "nvs_flash.h"
+#if CONFIG_BT_NIMBLE_ENABLED
+#include "hub_ble_nimble.h"
+#else
 #include "esp_bt.h"
 #include "esp_bt_main.h"
 #include "esp_gap_ble_api.h"
 #include "esp_gattc_api.h"
 #include "esp_gatt_common_api.h"
+#endif
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
@@ -49,6 +53,7 @@ static void hub_log_memory(const char *phase) {
 }
 #define HUB_LIMIT 8
 #define INVALID 0
+#if !CONFIG_BT_NIMBLE_ENABLED
 /* UUIDs in Bluetooth little-endian wire order. */
 static const uint8_t ancs_service[16]=
   {0xD0,0x00,0x2D,0x12,0x1E,0x4B,0x0F,0xA4,0x99,0x4E,0xCE,0xB5,0x31,0xF4,0x05,0x79};
@@ -75,6 +80,7 @@ static esp_ble_adv_params_t adv_params={
     .channel_map=ADV_CHNL_ALL,
     .adv_filter_policy=ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY
 };
+#endif
 
 typedef struct {
     uint32_t uid;
@@ -183,10 +189,12 @@ static uint32_t passkey;
 static volatile bool paired, ready, connected, ble_failed;
 static volatile bool archive_initializing;
 static volatile uint8_t archive_clear_status;
+#if !CONFIG_BT_NIMBLE_ENABLED
 static esp_gatt_if_t gatt_interface=ESP_GATT_IF_NONE;
 static uint16_t conn_id, start_handle, end_handle, notification_handle, data_handle;
 static uint16_t control_handle, notify_cccd, data_cccd;
 static esp_bd_addr_t phone_address;
+#endif
 static hub_decoder_t decoder;
 
 bool hub_ai_archive_clear_request(void) {
@@ -229,7 +237,9 @@ static bool provide_web_dashboard(uint32_t before_slot,hub_web_dashboard_t *out)
 static bool requesting;
 static hub_backlog_t pending_details;
 static uint32_t capture_session;
+#if !CONFIG_BT_NIMBLE_ENABLED
 static bool mtu_ready, discovery_started;
+#endif
 static portMUX_TYPE deadline_lock=portMUX_INITIALIZER_UNLOCKED;
 static int64_t request_deadline;
 static esp_timer_handle_t request_watchdog;
@@ -240,12 +250,16 @@ static void set_request_deadline(int64_t deadline) {
 }
 static void check_request_timeout(void *unused) {
     (void)unused;
-    esp_bd_addr_t address;
     bool expired=false;
+#if !CONFIG_BT_NIMBLE_ENABLED
+    esp_bd_addr_t address;
+#endif
     portENTER_CRITICAL(&deadline_lock);
     if(request_deadline && esp_timer_get_time()>=request_deadline) {
         request_deadline=0;
+#if !CONFIG_BT_NIMBLE_ENABLED
         memcpy(address,phone_address,sizeof(address));
+#endif
         expired=true;
     }
     portEXIT_CRITICAL(&deadline_lock);
@@ -253,10 +267,16 @@ static void check_request_timeout(void *unused) {
         archive_dropped=true;
         /* ANCS fragments have no framing to safely skip an incomplete reply.
          * Reconnect instead of interpreting late fragments as the next UID. */
+#if CONFIG_BT_NIMBLE_ENABLED
+        hub_ble_nimble_disconnect();
+#else
         (void)esp_ble_gap_disconnect(address);
+#endif
     }
 }
+#if !CONFIG_BT_NIMBLE_ENABLED
 static int stage;
+#endif
 static uint32_t received_count;
 
 static bool post_job(const archive_job_t *job) {
@@ -726,9 +746,11 @@ static void archive_task(void *arg) {
         }
     }
 }
+#if !CONFIG_BT_NIMBLE_ENABLED
 static bool uuid_is(const esp_bt_uuid_t *u,const uint8_t *v) {
     return u->len==ESP_UUID_LEN_128 && memcmp(u->uuid.uuid128,v,16)==0;
 }
+#endif
 static void item_event(uint8_t type,const item_t *item) {
     if((type==0 || type==3) && item && !archive_initializing) {
         /* A source event is committed before waiting for detailed attributes.
@@ -741,11 +763,13 @@ static void item_event(uint8_t type,const item_t *item) {
 }
 static void reset_session(void) {
     ready=false; paired=false; connected=false;
-    mtu_ready=false;discovery_started=false;
     set_request_deadline(0);
-    requesting=false; pending_details=(hub_backlog_t){0}; stage=0;
+    requesting=false; pending_details=(hub_backlog_t){0};
+#if !CONFIG_BT_NIMBLE_ENABLED
+    mtu_ready=false;discovery_started=false;stage=0;
     start_handle=end_handle=notification_handle=data_handle=control_handle=0;
     notify_cccd=data_cccd=0;
+#endif
     hub_decoder_begin(&decoder,0);
     /* Do NOT clear or delete previously captured notifications. */
 }
@@ -1054,7 +1078,10 @@ static void on_button(bsp_btn_t btn,bsp_btn_ev_t ev,void *unused) {
 }
 static void request_next(void);
 static void get_details(uint32_t uid) {
-    if(!ready || !control_handle || !paired) return;
+    if(!ready || !paired) return;
+#if !CONFIG_BT_NIMBLE_ENABLED
+    if(!control_handle)return;
+#endif
     if(requesting) {
         if(!hub_backlog_push(&pending_details,uid))
             archive_dropped=true;
@@ -1068,9 +1095,13 @@ static void get_details(uint32_t uid) {
     uint8_t request[12];
     memcpy(request,cmd,sizeof(cmd));
     request[11]=0;
+#if CONFIG_BT_NIMBLE_ENABLED
+    if(hub_ble_nimble_request_details(request,sizeof(request))) {
+#else
     if(esp_ble_gattc_write_char(gatt_interface,conn_id,control_handle,
            sizeof(request),request,ESP_GATT_WRITE_TYPE_RSP,
            ESP_GATT_AUTH_REQ_MITM)==ESP_OK) {
+#endif
         requesting=true;
         set_request_deadline(esp_timer_get_time()+15000000);
         hub_decoder_begin(&decoder,uid);
@@ -1082,6 +1113,54 @@ static void request_next(void) {
     uint32_t uid;
     if(ready && hub_backlog_pop(&pending_details,&uid)) get_details(uid);
 }
+#if CONFIG_BT_NIMBLE_ENABLED
+/* The light host owns transport; all archive, ANCS decoder and retry rules
+ * are shared with the legacy proven business logic above. */
+static void nimble_link(bool connected_now,bool paired_now,
+                        bool ready_now,uint32_t pairing_code) {
+    if(!connected_now) {
+        reset_session();
+        return;
+    }
+    if(!connected) {
+        reset_session();
+        capture_session=esp_random();
+    }
+    connected=connected_now;
+    paired=paired_now;
+    ready=ready_now;
+    passkey=pairing_code;
+}
+static void nimble_source(const uint8_t *bytes,uint16_t length) {
+    if(!ready || !paired)return;
+    hub_event_t evt;
+    if(!hub_event_parse(bytes,length,&evt))return;
+    hub_sound_notify(evt.event,evt.flags);
+    item_t item={.uid=evt.uid,.category=evt.category};
+    if(evt.event==2) {
+        hub_backlog_remove(&pending_details,evt.uid);
+        item_event(1,&item);
+    }else {
+        snprintf(item.app,sizeof(item.app),"%s",category_name(evt.category));
+        strcpy(item.title,"新通知");
+        item_event(0,&item);
+        get_details(evt.uid);
+    }
+}
+static void nimble_data(const uint8_t *bytes,uint16_t length) {
+    if(!ready || !paired || !requesting)return;
+    hub_notice_t notice;
+    if(hub_decoder_feed(&decoder,bytes,length,&notice)) {
+        item_t item={.uid=notice.uid,.category=0};
+        memcpy(item.app,notice.app,sizeof(item.app));
+        memcpy(item.title,notice.title,sizeof(item.title));
+        memcpy(item.body,notice.body,sizeof(item.body));
+        item_event(3,&item);
+        request_next();
+    }
+}
+static void nimble_write_error(void) {request_next();}
+#else
 static bool find_cccd(uint16_t characteristic,uint16_t *handle) {
     uint16_t count=0;
     if(esp_ble_gattc_get_attr_count(gatt_interface,conn_id,ESP_GATT_DB_DESCRIPTOR,
@@ -1280,6 +1359,7 @@ static void gap_event(esp_gap_ble_cb_event_t event,esp_ble_gap_cb_param_t *p) {
         (void)esp_ble_gap_start_advertising(&adv_params);
     }
 }
+#endif /* legacy Bluedroid ANCS transport */
 void app_main(void) {
     ESP_ERROR_CHECK(bsp_i2c_init());
     ESP_ERROR_CHECK(bsp_display_init());
@@ -1312,6 +1392,13 @@ void app_main(void) {
     bsp_lvgl_unlock();
 
     hub_log_memory("before BLE");
+#if CONFIG_BT_NIMBLE_ENABLED
+    const hub_ble_callbacks_t callbacks={
+        .link=nimble_link,.source=nimble_source,.data=nimble_data,
+        .write_error=nimble_write_error
+    };
+    ESP_ERROR_CHECK(hub_ble_nimble_start(&callbacks));
+#else
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
     esp_bt_controller_config_t config=BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_bt_controller_init(&config));
@@ -1339,6 +1426,7 @@ void app_main(void) {
     ESP_ERROR_CHECK(esp_timer_create(&watchdog,&request_watchdog));
     ESP_ERROR_CHECK(esp_timer_start_periodic(request_watchdog,1000000));
     ESP_ERROR_CHECK(esp_ble_gattc_app_register(0));
+#endif
     if(xTaskCreate(archive_task,"archive_worker",4096,NULL,4,NULL)!=pdPASS) {
         archive_error=true;
         ESP_LOGE(TAG,"Could not start archive worker");

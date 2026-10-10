@@ -7,3 +7,8 @@ idf_component_register(
     REQUIRES bsp bt nvs_flash esp_timer fatfs wear_levelling esp_partition
              esp_wifi esp_netif esp_event esp_http_client esp_http_server mbedtls json
 )
+
+# Keep the legacy Bluedroid transport as a compile-time rollback option.
+if(CONFIG_BT_NIMBLE_ENABLED)
+    target_sources(${COMPONENT_LIB} PRIVATE "hub_ble_nimble.c")
+endif()

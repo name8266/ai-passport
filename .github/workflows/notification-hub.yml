@@ -91,9 +91,9 @@ jobs:
           set -euo pipefail
           mkdir -p release
           cp apps/notification-hub/firmware/build/notification-hub-full.bin \
-            "release/Passport通知中心-Public1.0.0RC1-全新安装.bin"
+            "release/Passport通知中心-Public1.0.0RC2-全新安装.bin"
           cp apps/notification-hub/firmware/build/FoloToy-AI-Passport.bin \
-            "release/Passport通知中心-Public1.0.0RC1-应用升级.bin"
+            "release/Passport通知中心-Public1.0.0RC2-应用升级.bin"
           cp "apps/notification-hub/客户安装说明.md" "release/客户安装说明.md"
           (cd release && sha256sum -- *bin > "校验值-SHA256.txt")
           python3 apps/notification-hub/tests/test_public_release.py release
@@ -101,7 +101,7 @@ jobs:
       - name: Upload public customer installation package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: Passport通知中心-Public1.0.0RC1
+          name: Passport通知中心-Public1.0.0RC2
           path: release/
           if-no-files-found: error
           retention-days: 30
