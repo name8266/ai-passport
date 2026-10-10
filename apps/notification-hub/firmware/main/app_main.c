@@ -247,12 +247,25 @@ static int stage;
 static uint32_t received_count;
 
 static bool post_job(const archive_job_t *job) {
-    if(job->kind==ARCHIVE_INITIALIZE) {
-        uint8_t command=ARCHIVE_INITIALIZE;
-        return archive_control && xQueueSend(archive_control,&command,0)==pdTRUE;
+    if(job->kind==ARCHIVE_INITIALIZE ||
+       job->kind==ARCHIVE_AI_ACK || job->kind==ARCHIVE_AI_HIDE) {
+        /* Durable user actions must never be overwritten by browse updates. */
+        uint8_t command=(uint8_t)job->kind;
+        return archive_control && xQueueSend(archive_control,&command,
+                                               pdMS_TO_TICKS(100))==pdTRUE;
     }
     /* Coalesce browse requests; they cannot occupy durable capture slots. */
     return archive_jobs && xQueueOverwrite(archive_jobs,job)==pdTRUE;
+}
+bool hub_app_ack_ai_digest(void) {
+    if(!archive_loaded || archive_initializing)return false;
+    archive_job_t job={.kind=ARCHIVE_AI_ACK};
+    return post_job(&job);
+}
+bool hub_app_hide_ai_digest(void) {
+    if(!archive_loaded || archive_initializing)return false;
+    archive_job_t job={.kind=ARCHIVE_AI_HIDE};
+    return post_job(&job);
 }
 static void request_group(int index) {
     archive_job_t request={.kind=ARCHIVE_GROUP,.ordinal=(uint32_t)index};
@@ -872,7 +885,7 @@ static void refresh(lv_timer_t *timer) {
             }else if(view_mode==VIEW_DIGEST || view_mode==VIEW_CONFIG) {
                 if(view_mode==VIEW_DIGEST) {
                     archive_job_t hide={.kind=ARCHIVE_AI_HIDE};
-                    (void)post_job(&hide);
+                    if(!post_job(&hide)) continue;
                 }
                 view_mode=VIEW_LIST;selected_app[0]=0;record_cursor=0;
                 selected_record_valid=false;request_record();
@@ -885,10 +898,11 @@ static void refresh(lv_timer_t *timer) {
             if(btn.btn==BSP_BTN_OK) {
                 if(view_mode==VIEW_DIGEST) {
                     archive_job_t ack={.kind=ARCHIVE_AI_ACK};
-                    (void)post_job(&ack);
-                    latest_digest_ready=false;
-                    view_mode=VIEW_LIST;selected_app[0]=0;record_cursor=0;
-                    selected_record_valid=false;request_record();
+                    if(post_job(&ack)) {
+                        latest_digest_ready=false;
+                        view_mode=VIEW_LIST;selected_app[0]=0;record_cursor=0;
+                        selected_record_valid=false;request_record();
+                    }
                 } else if(view_mode==VIEW_GROUPS && visible_group_count && !group_pending) {
                     view_mode=VIEW_LIST; record_cursor=0;
                     selected_record_valid=false;request_record();

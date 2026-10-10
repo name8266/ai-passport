@@ -32,6 +32,8 @@ typedef bool (*hub_web_dashboard_provider_t)(uint32_t before_slot,
 
 void hub_ai_web_set_dashboard_provider(hub_web_dashboard_provider_t provider);
 bool hub_app_request_ai_summary(void);
+bool hub_app_ack_ai_digest(void);
+bool hub_app_hide_ai_digest(void);
 
 /* Text-only mirror of current LVGL labels; never a camera/LCD pixel capture. */
 typedef struct {
