@@ -154,7 +154,7 @@ static esp_err_t settings_page(httpd_req_t *req) {
     html_input(req,"interval","兼容配置（当前每3条新通知自动总结）",number,"number","");
     put(req,"</div><div class=\"field\">");
     snprintf(number,sizeof(number),"%d",settings.max_records);
-    html_input(req,"max_records","单批最多通知数（最少3条）",number,"number","");
+    html_input(req,"max_records","旧版单批配置（公测17固定3条）",number,"number","");
     put(req,"</div><div class=\"field\">");
     html_input(req,"excluded_apps","排除的应用标识（逗号分隔）",settings.excluded_apps,"text","例如 com.example.app");
     put(req,"</div><div class=\"field\">");

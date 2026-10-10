@@ -22,6 +22,11 @@ int main(void) {
     assert(strstr(HUB_AI_SYSTEM_PROMPT,"open_items"));
     assert(strstr(HUB_AI_SYSTEM_PROMPT,"JSON"));
     assert(HUB_AI_TRIGGER_COUNT==3);
+    assert(!hub_ai_batch_ready(0,false));
+    assert(!hub_ai_batch_ready(2,false));
+    assert(hub_ai_batch_ready(3,false));
+    assert(!hub_ai_batch_ready(0,true));
+    assert(hub_ai_batch_ready(1,true));
     assert(HUB_AI_TASK_LIMIT==5);
     puts("Catalog, fixed timezone, 3-message trigger and structured digest prompt: PASS");
     return 0;

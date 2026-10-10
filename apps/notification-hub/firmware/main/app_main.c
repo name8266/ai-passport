@@ -389,8 +389,7 @@ static void ai_task(void *arg) {
                 static ai_archive_req_t operation;
                 operation=(ai_archive_req_t){.kind=AI_LOAD_BATCH,
                     .id=++ai_operation_id,.after_sequence=cursor,
-                    .max_records=(uint8_t)(settings.max_records<HUB_AI_TRIGGER_COUNT?
-                                         HUB_AI_TRIGGER_COUNT:settings.max_records)};
+                    .max_records=HUB_AI_TRIGGER_COUNT};
                 if(xQueueSend(ai_requests,&operation,pdMS_TO_TICKS(1000))!=pdTRUE)
                     {ai_failed=true;break;}
                 ai_archive_resp_t *response=&ai_response;
@@ -399,7 +398,7 @@ static void ai_task(void *arg) {
                     ai_failed=true;break;
                 }
                 if(response->batch.count==0) {pending_more=false;break;}
-                if(response->batch.count<HUB_AI_TRIGGER_COUNT && !force_run) {
+                if(!hub_ai_batch_ready(response->batch.count,force_run)) {
                     pending_more=false;break;
                 }
                 uint32_t prior_revision=response->revision;

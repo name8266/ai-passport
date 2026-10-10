@@ -257,6 +257,9 @@ int main(void) {
     assert(hub_archive_last_digest(&db,&digest) && !strcmp(digest.summary,"stale summary"));
     fclose(db.file);
     assert(unlink(HUB_ARCHIVE_PATH)==0);
+    assert(unlink_if_present(ACTIVE_SLOT0));
+    assert(unlink_if_present(ACTIVE_SLOT1));
+    assert(unlink_if_present(DIGEST_PATH));
     assert(chdir("/")==0);assert(rmdir(dir)==0);
     puts("Archive correlation, reboot reindex, torn writes, nonblank protection and explicit recovery failures: PASS");
 }

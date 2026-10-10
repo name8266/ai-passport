@@ -18,6 +18,10 @@
 #define HUB_AI_SOURCE_BYTES 32
 #define HUB_AI_DUE_BYTES 36
 #define HUB_AI_TRIGGER_COUNT 3
+/* Exactly three unprocessed previews, or any positive batch on explicit request. */
+static inline bool hub_ai_batch_ready(uint8_t count,bool manual) {
+    return count>=HUB_AI_TRIGGER_COUNT || (manual && count>0);
+}
 #define HUB_AI_DEFAULT_ENDPOINT "https://api.deepseek.com/chat/completions"
 #define HUB_AI_DEFAULT_MODEL "deepseek-flash"
 

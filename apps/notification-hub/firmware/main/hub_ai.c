@@ -306,7 +306,9 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
                summary->valuestring && summary->valuestring[0] &&
                cJSON_IsArray(items) &&
                cJSON_GetArraySize(items)<=HUB_AI_TASK_LIMIT) {
-                hub_ai_digest_t parsed={0};
+                /* Keep ~1.8 KiB of decoded state off the 8 KiB TLS worker stack. */
+                static hub_ai_digest_t parsed;
+                memset(&parsed,0,sizeof(parsed));
                 hub_utf8_copy(parsed.summary,sizeof(parsed.summary),
                     (const uint8_t *)summary->valuestring,strlen(summary->valuestring));
                 int n=cJSON_GetArraySize(items);
