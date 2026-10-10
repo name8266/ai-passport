@@ -536,6 +536,15 @@ bool hub_ai_web_start(void) {
         ESP_LOGE(TAG,"Could not register all device admin routes");
         (void)httpd_stop(server);server=NULL;return false;
     }
+    size_t remaining=heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+    size_t contiguous=heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+    if(!hub_mem_web_running_safe(remaining,contiguous)) {
+        ESP_LOGE(TAG,"Rejecting Web RAM exhaustion: free=%u largest=%u",
+                 (unsigned)remaining,(unsigned)contiguous);
+        (void)httpd_stop(server);
+        server=NULL;
+        return false;
+    }
     touch_http();
     ESP_LOGI(TAG,"Embedded admin running at http://192.168.4.1/");
     return true;

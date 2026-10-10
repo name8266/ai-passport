@@ -74,5 +74,7 @@ if len(sys.argv)>1:
         assert f.name in checks and digest in checks, f"Bad checksum entry for {f.name}"
     install=folder/"客户安装说明.md"
     assert install.exists() and "erase_flash" in install.read_text("utf-8")
+    memory_guide=folder/"RC2内存验收.md"
+    assert memory_guide.exists() and "internal_heap" in memory_guide.read_text("utf-8")
     print("Customer binaries, partition boundary, clean image, UTF-8 names and SHA256: PASS")
 print("Public source defaults, queue shape and sample-data hygiene: PASS")

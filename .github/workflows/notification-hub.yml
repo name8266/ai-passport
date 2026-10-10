@@ -98,6 +98,7 @@ jobs:
           cp apps/notification-hub/firmware/build/FoloToy-AI-Passport.bin \
             "release/Passport通知中心-Public1.0.0RC2-应用升级.bin"
           cp "apps/notification-hub/客户安装说明.md" "release/客户安装说明.md"
+          cp "apps/notification-hub/RC2内存验收.md" "release/RC2内存验收.md"
           (cd release && sha256sum -- *bin > "校验值-SHA256.txt")
           python3 apps/notification-hub/tests/test_public_release.py release
           cat "release/校验值-SHA256.txt"

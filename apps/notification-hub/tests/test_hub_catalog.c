@@ -126,6 +126,10 @@ int main(void) {
     assert(!hub_mem_allow_web(HUB_MEM_WEB_START_BYTES-1,16000));
     assert(!hub_mem_allow_web(40000,HUB_MEM_WEB_CONTIGUOUS_BYTES-1));
     assert(hub_mem_allow_web(HUB_MEM_WEB_START_BYTES,HUB_MEM_WEB_CONTIGUOUS_BYTES));
+    assert(!hub_mem_web_running_safe(200,200));
+    assert(!hub_mem_web_running_safe(HUB_MEM_WARN_BYTES-1,32000));
+    assert(!hub_mem_web_running_safe(50000,4095));
+    assert(hub_mem_web_running_safe(HUB_MEM_WARN_BYTES,4096));
     assert(!hub_mem_allow_tls(26000,11000));
     assert(!hub_mem_allow_tls(HUB_MEM_TLS_START_BYTES-1,25000));
     assert(!hub_mem_allow_tls(55000,HUB_MEM_TLS_CONTIGUOUS_BYTES-1));
