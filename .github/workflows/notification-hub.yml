@@ -6,10 +6,12 @@ on:
       - "apps/notification-hub/**"
       - ".github/workflows/notification-hub.yml"
       - "components/bsp/**"
+      - "tools/validate.sh"
   pull_request:
     paths:
       - "apps/notification-hub/**"
       - ".github/workflows/notification-hub.yml"
+      - "tools/validate.sh"
   workflow_dispatch:
 
 permissions:

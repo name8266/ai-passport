@@ -733,9 +733,14 @@ static void render(void) {
         hub_ui_set_text_fmt(body_text,"%s\n\n192.168.4.1\n打开即可管理，无需登录",ok?ap:"正在启动");
         hub_ui_set_text(help_text,"网页内设置  长按确认返回");
     }else if(view_mode==VIEW_DIGEST) {
-        hub_ui_set_text(page_no,ai_busy?"正在总结":ai_failed?"生成失败，请重试":"长按下键重新总结");
+        if(ai_busy) hub_ui_set_text(page_no,"正在生成综合简报");
+        else if(ai_failed) hub_ui_set_text(page_no,"总结失败，请重试");
+        else if(latest_digest_ready && latest_digest.day_tag &&
+                latest_digest.day_tag==hub_ai_day_tag(hub_ai_current_epoch()))
+            hub_ui_set_text_fmt(page_no,"今日已分析 %u 条",(unsigned)latest_digest.included);
+        else hub_ui_set_text(page_no,"最近一次综合摘要");
         hub_ui_set_text(body_text,latest_digest_ready?latest_digest.summary:!ai_enabled?"智能摘要尚未开启。\n\n在网页设置中开启。":ai_failed?"摘要失败，请检查网络或存档。":"等待下一次摘要");
-        hub_ui_set_text(help_text,"上下滚动  长按确认返回");
+        hub_ui_set_text(help_text,"上下滚动  长按下重新总结");
     }else if(view_mode==VIEW_GROUPS) {
         if(!visible_group_count) {
             hub_ui_set_text(page_no,"全部通知");
