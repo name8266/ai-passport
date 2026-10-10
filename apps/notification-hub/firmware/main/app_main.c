@@ -701,6 +701,12 @@ static void archive_task(void *arg) {
     archive_loaded=ok;
     archive_full=archive_database.full;
     if(ok) {
+        /* Unprocessed previews may survive a power cycle even when no ANCS
+         * capture has occurred this boot. Snapshot the recovered journal
+         * ceiling now so a 120-second cutoff cannot accidentally be zero
+         * (zero means unbounded in the archive collector). */
+        __atomic_store_n(&ai_journal_last_sequence,archive_database.rows,
+                         __ATOMIC_RELAXED);
         static archive_reply_t start;
         start.kind=ARCHIVE_GROUP;
         uint32_t total=0;
