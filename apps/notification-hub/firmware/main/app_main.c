@@ -750,7 +750,7 @@ static void render(void) {
         }else {
             hub_ui_set_text_fmt(page_no,"应用 %d / %lu",group_cursor+1,(unsigned long)visible_group_count);
             hub_ui_set_text(app_name,"通知档案");
-            hub_ui_set_text_fmt(title_text,"%s · %s",hub_catalog_category(selected_app),app_display(selected_app));
+            hub_ui_set_text_fmt(title_text,"%s / %s",hub_catalog_category(selected_app),app_display(selected_app));
             hub_ui_set_text_fmt(body_text,"%lu 条通知\n确认查看",(unsigned long)visible_record_count);
         }
         hub_ui_set_text(help_text,"长按:上看摘要/确认设置");
