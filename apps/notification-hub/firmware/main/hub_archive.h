@@ -84,7 +84,7 @@ bool hub_archive_get_record(hub_archive_t *db, const char *app,
 bool hub_archive_get_recent(hub_archive_t *db,uint32_t before_slot,uint8_t limit,
                             hub_archive_record_t *out,uint8_t *count,
                             uint32_t *next_cursor,bool *has_older);
-/* Safely compact expired, timestamped records. Unknown/legacy timestamps stay. */
+/* Expire only already-processed, timestamped records. Pending AI inputs stay. */
 bool hub_archive_expire(hub_archive_t *db,uint32_t now_epoch,
                         uint16_t retention_days,uint32_t *removed_rows);
 
@@ -99,6 +99,9 @@ bool hub_archive_reconcile_cursor(hub_archive_t *db);
 uint32_t hub_archive_digest_revision(hub_archive_t *db);
 bool hub_archive_hide_digest(hub_archive_t *db);
 bool hub_archive_ack_digest(hub_archive_t *db);
+/* Compare revision and unique task fingerprint before completing one item. */
+bool hub_archive_complete_task(hub_archive_t *db,uint32_t fingerprint,
+                               uint32_t expected_revision);
 /* Physically reclaim handled snapshots only after the new digest is durable. */
 bool hub_archive_prune_processed(hub_archive_t *db,uint32_t *removed_rows);
 

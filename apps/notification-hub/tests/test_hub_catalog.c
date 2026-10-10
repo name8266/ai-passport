@@ -47,6 +47,41 @@ static void test_protected_pending(void) {
     strcpy(out.tasks[0].task,"旧待办不得复活");
     hub_ai_clear_output(&out);
     assert(out.task_count==0 && out.summary[0]==0 && out.tasks[0].task[0]==0);
+    /* Per-task completion must never erase an unrelated pending item. */
+    prior.cleared=false;
+    prior.task_count=2;
+    memset(prior.tasks,0,sizeof(prior.tasks));
+    strcpy(prior.tasks[0].task,"准备演示");
+    strcpy(prior.tasks[0].source,"飞书");
+    strcpy(prior.tasks[0].due,"明日");
+    strcpy(prior.tasks[1].task,"检查设备");
+    strcpy(prior.tasks[1].source,"备忘录");
+    uint32_t id=hub_ai_task_id(&prior.tasks[0]);
+    assert(!hub_ai_complete_pending(&prior,id+1));
+    assert(prior.task_count==2);
+    assert(hub_ai_complete_pending(&prior,id));
+    assert(prior.task_count==1 && !strcmp(prior.tasks[0].task,"检查设备"));
+    assert(prior.tasks[1].task[0]==0);
+    assert(!hub_ai_complete_pending(&prior,id));
+    assert(!hub_ai_complete_pending(&prior,0));
+    /* Fingerprint collisions (including identical legacy rows) fail closed. */
+    prior.task_count=2;
+    prior.tasks[1]=prior.tasks[0];
+    assert(!hub_ai_complete_pending(&prior,hub_ai_task_id(&prior.tasks[0])));
+    assert(prior.task_count==2);
+    /* A later known deadline improves the existing item without duplication. */
+    prior.task_count=1;
+    memset(&proposal,0,sizeof(proposal));
+    strcpy(proposal.summary,"新摘要");
+    strcpy(proposal.tasks[0].task,prior.tasks[0].task);
+    strcpy(proposal.tasks[0].source,prior.tasks[0].source);
+    strcpy(proposal.tasks[0].due,"周三17点");
+    proposal.task_count=1;
+    assert(hub_ai_merge_pending(&prior,&proposal,&out)==HUB_AI_MERGE_OK);
+    assert(out.task_count==1 && !strcmp(out.tasks[0].due,"周三17点"));
+    proposal.tasks[0].due[0]=0;
+    assert(hub_ai_merge_pending(&out,&proposal,&prior)==HUB_AI_MERGE_OK);
+    assert(!strcmp(prior.tasks[0].due,"周三17点"));
     /* No truncation of an overlong summary may pass validation. */
     memset(proposal.summary,'a',HUB_AI_SUMMARY_MAX_UTF8_BYTES+1);
     proposal.summary[HUB_AI_SUMMARY_MAX_UTF8_BYTES+1]=0;

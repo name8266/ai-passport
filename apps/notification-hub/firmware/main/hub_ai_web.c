@@ -3,6 +3,7 @@
 #include "hub_form.h"
 #include "hub_web_dashboard.h"
 #include "hub_app_catalog.h"
+#include "hub_ai_state.h"
 #include <inttypes.h>
 #include "hub_sound.h"
 #include <stdio.h>
@@ -90,6 +91,7 @@ static void page_head(httpd_req_t *req,bool dark,const char *title,const char *s
         "label{display:block;font-size:14px;font-weight:550;margin:0 0 8px}.hint,small{display:block;color:var(--muted);font-size:12px;line-height:1.45;margin-top:6px}input:not([type=checkbox]),select{appearance:none;width:100%;min-height:44px;border:0;border-radius:12px;background:var(--field);color:var(--ink);font-family:inherit;font-size:16px;padding:10px 12px;outline:none}input:focus,select:focus{box-shadow:0 0 0 2px color-mix(in srgb,var(--blue) 36%,transparent)}select{background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 17px) 19px,calc(100% - 12px) 19px;background-size:5px 5px;background-repeat:no-repeat}\n"
         ".toggle-row{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:52px;margin:0}.toggle-row span{font-size:15px;font-weight:500}.toggle{appearance:none;position:relative;width:51px;height:31px;flex:0 0 51px;border-radius:18px;background:#d1d1d6;transition:background .16s}.toggle:checked{background:var(--green)}.toggle:before{content:\"\";position:absolute;width:27px;height:27px;left:2px;top:2px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0003;transition:transform .16s}.toggle:checked:before{transform:translateX(20px)}\n"
         ".actions{position:sticky;bottom:8px;padding:8px 0 14px;background:linear-gradient(transparent,var(--bg) 20%)}button{width:100%;min-height:50px;border:0;border-radius:15px;background:var(--blue);color:#fff;font-size:16px;font-weight:650}button:active{filter:brightness(.92)}button:disabled{opacity:.45}.danger{border:1px solid color-mix(in srgb,var(--red) 22%,var(--line));padding:15px;border-radius:16px}.danger p{font-size:13px;color:var(--muted);line-height:1.5;margin:0 0 12px}.danger button{background:var(--red)}.foot{text-align:center;color:var(--muted);font-size:12px;padding:16px 4px}.tabs{display:flex;gap:8px;margin:0 0 18px}.tabs a{flex:1;text-align:center;text-decoration:none;color:var(--blue);background:var(--card);border-radius:13px;padding:11px;font-size:14px;font-weight:600}.notice-item{padding:14px 0;border-bottom:1px solid var(--line)}.notice-item:last-child{border:0}.notice-meta{font-size:12px;color:var(--muted);margin-bottom:5px}.notice-title{font-size:16px;font-weight:650;margin-bottom:5px;overflow-wrap:anywhere}.notice-body{font-size:14px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}.status-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.status-chip{background:var(--field);padding:10px 12px;border-radius:12px;font-size:13px;color:var(--muted)}.status-chip b{display:block;color:var(--ink);font-size:14px;margin-bottom:2px}.pager{display:flex;gap:10px;margin:12px 0}.pager a{flex:1;text-align:center;text-decoration:none;color:var(--blue);background:var(--card);border-radius:13px;padding:12px;font-weight:600}\n"
+        ".todo-row{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid var(--line);padding:12px 0}.todo-details{min-width:0;flex:1}.todo-row form{flex:0 0 auto}.todo-done{background:var(--green);font-size:13px;width:auto;min-height:42px;padding:0 12px;border-radius:11px}\n"
         "@media(prefers-reduced-motion:reduce){*{transition:none!important}}\n"
         );
     if(dark)put(req,"</style></head><body style=\"color-scheme:dark;--bg:#000;--card:#1c1c1e;--field:#2c2c2e;--ink:#f5f5f7;--muted:#98989d;--line:#38383a;--blue:#0a84ff;--green:#30d158;--red:#ff453a;--note:#17283b;--notetext:#dcecff\">");
@@ -97,7 +99,7 @@ static void page_head(httpd_req_t *req,bool dark,const char *title,const char *s
     put(req,"<main class=\"wrap\"><header class=\"top\"><div class=\"eyebrow\">NOTIFY HUB</div><h1>");
     html_escaped(req,title);put(req,"</h1><div class=\"sub\">");html_escaped(req,subtitle);put(req,"</div></header>");
     put(req,"<nav class=\"tabs\"><a href=\"/\">通知与摘要</a><a href=\"/settings\">设备设置</a><a href=\"/device\">设备遥控</a></nav>");
-    put(req,"<aside class=\"notice\">连接设备热点即可管理；AI 默认关闭。开启后，筛选后的通知内容会发送到你配置的 HTTPS 模型接口。</aside>");
+    put(req,"<aside class=\"notice\">设备热点和局域网管理无需登录：连接者可查看通知预览及操作，请仅在可信网络使用。AI 默认关闭；开启后筛选内容会发送至指定 HTTPS 模型接口。</aside>");
 }
 static esp_err_t settings_page(httpd_req_t *req) {
     hub_ai_settings_t settings;
@@ -154,7 +156,7 @@ static esp_err_t settings_page(httpd_req_t *req) {
     html_input(req,"interval","兼容配置（当前每3条新通知自动总结）",number,"number","");
     put(req,"</div><div class=\"field\">");
     snprintf(number,sizeof(number),"%d",settings.max_records);
-    html_input(req,"max_records","旧版单批配置（公测17固定3条）",number,"number","");
+    html_input(req,"max_records","兼容旧配置（公测19固定3条）",number,"number","");
     put(req,"</div><div class=\"field\">");
     html_input(req,"excluded_apps","排除的应用标识（逗号分隔）",settings.excluded_apps,"text","例如 com.example.app");
     put(req,"</div><div class=\"field\">");
@@ -239,14 +241,27 @@ static esp_err_t dashboard_page(httpd_req_t *req) {
         else {
             put(req,"<div class=\"notice-body\">");
             html_escaped(req,d->summary);put(req,"</div>");
-            if(d->task_count)put(req,"<small>待完成事项</small>");
+            if(d->task_count)put(req,"<small>未完成事项 · 可逐项标记完成</small>");
             for(uint8_t i=0;i<d->task_count;i++) {
-                put(req,"<div class=\"notice-body\">• ");
+                put(req,"<div class=\"todo-row\"><div class=\"todo-details\">");
+                put(req,"<div class=\"notice-body\">");
                 html_escaped(req,d->tasks[i].task);
-                if(d->tasks[i].source[0]) {
-                    put(req," · ");html_escaped(req,d->tasks[i].source);
+                put(req,"</div><small>");
+                html_escaped(req,d->tasks[i].source);
+                if(d->tasks[i].due[0]) {
+                    put(req," · 截止：");html_escaped(req,d->tasks[i].due);
                 }
-                put(req,"</div>");
+                put(req,"</small></div><form method=\"POST\" action=\"/summary/complete\">");
+                put(req,"<input type=\"hidden\" name=\"csrf\" value=\"");
+                html_escaped(req,csrf_nonce);
+                char values[256];
+                snprintf(values,sizeof(values),
+                    "\"><input type=\"hidden\" name=\"task_id\" value=\"%" PRIu32
+                    "\"><input type=\"hidden\" name=\"revision\" value=\"%" PRIu32
+                    "\"><button class=\"todo-done\" type=\"submit\">完成</button>",
+                    hub_ai_task_id(&d->tasks[i]),
+                    dashboard_page_snapshot.summary_revision);
+                put(req,values);put(req,"</form></div>");
             }
         }
         put(req,"<div class=\"status-grid\" style=\"padding:12px 0 4px\">");
@@ -337,6 +352,22 @@ static esp_err_t summary_state_action(httpd_req_t *req) {
     httpd_resp_set_hdr(req,"Location","/");
     httpd_resp_set_hdr(req,"Cache-Control","no-store");
     return httpd_resp_sendstr(req,acknowledge?"正在清除摘要":"正在隐藏摘要");
+}
+static esp_err_t summary_task_complete(httpd_req_t *req) {
+    char *body=NULL;size_t len=0;
+    if(!read_form(req,&body,&len))
+        return reject(req,"413 Payload Too Large","请求内容无效");
+    uint32_t fingerprint=0,revision=0;
+    bool valid=hub_form_parse_task_complete(body,csrf_nonce,
+                                             &fingerprint,&revision);
+    memset(body,0,len);free(body);
+    if(!valid)return reject(req,"422 Unprocessable Entity","待办表单已过期，请刷新");
+    if(!hub_app_complete_ai_task(fingerprint,revision))
+        return reject(req,"409 Conflict","设备忙，请刷新后重试");
+    httpd_resp_set_status(req,"303 See Other");
+    httpd_resp_set_hdr(req,"Location","/");
+    httpd_resp_set_hdr(req,"Cache-Control","no-store");
+    return httpd_resp_sendstr(req,"操作已提交，请刷新查看");
 }
 static esp_err_t device_page(httpd_req_t *req) {
     if(!hub_app_screen_snapshot(&screen_snapshot))
@@ -434,7 +465,7 @@ static esp_err_t clear_status(httpd_req_t *req) {
 void hub_ai_web_start(void) {
     if(server)return;
     httpd_config_t cfg=HTTPD_DEFAULT_CONFIG();
-    cfg.stack_size=5120;cfg.max_uri_handlers=12;cfg.max_open_sockets=3;cfg.lru_purge_enable=true;
+    cfg.stack_size=5120;cfg.max_uri_handlers=13;cfg.max_open_sockets=3;cfg.lru_purge_enable=true;
     if(httpd_start(&server,&cfg)!=ESP_OK) {ESP_LOGE(TAG,"Could not start embedded admin");return;}
     httpd_uri_t device={.uri="/device",.method=HTTP_GET,.handler=device_page};
     httpd_uri_t control={.uri="/device/control",.method=HTTP_POST,.handler=device_control};
@@ -447,6 +478,7 @@ void hub_ai_web_start(void) {
     httpd_uri_t summary={.uri="/summary/run",.method=HTTP_POST,.handler=summary_run};
     httpd_uri_t summary_ack={.uri="/summary/ack",.method=HTTP_POST,.handler=summary_state_action};
     httpd_uri_t summary_hide={.uri="/summary/hide",.method=HTTP_POST,.handler=summary_state_action};
+    httpd_uri_t summary_complete={.uri="/summary/complete",.method=HTTP_POST,.handler=summary_task_complete};
     if(httpd_register_uri_handler(server,&device)!=ESP_OK ||
        httpd_register_uri_handler(server,&control)!=ESP_OK ||
        httpd_register_uri_handler(server,&index)!=ESP_OK ||
@@ -457,7 +489,8 @@ void hub_ai_web_start(void) {
        httpd_register_uri_handler(server,&status)!=ESP_OK ||
        httpd_register_uri_handler(server,&summary)!=ESP_OK ||
         httpd_register_uri_handler(server,&summary_ack)!=ESP_OK ||
-        httpd_register_uri_handler(server,&summary_hide)!=ESP_OK) {
+        httpd_register_uri_handler(server,&summary_hide)!=ESP_OK ||
+        httpd_register_uri_handler(server,&summary_complete)!=ESP_OK) {
         ESP_LOGE(TAG,"Could not register all device admin routes");
         (void)httpd_stop(server);server=NULL;return;
     }

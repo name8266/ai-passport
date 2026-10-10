@@ -103,6 +103,33 @@ bool hub_form_validate_csrf(const char *body,const char *nonce) {
     return body && nonce && nonce[0] && field(body,"csrf",token,sizeof(token)) &&
            strcmp(token,nonce)==0;
 }
+static bool positive_u32_field(const char *body,const char *key,uint32_t *out) {
+    if(!out)return false;
+    char digits[16];
+    if(!field(body,key,digits,sizeof(digits)) || !digits[0])return false;
+    uint32_t value=0;
+    for(const char *p=digits;*p;p++) {
+        if(*p<'0' || *p>'9')return false;
+        uint8_t digit=(uint8_t)(*p-'0');
+        if(value>(UINT32_MAX-digit)/10u)return false;
+        value=value*10u+digit;
+    }
+    if(!value)return false;
+    *out=value;
+    return true;
+}
+bool hub_form_parse_task_complete(const char *body,const char *nonce,
+                                  uint32_t *fingerprint,uint32_t *revision) {
+    uint32_t id=0,version=0;
+    if(!hub_form_validate_csrf(body,nonce) ||
+       !positive_u32_field(body,"task_id",&id) ||
+       !positive_u32_field(body,"revision",&version))
+        return false;
+    if(!fingerprint || !revision)return false;
+    *fingerprint=id;
+    *revision=version;
+    return true;
+}
 bool hub_form_parse_login(const char *body,char *username,size_t username_size,
                           char *password,size_t password_size) {
     return body && username && password &&

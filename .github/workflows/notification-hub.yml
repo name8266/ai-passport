@@ -36,6 +36,36 @@ jobs:
       - name: Full archive, UI, protocol, font and firmware host regressions
         run: ./tools/validate.sh --host
 
+  sanitizers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: ASan and UBSan on notification state, journal, input parsing and ANCS
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/passport-sanitizers
+          flags=(-std=c11 -D_POSIX_C_SOURCE=200809L -O1 -g -Wall -Wextra -Werror
+                 -fno-omit-frame-pointer -fsanitize=address,undefined)
+          base="apps/notification-hub"
+          inc=(-I"$base/tests/stubs" -I"$base/firmware/main")
+          clang "${flags[@]}" "${inc[@]}" "$base/tests/test_hub_archive.c" \
+            "$base/firmware/main/hub_protocol.c" -lm -o /tmp/passport-sanitizers/archive
+          clang "${flags[@]}" "${inc[@]}" "$base/tests/test_hub_catalog.c" \
+            -o /tmp/passport-sanitizers/catalog
+          clang "${flags[@]}" "${inc[@]}" "$base/tests/test_hub_form.c" \
+            "$base/firmware/main/hub_form.c" "$base/firmware/main/hub_alert.c" \
+            "$base/firmware/main/hub_web_auth.c" -lm -o /tmp/passport-sanitizers/forms
+          clang "${flags[@]}" "${inc[@]}" "$base/tests/test_hub_protocol.c" \
+            "$base/firmware/main/hub_protocol.c" -o /tmp/passport-sanitizers/protocol
+          for suite in archive catalog forms protocol; do
+            echo "Sanitizer suite: ${suite}"
+            ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 \
+              UBSAN_OPTIONS=halt_on_error=1 \
+              "/tmp/passport-sanitizers/${suite}"
+          done
+
+
   firmware:
     runs-on: ubuntu-latest
     steps:
@@ -55,12 +85,12 @@ jobs:
             idf.py merge-bin -o notification-hub-full.bin --format raw
       - name: Prepare Chinese-named firmware and checksum
         run: |
-          cp apps/notification-hub/firmware/build/notification-hub-full.bin "Passport通知中心-公测18-合并固件.bin"
-          sha256sum "Passport通知中心-公测18-合并固件.bin"
+          cp apps/notification-hub/firmware/build/notification-hub-full.bin "Passport通知中心-公测19-合并固件.bin"
+          sha256sum "Passport通知中心-公测19-合并固件.bin"
       - name: Upload merged firmware
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: Passport通知中心-公测18
-          path: Passport通知中心-公测18-合并固件.bin
+          name: Passport通知中心-公测19
+          path: Passport通知中心-公测19-合并固件.bin
           if-no-files-found: error
           retention-days: 7

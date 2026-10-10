@@ -186,6 +186,27 @@ int main(void) {
     assert(fseek(state_file,0,SEEK_END)==0);
     assert(ftell(state_file)==(long)sizeof(active_record_t));
     assert(fclose(state_file)==0);
+    hub_ai_digest_t todo={.processed_through=1002,.task_count=2};
+    strcpy(todo.summary,"两个待办");
+    strcpy(todo.tasks[0].task,"完成报告");
+    strcpy(todo.tasks[0].source,"飞书");
+    strcpy(todo.tasks[1].task,"领取快递");
+    strcpy(todo.tasks[1].source,"菜鸟");
+    assert(hub_archive_save_digest(&db,&todo));
+    uint32_t original_revision=hub_archive_digest_revision(&db);
+    uint32_t complete_id=hub_ai_task_id(&todo.tasks[0]);
+    assert(!hub_archive_complete_task(&db,complete_id,original_revision-1));
+    assert(!hub_archive_complete_task(&db,0,original_revision));
+    assert(hub_archive_complete_task(&db,complete_id,original_revision));
+    assert(hub_archive_digest_revision(&db)==original_revision+1);
+    assert(!hub_archive_complete_task(&db,complete_id,original_revision));
+    assert(hub_archive_last_digest(&db,&restored));
+    assert(restored.task_count==1 && !strcmp(restored.tasks[0].task,"领取快递"));
+    assert(restored.summary[0]);
+    fclose(db.file);assert(hub_archive_open(&db,103));
+    assert(hub_archive_last_digest(&db,&restored) && restored.task_count==1);
+    /* Exact revision guards against deleting an item replaced during AI. */
+    assert(!hub_archive_complete_task(&db,complete_id,original_revision));
     puts("Rolling digest two-slot durability, bounded Flash, read/hide and JSON-ready task state: PASS");
     assert(unlink(ACTIVE_SLOT0)==0);
     assert(unlink(ACTIVE_SLOT1)==0);
@@ -284,6 +305,18 @@ int main(void) {
     assert(hub_archive_last_digest(&db,&digest) && !strcmp(digest.summary,"stale summary"));
     assert(digest.processed_through==0);
     assert(hub_archive_reconcile_cursor(&db) && test_cursor==0);
+    /* A 40-day-old notification NOT YET submitted to AI must never be
+     * discarded by periodic retention merely because its timestamp is old. */
+    timed.uid=99999;timed.elapsed_seconds=now-40u*86400u;
+    strcpy(timed.title,"未总结的旧通知");
+    assert(hub_archive_capture(&db,&timed));
+    const uint32_t still_pending=db.rows;
+    removed=1234;
+    assert(hub_archive_expire(&db,now,30,&removed));
+    assert(removed==0 && db.rows==still_pending);
+    assert(hub_archive_get_record(&db,"ttl.app",0,&got) &&
+           !strcmp(got.title,"未总结的旧通知"));
+
     fclose(db.file);
     assert(unlink(HUB_ARCHIVE_PATH)==0);
     assert(unlink_if_present(ACTIVE_SLOT0));

@@ -23,6 +23,7 @@ typedef struct {
     uint8_t record_count;
     uint32_t next_cursor;
     uint32_t archive_rows;
+    uint32_t summary_revision; /* optimistic concurrency for per-task completion */
     uint32_t now_epoch;
     hub_archive_record_t records[HUB_ARCHIVE_WEB_PAGE_SIZE];
     hub_ai_digest_t summary;
@@ -35,6 +36,7 @@ void hub_ai_web_set_dashboard_provider(hub_web_dashboard_provider_t provider);
 bool hub_app_request_ai_summary(void);
 bool hub_app_ack_ai_digest(void);
 bool hub_app_hide_ai_digest(void);
+bool hub_app_complete_ai_task(uint32_t fingerprint,uint32_t revision);
 
 /* Text-only mirror of current LVGL labels; never a camera/LCD pixel capture. */
 typedef struct {

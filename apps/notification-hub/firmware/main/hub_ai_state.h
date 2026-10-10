@@ -34,6 +34,36 @@ static inline bool hub_ai_task_same(const hub_ai_task_t *a,
            strcmp(a->task,b->task)==0;
 }
 
+/* A completion request includes a digest revision (checked by the archive
+ * worker) and a stable task fingerprint. Refuse collisions rather than
+ * removing the wrong item on a 32-bit hash collision. */
+static inline bool hub_ai_complete_pending(hub_ai_digest_t *state,
+                                            uint32_t fingerprint) {
+    if(!state || state->cleared || !state->summary[0] || !fingerprint ||
+       state->task_count==0 || state->task_count>HUB_AI_TASK_LIMIT)
+        return false;
+    int match=-1;
+    for(uint8_t i=0;i<state->task_count;i++) {
+        if(hub_ai_task_id(&state->tasks[i])!=fingerprint)continue;
+        if(match>=0)return false;
+        match=i;
+    }
+    if(match<0)return false;
+    for(uint8_t i=(uint8_t)match;i+1u<state->task_count;i++)
+        state->tasks[i]=state->tasks[i+1u];
+    state->task_count--;
+    memset(&state->tasks[state->task_count],0,sizeof(state->tasks[0]));
+    return true;
+}
+
+/* Existing ID can gain a newly confirmed deadline but must never lose it
+ * because a model omitted the field in a subsequent response. */
+static inline void hub_ai_update_known_due(hub_ai_task_t *existing,
+                                            const hub_ai_task_t *proposal) {
+    if(existing && proposal && proposal->due[0])
+        memcpy(existing->due,proposal->due,sizeof(existing->due));
+}
+
 /* Only explicit ACK may discard old items. Overflow declines the entire
  * batch so uncommitted previews are preserved, not silently dropped. */
 static inline hub_ai_merge_result_t hub_ai_merge_pending(
@@ -59,7 +89,10 @@ static inline hub_ai_merge_result_t hub_ai_merge_pending(
         if(!p->task[0])return HUB_AI_MERGE_INVALID;
         bool exists=false;
         for(uint8_t j=0;j<out->task_count;j++)
-            if(hub_ai_task_same(p,&out->tasks[j])) {exists=true;break;}
+            if(hub_ai_task_same(p,&out->tasks[j])) {
+                hub_ai_update_known_due(&out->tasks[j],p);
+                exists=true;break;
+            }
         if(exists) continue;
         if(out->task_count==HUB_AI_TASK_LIMIT) return HUB_AI_MERGE_FULL;
         out->tasks[out->task_count++]=*p;

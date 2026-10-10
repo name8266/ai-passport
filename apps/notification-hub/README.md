@@ -2,6 +2,18 @@
 
 # Passport Notification Archive + AI summaries
 
+## Beta 19: usable task completion, conservative retention, sanitizer CI
+
+Beta 19 is a **quality-focused test candidate**, not a claim of production reliability. The on-device ESP32-C3 architecture, 8 MB Flash, no PSRAM, and three-button behavior remain unchanged.
+
+- **Complete one task** from the web dashboard without acknowledging/clearing the entire digest. The action uses a CSRF nonce, item fingerprint and exact persisted snapshot revision; stale forms and hash collisions are rejected. Completing a task frees one of five bounded pending slots.
+- **Retention cannot delete pending AI inputs:** the scheduled age-based compaction only removes records within the already committed AI cursor. Unprocessed records remain until acknowledged or manually cleared, potentially filling Flash; the UI reports full/drop states instead of silently losing data.
+- **Maintain task due information:** explicit new deadlines for the same task/source improve the existing item; omitted deadlines do not erase an earlier known one.
+- **Privacy notice:** the user's requested open setup hotspot and LAN-wide dashboard are retained; a prominent notice explains that network clients can read notification previews and submit control requests. CSRF tokens are not authentication.
+- **Quality gates:** dedicated ASan + UBSan host tests cover the archive, BLE parser, form parser and bounded task logic in addition to regular regression tests and real ESP-IDF 5.5.3 firmware compilation.
+
+**Upgrade caution:** Beta 18/19 use 512-byte safety-mode wear levelling; older 4096-byte FAT archives may not mount. Back up valuable notifications before upgrading from earlier releases. Device-side long OK still hides, and short OK still acknowledges/clears the digest.
+
 ## Beta 18: crash consistency and bounded task memory
 
 This release focuses on correctness, not additional features. The AI proposes **new pending tasks only**; firmware deterministically preserves and deduplicates existing pending tasks until the user explicitly acknowledges/clears the digest. When five pending tasks are present, further summaries pause and incoming raw previews are preserved with a visible capacity warning. The reused digest object is reset before processing privacy-filtered batches, preventing old tasks from reappearing.

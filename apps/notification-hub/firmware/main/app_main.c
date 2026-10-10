@@ -86,13 +86,20 @@ typedef struct { bsp_btn_t btn; bsp_btn_ev_t ev; uint32_t remote_id; } button_t;
 static QueueHandle_t remote_button_replies;
 static uint32_t remote_button_id;
 typedef enum { ARCHIVE_SAVE=1, ARCHIVE_GROUP=2, ARCHIVE_RECORD=3, ARCHIVE_AI_LAST=4, ARCHIVE_INITIALIZE=5, ARCHIVE_CLEAR=6,
-               ARCHIVE_AI_ACK=7, ARCHIVE_AI_HIDE=8 } archive_job_kind_t;
+               ARCHIVE_AI_ACK=7, ARCHIVE_AI_HIDE=8, ARCHIVE_AI_COMPLETE=9 } archive_job_kind_t;
 typedef struct {
     archive_job_kind_t kind;
     char app[HUB_APP_BYTES];
     uint32_t ordinal;
     uint32_t generation;
+    uint32_t task_fingerprint;
+    uint32_t task_revision;
 } archive_job_t;
+typedef struct {
+    uint8_t kind;
+    uint32_t fingerprint;
+    uint32_t revision;
+} archive_control_event_t;
 typedef struct {
     archive_job_kind_t kind;
     bool found;
@@ -253,9 +260,11 @@ static uint32_t received_count;
 
 static bool post_job(const archive_job_t *job) {
     if(job->kind==ARCHIVE_INITIALIZE ||
-       job->kind==ARCHIVE_AI_ACK || job->kind==ARCHIVE_AI_HIDE) {
+       job->kind==ARCHIVE_AI_ACK || job->kind==ARCHIVE_AI_HIDE ||
+       job->kind==ARCHIVE_AI_COMPLETE) {
         /* Durable user actions must never be overwritten by browse updates. */
-        uint8_t command=(uint8_t)job->kind;
+        archive_control_event_t command={.kind=(uint8_t)job->kind,
+            .fingerprint=job->task_fingerprint,.revision=job->task_revision};
         return archive_control && xQueueSend(archive_control,&command,
                                                pdMS_TO_TICKS(100))==pdTRUE;
     }
@@ -270,6 +279,12 @@ bool hub_app_ack_ai_digest(void) {
 bool hub_app_hide_ai_digest(void) {
     if(!archive_loaded || archive_initializing)return false;
     archive_job_t job={.kind=ARCHIVE_AI_HIDE};
+    return post_job(&job);
+}
+bool hub_app_complete_ai_task(uint32_t fingerprint,uint32_t revision) {
+    if(!archive_loaded || archive_initializing || !fingerprint || !revision)return false;
+    archive_job_t job={.kind=ARCHIVE_AI_COMPLETE,
+        .task_fingerprint=fingerprint,.task_revision=revision};
     return post_job(&job);
 }
 static void request_group(int index) {
@@ -528,11 +543,15 @@ static void archive_task(void *arg) {
             static hub_ai_settings_t web_settings;
             if(hub_ai_read_settings(&web_settings))
                 web_archive_snapshot.retention_days=web_settings.retention_days;
-            if(ok) web_archive_snapshot.has_summary=
-                hub_archive_last_digest(&archive_database,&web_archive_snapshot.summary);
+            if(ok) {
+                web_archive_snapshot.summary_revision=
+                    hub_archive_digest_revision(&archive_database);
+                web_archive_snapshot.has_summary=
+                    hub_archive_last_digest(&archive_database,&web_archive_snapshot.summary);
+            }
             (void)xQueueOverwrite(web_archive_replies,&web_request.id);
         }
-        uint8_t command;
+        archive_control_event_t command;
         int64_t monotonic_now=esp_timer_get_time();
         /* Batched GC: never rewrite FAT for every three-notice AI call.
          * Leave the capture worker responsive when BLE has queued data. */
@@ -582,7 +601,9 @@ static void archive_task(void *arg) {
             }else next_retention_check=monotonic_now+5LL*1000000;
         }
         if(xQueueReceive(archive_control,&command,0)==pdTRUE)
-            job=(archive_job_t){.kind=(archive_job_kind_t)command};
+            job=(archive_job_t){.kind=(archive_job_kind_t)command.kind,
+                .task_fingerprint=command.fingerprint,
+                .task_revision=command.revision};
         else if(xQueueReceive(archive_jobs,&job,pdMS_TO_TICKS(10))!=pdTRUE) continue;
         if(job.kind==ARCHIVE_INITIALIZE) {
             /* Only an explicit confirmation on the initialization screen posts this job. */
@@ -618,12 +639,16 @@ static void archive_task(void *arg) {
             continue;
         }
         if(!ok) continue;
-        if(job.kind==ARCHIVE_AI_ACK || job.kind==ARCHIVE_AI_HIDE) {
+        if(job.kind==ARCHIVE_AI_ACK || job.kind==ARCHIVE_AI_HIDE ||
+           job.kind==ARCHIVE_AI_COMPLETE) {
             bool done=job.kind==ARCHIVE_AI_ACK?
                 hub_archive_ack_digest(&archive_database):
-                hub_archive_hide_digest(&archive_database);
+                job.kind==ARCHIVE_AI_HIDE?
+                hub_archive_hide_digest(&archive_database):
+                hub_archive_complete_task(&archive_database,
+                    job.task_fingerprint,job.task_revision);
             if(done) {
-                if(job.kind==ARCHIVE_AI_ACK) {
+                if(job.kind==ARCHIVE_AI_ACK || job.kind==ARCHIVE_AI_COMPLETE) {
                     ai_capacity_full=false;
                     ai_failed=false;
                     ai_resume_after_ack=true;
@@ -1239,7 +1264,7 @@ void app_main(void) {
     remote_button_replies=xQueueCreate(1,sizeof(uint32_t));
     archive_jobs=xQueueCreate(1,sizeof(archive_job_t));
     archive_captures=xQueueCreate(8,sizeof(hub_archive_record_t));
-    archive_control=xQueueCreate(1,sizeof(uint8_t));
+    archive_control=xQueueCreate(2,sizeof(archive_control_event_t));
     archive_replies=xQueueCreate(1,sizeof(archive_reply_t));
     ai_requests=xQueueCreate(1,sizeof(ai_archive_req_t));
     ai_replies=xQueueCreate(1,sizeof(uint32_t));

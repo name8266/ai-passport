@@ -57,5 +57,23 @@ int main(void) {
         retention[15]='0';retention[16]='0';
         assert(!hub_form_parse(body,"test",&s,&w));
     }
+    uint32_t task_id=0,revision=0;
+    assert(hub_form_parse_task_complete(
+        "csrf=test&task_id=4294967295&revision=10","test",&task_id,&revision));
+    assert(task_id==UINT32_MAX && revision==10);
+    assert(!hub_form_parse_task_complete(
+        "csrf=bad&task_id=123&revision=10","test",&task_id,&revision));
+    assert(!hub_form_parse_task_complete(
+        "csrf=test&task_id=0&revision=10","test",&task_id,&revision));
+    assert(!hub_form_parse_task_complete(
+        "csrf=test&task_id=1&revision=0","test",&task_id,&revision));
+    assert(!hub_form_parse_task_complete(
+        "csrf=test&task_id=4294967296&revision=10","test",&task_id,&revision));
+    assert(!hub_form_parse_task_complete(
+        "csrf=test&task_id=1oops&revision=10","test",&task_id,&revision));
+    assert(!hub_form_parse_task_complete(
+        "csrf=test&task_id=1&revision=-1","test",&task_id,&revision));
+    assert(!hub_form_parse_task_complete(
+        "csrf=test&task_id=1","test",&task_id,&revision));
     puts("Admin form malformed input, limits, nonce and retained secrets: PASS");
 }

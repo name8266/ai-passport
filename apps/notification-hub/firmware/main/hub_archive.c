@@ -1,5 +1,6 @@
 #include "hub_archive.h"
 #include "hub_ai_filter.h"
+#include "hub_ai_state.h"
 #include "hub_app_catalog.h"
 #include <stddef.h>
 #include <errno.h>
@@ -453,8 +454,8 @@ static bool compact_archive(hub_archive_t *db,uint32_t now_epoch,
         if(fread(&row,sizeof(row),1,db->file)!=1 || !valid(&row) || row.sequence!=i+1) {
             db->failed=true;return false;
         }
-        if((prune_committed && row.sequence<=old_cursor) ||
-           (!prune_committed && record_expired(&row,now_epoch,age_seconds))) expired++;
+        if(row.sequence<=old_cursor &&
+           (prune_committed || record_expired(&row,now_epoch,age_seconds))) expired++;
         else if(row.sequence<=old_cursor) retained_cursor++;
     }
     if(!expired) return true;
@@ -467,8 +468,8 @@ static bool compact_archive(hub_archive_t *db,uint32_t now_epoch,
     for(uint32_t i=0;i<db->rows && ok;i++) {
         if(fread(&row,sizeof(row),1,db->file)!=1 || !valid(&row) || row.sequence!=i+1)
             {ok=false;break;}
-        if((prune_committed && row.sequence<=old_cursor) ||
-           (!prune_committed && record_expired(&row,now_epoch,age_seconds))) continue;
+        if(row.sequence<=old_cursor &&
+           (prune_committed || record_expired(&row,now_epoch,age_seconds))) continue;
         row.sequence=++kept;
         row.checksum=checksum(&row);
         ok=fwrite(&row,sizeof(row),1,compacted)==1;
@@ -716,6 +717,19 @@ bool hub_archive_hide_digest(hub_archive_t *db) {
     hub_ai_digest_t *d=&s_archive_digest_scratch;
     if(!hub_archive_last_digest(db,d))return false;
     d->hidden=true;
+    return write_active(d);
+}
+/* Per-item completion is a compare-and-swap update of the active digest.
+ * The caller must supply the exact revision visible on its web form.
+ * It never alters the notification checkpoint or the rest of the tasks. */
+bool hub_archive_complete_task(hub_archive_t *db,uint32_t fingerprint,
+                               uint32_t expected_revision) {
+    if(!db || !db->mounted || db->failed || !fingerprint ||
+       expected_revision==0)return false;
+    hub_ai_digest_t *d=&s_archive_digest_scratch;
+    uint32_t current=0;
+    if(!latest_active(d,&current,NULL) || current!=expected_revision ||
+       !hub_ai_complete_pending(d,fingerprint))return false;
     return write_active(d);
 }
 bool hub_archive_ack_digest(hub_archive_t *db) {
