@@ -345,12 +345,12 @@ int main(void) {
     hub_ai_digest_t old_digest={.processed_through=epoch_end,.included=7};
     strcpy(old_digest.summary,"旧周期的重要提醒。");
     assert(hub_archive_save_digest(&db,&old_digest));
-    hub_archive_record_t next={.kind=HUB_ARCHIVE_PREVIEW,.session=200};
-    strcpy(next.app,"calendar.app");
+    hub_archive_record_t incoming={.kind=HUB_ARCHIVE_PREVIEW,.session=200};
+    strcpy(incoming.app,"calendar.app");
     for(unsigned i=0;i<2;i++) {
-        next.uid=50000+i;
-        strcpy(next.title,"旧周期未分析通知");
-        assert(hub_archive_capture(&db,&next));
+        incoming.uid=50000+i;
+        strcpy(incoming.title,"旧周期未分析通知");
+        assert(hub_archive_capture(&db,&incoming));
     }
     assert(hub_archive_collect_since(&db,epoch_end,3,&batch));
     assert(batch.count==2 && !hub_ai_batch_ready(batch.count,false,false));
@@ -364,20 +364,20 @@ int main(void) {
     assert(hub_ai_set_cursor(epoch_end));
     assert(hub_archive_reconcile_cursor(&db) && test_cursor==ack_boundary);
     for(unsigned i=0;i<2;i++) {
-        next.uid=51000+i;
-        strcpy(next.title,"新周期通知");
-        assert(hub_archive_capture(&db,&next));
+        incoming.uid=51000+i;
+        strcpy(incoming.title,"新周期通知");
+        assert(hub_archive_capture(&db,&incoming));
     }
     assert(hub_archive_collect_since(&db,ack_boundary,3,&batch));
     assert(batch.count==2 && !hub_ai_batch_ready(batch.count,false,false));
-    next.uid=51002;
-    assert(hub_archive_capture(&db,&next));
+    incoming.uid=51002;
+    assert(hub_archive_capture(&db,&incoming));
     assert(hub_archive_collect_since(&db,ack_boundary,3,&batch));
     assert(batch.count==3 && hub_ai_batch_ready(batch.count,false,false));
     const uint32_t frozen_sequence=batch.through_sequence;
     /* A snapshot taken when the 120-second burst cap expires excludes any
      * source notification saved AFTER the frozen checkpoint. */
-    next.uid=51003;assert(hub_archive_capture(&db,&next));
+    incoming.uid=51003;assert(hub_archive_capture(&db,&incoming));
     assert(hub_archive_collect_until(&db,ack_boundary,frozen_sequence,8,&batch));
     assert(batch.count==3 && batch.through_sequence==frozen_sequence);
     hub_ai_digest_t new_digest={.processed_through=frozen_sequence,.included=3};

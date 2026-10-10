@@ -87,7 +87,7 @@ bool hub_ai_load_connection(hub_ai_connection_t *out);
 bool hub_ai_connect_wifi(const hub_ai_connection_t *conn);
 bool hub_ai_is_online(void);
 /* Set on overflow only; ordinary informational updates keep working. */
-bool hub_ai_last_capacity_issue(void;
+bool hub_ai_last_capacity_issue(void);
 bool hub_ai_wifi_started(void);
 /* Only call from a dedicated short-lived task after admin inactivity. */
 bool hub_ai_wifi_shutdown(void);
