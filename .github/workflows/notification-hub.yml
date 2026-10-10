@@ -48,7 +48,7 @@ jobs:
           command: |
             cd apps/notification-hub/firmware
             idf.py build
-            idf.py merge-bin -o build/notification-hub-full.bin --format raw
+            idf.py merge-bin -o notification-hub-full.bin --format raw
       - name: Prepare Chinese-named firmware and checksum
         run: |
           cp apps/notification-hub/firmware/build/notification-hub-full.bin "Passport通知中心-公测16-合并固件.bin"
