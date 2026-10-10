@@ -217,6 +217,7 @@ static esp_err_t dashboard_page(httpd_req_t *req) {
     put(req,"</b>Wi‑Fi</div><div class=\"status-chip\"><b>");
     if(!loaded) put(req,"");
     else if(dashboard_page_snapshot.ai_busy) put(req,"正在总结");
+    else if(dashboard_page_snapshot.ai_capacity_full) put(req,"待办已满");
     else if(dashboard_page_snapshot.ai_failed) put(req,"最近请求失败");
     else put(req,dashboard_page_snapshot.ai_enabled?"已开启":"已关闭");
     put(req,"</b>AI 总结</div><div class=\"status-chip\"><b>");
@@ -227,6 +228,8 @@ static esp_err_t dashboard_page(httpd_req_t *req) {
     put(req,"</b>本地存档</div></div>");
     if(loaded && dashboard_page_snapshot.archive_dropped)
         put(req,"<small>通知高峰期间有记录未能及时写入；建议减少通知量或稍后检查设备。</small>");
+    if(loaded && dashboard_page_snapshot.ai_capacity_full)
+        put(req,"<small>未完成事项已达5项，暂停AI摘要且新通知仍保存在设备中。确认已处理后点击「已读清除」，即可自动恢复三条触发。</small>");
     put(req,"</div></section>");
 
     put(req,"<section class=\"section\"><h2 class=\"section-title\">最近摘要</h2><div class=\"card\">");

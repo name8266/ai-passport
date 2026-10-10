@@ -72,13 +72,23 @@ int main(void) {
     assert(hub_archive_last_digest(&db,&restored) && restored.hidden);
     assert(hub_archive_ack_digest(&db));
     assert(!hub_archive_last_digest(&db,&restored));
-    assert(hub_archive_digest_revision(&db)==3);
+    assert(hub_archive_digest_revision(&db)==4);
+    /* Corrupt newest tombstone; fallback MUST still be cleared, never old. */
+    FILE *f=fopen(ACTIVE_SLOT0,"ab");assert(f);fputc(1,f);fclose(f);
+    assert(!hub_archive_last_digest(&db,&restored));
+    /* A freshly committed digest has v3 checkpoint and survives reboot. */
     assert(hub_archive_save_digest(&db,&digest));
-    FILE *f=fopen(ACTIVE_SLOT1,"ab");assert(f);fputc(1,f);fclose(f);
-    /* Corrupt the older slot: the new checksummed generation still wins. */
+    assert(hub_archive_digest_revision(&db)==4);
+    f=fopen(ACTIVE_SLOT1,"ab");assert(f);fputc(1,f);fclose(f);
     assert(hub_archive_last_digest(&db,&restored));
     assert(!strcmp(restored.summary,"saved"));
     assert(restored.day_tag==hub_ai_day_tag(2000000000u));
+    /* Simulate power loss after digest fsync and before NVS advance. */
+    test_cursor=0;
+    assert(hub_archive_reconcile_cursor(&db));
+    assert(test_cursor==3);
+    test_cursor=0;
+    cursor_updates=0;
     fclose(db.file);f=fopen(HUB_ARCHIVE_PATH,"ab");assert(f);fputc(1,f);fclose(f);
     assert(!hub_archive_open(&db,3) && db.failed);fclose(db.file);
     test_blank=false;test_mount_error=true;
@@ -224,6 +234,7 @@ int main(void) {
     assert(removed==1 && db.rows==rows_before+1);
     assert(cursor_updates==1 && test_cursor==rows_before);
     assert(hub_archive_last_digest(&db,&digest) && !strcmp(digest.summary,"stale summary"));
+    assert(digest.processed_through==rows_before);
     uint8_t count=0;uint32_t next=0;bool older=false;
     hub_archive_record_t recent[HUB_ARCHIVE_WEB_PAGE_SIZE];
     assert(hub_archive_get_recent(&db,UINT32_MAX,HUB_ARCHIVE_WEB_PAGE_SIZE,
@@ -255,6 +266,8 @@ int main(void) {
     assert(hub_archive_prune_processed(&db,&removed));
     assert(removed==rows_before && db.rows==1 && test_cursor==0);
     assert(hub_archive_last_digest(&db,&digest) && !strcmp(digest.summary,"stale summary"));
+    assert(digest.processed_through==0);
+    assert(hub_archive_reconcile_cursor(&db) && test_cursor==0);
     fclose(db.file);
     assert(unlink(HUB_ARCHIVE_PATH)==0);
     assert(unlink_if_present(ACTIVE_SLOT0));

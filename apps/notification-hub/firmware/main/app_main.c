@@ -34,6 +34,7 @@
 #include "lvgl.h"
 #include "hub_protocol.h"
 #include "hub_archive.h"
+#include "hub_archive_gc.h"
 #include "hub_backlog.h"
 #include "hub_ai.h"
 #include "hub_web_dashboard.h"
@@ -142,6 +143,8 @@ static uint32_t ai_operation_id;
 static QueueHandle_t ai_requests, ai_replies;
 static volatile bool ai_configured, ai_online, ai_enabled, ai_busy;
 static volatile bool ai_failed;
+static volatile bool ai_capacity_full;
+static volatile bool ai_resume_after_ack;
 static volatile bool ai_run_now;
 static volatile bool digest_auto_show;
 static hub_ai_digest_t latest_digest;
@@ -160,6 +163,8 @@ static hub_archive_record_t selected_record;
 static bool selected_record_valid;
 static int64_t next_summary_request;
 static int64_t next_retention_check;
+static int64_t next_gc_check;
+/* Threshold defined and host-tested in hub_archive_gc.h. */
 static lv_obj_t *content_panel;
 static lv_obj_t *top_status,*top_battery,*page_no,*app_name,*title_text,*body_text,*help_text;
 static lv_font_t readable_font;
@@ -324,16 +329,9 @@ static void handle_ai_archive_request(const ai_archive_req_t *request) {
         if(reply->success)
             reply->success=hub_ai_advance_cursor(request->digest.processed_through);
         if(reply->success) {
-            /* Never prune before the new context and checkpoint are durable. */
-            uint32_t removed=0;
-            if(!hub_archive_prune_processed(&archive_database,&removed)) {
-                ESP_LOGW(TAG,"Processed notification cleanup deferred");
-                archive_error=archive_database.failed;
-            } else {
-                archive_full=archive_database.full;
-                ESP_LOGI(TAG,"Reclaimed %lu processed archive rows",
-                         (unsigned long)removed);
-            }
+            /* Keep processed snapshots temporarily; the archive worker reclaims
+             * only after 64 records, avoiding one FAT rewrite per 3 alerts.
+             * Both the digest and NVS checkpoint are already durable here. */
             reply->committed_cursor=hub_ai_read_cursor();
             archive_job_t ui_request={.kind=ARCHIVE_AI_LAST};
             (void)post_job(&ui_request);
@@ -367,6 +365,10 @@ static void ai_task(void *arg) {
     int64_t next_config=0, next_run=0;
     while(true) {
         int64_t now=esp_timer_get_time()/1000000;
+        if(ai_resume_after_ack) {
+            ai_resume_after_ack=false;
+            next_run=now; /* still respects the normal three-alert threshold */
+        }
         if(now>=next_config) {
             bool was_enabled=settings.enabled;
             if(hub_ai_fetch_settings(&conn,&settings)) {
@@ -401,6 +403,13 @@ static void ai_task(void *arg) {
                 if(!hub_ai_batch_ready(response->batch.count,force_run)) {
                     pending_more=false;break;
                 }
+                if(response->has_prior &&
+                   response->prior.task_count>=HUB_AI_TASK_LIMIT) {
+                    ai_capacity_full=true;
+                    ai_failed=true;
+                    ESP_LOGW(TAG,"Pending tasks full, original notifications retained");
+                    break;
+                }
                 uint32_t prior_revision=response->revision;
                 static hub_ai_digest_t result;
                 if(!hub_ai_summarize_context(&conn,&settings,&response->batch,
@@ -417,6 +426,7 @@ static void ai_task(void *arg) {
                     ai_failed=true;break;
                 }
                 cursor=response->committed_cursor;
+                ai_capacity_full=false;
                 force_run=false;
                 processed_batches++;
                 pending_more=true;
@@ -458,6 +468,10 @@ static void archive_task(void *arg) {
             ESP_LOGI(TAG,"Empty archive detected; stale AI cursor reset");
         else
             ESP_LOGE(TAG,"Empty archive but stale AI cursor could not be reset");
+    }
+    if(ok && !hub_archive_reconcile_cursor(&archive_database)) {
+        ESP_LOGE(TAG,"Durable digest / NVS checkpoint reconciliation failed");
+        ok=false; /* do not process data with an inconsistent checkpoint */
     }
     archive_error=!ok;
     archive_loaded=ok;
@@ -504,6 +518,7 @@ static void archive_task(void *arg) {
             web_archive_snapshot.ai_enabled=ai_enabled;
             web_archive_snapshot.ai_busy=ai_busy;
             web_archive_snapshot.ai_failed=ai_failed;
+            web_archive_snapshot.ai_capacity_full=ai_capacity_full;
             web_archive_snapshot.archive_full=archive_full;
             web_archive_snapshot.archive_error=archive_error;
             web_archive_snapshot.archive_dropped=archive_dropped;
@@ -519,6 +534,29 @@ static void archive_task(void *arg) {
         }
         uint8_t command;
         int64_t monotonic_now=esp_timer_get_time();
+        /* Batched GC: never rewrite FAT for every three-notice AI call.
+         * Leave the capture worker responsive when BLE has queued data. */
+        if(ok && archive_loaded && !archive_initializing && !ai_busy &&
+           monotonic_now>=next_gc_check &&
+           hub_archive_gc_due(hub_ai_read_cursor(),archive_database.full) &&
+           uxQueueMessagesWaiting(archive_captures)==0 &&
+           uxQueueMessagesWaiting(archive_control)==0) {
+            uint32_t removed=0;
+            if(hub_archive_prune_processed(&archive_database,&removed)) {
+                archive_full=archive_database.full;
+                if(removed) {
+                    if(view_mode==VIEW_GROUPS) request_group(group_cursor);
+                    else if(view_mode==VIEW_LIST) request_record();
+                    ESP_LOGI(TAG,"Batched GC reclaimed %lu archive rows",
+                             (unsigned long)removed);
+                }
+                next_gc_check=monotonic_now+10000000LL;
+            }else {
+                archive_error=archive_database.failed;
+                ESP_LOGW(TAG,"Archive GC deferred (cursor/Flash pending)");
+                next_gc_check=monotonic_now+120000000LL;
+            }
+        }
         if(ok && archive_loaded && !archive_initializing && !ai_busy &&
            monotonic_now>=next_retention_check) {
             if(uxQueueMessagesWaiting(archive_captures)==0) {
@@ -585,6 +623,11 @@ static void archive_task(void *arg) {
                 hub_archive_ack_digest(&archive_database):
                 hub_archive_hide_digest(&archive_database);
             if(done) {
+                if(job.kind==ARCHIVE_AI_ACK) {
+                    ai_capacity_full=false;
+                    ai_failed=false;
+                    ai_resume_after_ack=true;
+                }
                 archive_job_t refresh={.kind=ARCHIVE_AI_LAST};
                 (void)post_job(&refresh);
             }
@@ -780,6 +823,7 @@ static void render(void) {
         hub_ui_set_text(help_text,"网页内设置  长按确认返回");
     }else if(view_mode==VIEW_DIGEST) {
         if(ai_busy) hub_ui_set_text(page_no,"正在生成综合简报");
+        else if(ai_capacity_full) hub_ui_set_text(page_no,"待办已满，保留新通知");
         else if(ai_failed) hub_ui_set_text(page_no,"总结失败，请重试");
         else if(latest_digest_ready && latest_digest.day_tag &&
                 latest_digest.day_tag==hub_ai_day_tag(hub_ai_current_epoch()))
@@ -796,7 +840,7 @@ static void render(void) {
                 at+=(size_t)n;
             }
         }
-        hub_ui_set_text(body_text,latest_digest_ready?digest_text:!ai_enabled?"智能摘要尚未开启。\n\n在网页设置中开启。":ai_failed?"摘要失败，请检查网络或存档。":"等待3条新通知");
+        hub_ui_set_text(body_text,latest_digest_ready?digest_text:!ai_enabled?"智能摘要尚未开启。\n\n在网页设置中开启。":ai_capacity_full?"待办达到5项上限，自动总结暂停。原通知仍在本机，按确认清除已读摘要后恢复。":ai_failed?"摘要失败，请检查网络或存档。":"等待3条新通知");
         hub_ui_set_text(help_text,"确认=已读清除  长按确认=关闭");
     }else if(view_mode==VIEW_GROUPS) {
         if(!visible_group_count) {

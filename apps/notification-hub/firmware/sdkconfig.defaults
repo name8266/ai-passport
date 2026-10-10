@@ -46,6 +46,12 @@ CONFIG_BSP_LVGL_DRAW_BUFFER_LINES=16
 CONFIG_MBEDTLS_DYNAMIC_BUFFER=y
 CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=2048
 
+# Crash-safe 512-byte wear levelling is required for digest durability.
+# Performance mode can lose a 4 KiB sector on sudden power loss.
+CONFIG_WL_SECTOR_SIZE_512=y
+CONFIG_WL_SECTOR_MODE_SAFE=y
+# CONFIG_WL_SECTOR_MODE_PERF is not set
+
 # One archive worker owns all FAT files; share its sector cache to save 8 KiB.
 CONFIG_FATFS_PER_FILE_CACHE=n
 

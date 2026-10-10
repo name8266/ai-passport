@@ -13,6 +13,7 @@ typedef struct {
     bool ai_enabled;
     bool ai_busy;
     bool ai_failed;
+    bool ai_capacity_full;
     bool archive_full;
     bool archive_error;
     bool archive_dropped;

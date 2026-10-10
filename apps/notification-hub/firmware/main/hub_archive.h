@@ -93,6 +93,8 @@ bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,uint8_t max_cou
                                hub_ai_batch_t *out);
 bool hub_archive_save_digest(hub_archive_t *db,const hub_ai_digest_t *digest);
 bool hub_archive_last_digest(hub_archive_t *db,hub_ai_digest_t *out);
+/* Restore a durable summary checkpoint when power fails before NVS commit. */
+bool hub_archive_reconcile_cursor(hub_archive_t *db);
 /* Paired checksummed snapshots: state survives resets without growing logs. */
 uint32_t hub_archive_digest_revision(hub_archive_t *db);
 bool hub_archive_hide_digest(hub_archive_t *db);

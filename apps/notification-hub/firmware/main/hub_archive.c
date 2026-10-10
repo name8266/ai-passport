@@ -25,6 +25,8 @@ _Static_assert(sizeof(hub_archive_record_t)==384, "Archive on-disk layout change
 
 typedef struct {uint32_t magic,rows,cursor,checksum;} compact_txn_t;
 #define COMPACT_TXN_MAGIC 0x4854584eu
+/* Dual-slot checkpoint must move with journal sequence renumbering. */
+static bool align_active_digest_checkpoint(uint32_t cursor);
 
 /* Noncryptographic corruption check, NOT an anti-tamper signature. */
 static uint32_t checksum(const hub_archive_record_t *r) {
@@ -153,7 +155,8 @@ static bool recover_compaction(void) {
         return unlink_if_present(HUB_ARCHIVE_COMPACT_PATH) &&
                unlink_if_present(HUB_ARCHIVE_COMPACT_TXN_PATH);
     }
-    if(!unlink_if_present(DIGEST_PATH) || !hub_ai_set_cursor(txn.cursor)) return false;
+    if(!unlink_if_present(DIGEST_PATH) || !hub_ai_set_cursor(txn.cursor) ||
+       !align_active_digest_checkpoint(txn.cursor)) return false;
     return unlink_if_present(HUB_ARCHIVE_COMPACT_TXN_PATH);
 }
 
@@ -443,6 +446,7 @@ static bool compact_archive(hub_archive_t *db,uint32_t now_epoch,
     uint32_t age_seconds=(uint32_t)retention_days*86400u;
     uint32_t expired=0,retained_cursor=0;
     uint32_t old_cursor=hub_ai_read_cursor();
+    if(old_cursor>db->rows) return false; /* corrupt NVS checkpoint */
     hub_archive_record_t row;
     if(fseek(db->file,0,SEEK_SET)!=0) {db->failed=true;return false;}
     for(uint32_t i=0;i<db->rows;i++) {
@@ -450,7 +454,7 @@ static bool compact_archive(hub_archive_t *db,uint32_t now_epoch,
             db->failed=true;return false;
         }
         if((prune_committed && row.sequence<=old_cursor) ||
-           record_expired(&row,now_epoch,age_seconds)) expired++;
+           (!prune_committed && record_expired(&row,now_epoch,age_seconds))) expired++;
         else if(row.sequence<=old_cursor) retained_cursor++;
     }
     if(!expired) return true;
@@ -464,7 +468,7 @@ static bool compact_archive(hub_archive_t *db,uint32_t now_epoch,
         if(fread(&row,sizeof(row),1,db->file)!=1 || !valid(&row) || row.sequence!=i+1)
             {ok=false;break;}
         if((prune_committed && row.sequence<=old_cursor) ||
-           record_expired(&row,now_epoch,age_seconds)) continue;
+           (!prune_committed && record_expired(&row,now_epoch,age_seconds))) continue;
         row.sequence=++kept;
         row.checksum=checksum(&row);
         ok=fwrite(&row,sizeof(row),1,compacted)==1;
@@ -502,6 +506,7 @@ static bool compact_archive(hub_archive_t *db,uint32_t now_epoch,
     db->file=fopen(HUB_ARCHIVE_PATH,"rb+");
     if(!db->file || !rebuild_index(db)) {db->failed=true;return false;}
     if(!unlink_if_present(DIGEST_PATH) || !hub_ai_set_cursor(retained_cursor) ||
+       !align_active_digest_checkpoint(retained_cursor) ||
        !unlink_if_present(HUB_ARCHIVE_COMPACT_TXN_PATH)) {
         db->failed=true;return false;
     }
@@ -574,7 +579,7 @@ bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,uint8_t max_cou
 /* Dual-slot generation journal: fsync the next slot before replacing the
  * previous good slot. FAT 8.3 filenames are intentional. */
 #define ACTIVE_MAGIC 0x32474844u
-#define ACTIVE_VERSION 2u
+#define ACTIVE_VERSION 3u /* same packed layout as Beta17 v2 */
 #define ACTIVE_SLOT0 "/archive/sum0.dat"
 #define ACTIVE_SLOT1 "/archive/sum1.dat"
 typedef struct {
@@ -595,7 +600,7 @@ static bool read_slot(const char *path,active_record_t *r) {
     bool ok=fread(r,sizeof(*r),1,f)==1;
     if(ok && fgetc(f)!=EOF)ok=false;
     if(fclose(f)!=0)ok=false;
-    if(!ok || r->magic!=ACTIVE_MAGIC || r->version!=ACTIVE_VERSION ||
+    if(!ok || r->magic!=ACTIVE_MAGIC || (r->version!=2u && r->version!=ACTIVE_VERSION) ||
        !r->generation || r->checksum!=active_hash(r) ||
        r->digest.task_count>HUB_AI_TASK_LIMIT ||
        !memchr(r->digest.summary,0,sizeof(r->digest.summary)))return false;
@@ -605,7 +610,7 @@ static bool read_slot(const char *path,active_record_t *r) {
            !memchr(r->digest.tasks[i].due,0,HUB_AI_DUE_BYTES))return false;
     return true;
 }
-static bool latest_active(hub_ai_digest_t *out,uint32_t *generation) {
+static bool latest_active(hub_ai_digest_t *out,uint32_t *generation,uint32_t *version) {
     static active_record_t slot0,slot1;
     bool a=read_slot(ACTIVE_SLOT0,&slot0),b=read_slot(ACTIVE_SLOT1,&slot1);
     if(!a && !b)return false;
@@ -613,13 +618,14 @@ static bool latest_active(hub_ai_digest_t *out,uint32_t *generation) {
         &slot0:&slot1;
     if(out)*out=best->digest;
     if(generation)*generation=best->generation;
+    if(version)*version=best->version;
     return true;
 }
 static bool write_active(const hub_ai_digest_t *d) {
     if(!d || d->task_count>HUB_AI_TASK_LIMIT ||
        (!d->cleared && !d->summary[0]))return false;
     uint32_t gen=0;
-    (void)latest_active(NULL,&gen);
+    (void)latest_active(NULL,&gen,NULL);
     if(gen==UINT32_MAX)return false;
     static active_record_t record;
     memset(&record,0,sizeof(record));
@@ -634,6 +640,16 @@ static bool write_active(const hub_ai_digest_t *d) {
     if(fclose(f)!=0)ok=false;
     if(ok)(void)unlink_if_present(DIGEST_PATH);
     return ok;
+}
+/* Rebase the checkpoint only after the compacted journal is installed.
+ * The transaction marker remains until this extra snapshot is durable;
+ * a power failure can then safely replay reconciliation. */
+static bool align_active_digest_checkpoint(uint32_t cursor) {
+    static hub_ai_digest_t state;
+    if(!latest_active(&state,NULL,NULL))return true;
+    if(state.processed_through==cursor)return true;
+    state.processed_through=cursor;
+    return write_active(&state);
 }
 bool hub_archive_save_digest(hub_archive_t *db,const hub_ai_digest_t *summary) {
     return db && db->mounted && !db->failed && write_active(summary);
@@ -665,14 +681,33 @@ static bool hub_archive_legacy_digest(hub_archive_t *db,hub_ai_digest_t *out) {
 }
 
 
+/* Idempotent recovery for a crash between a durable summary write and the
+ * independent NVS cursor update. Compaction has already rebased the summary
+ * checkpoint (or replayed its transaction marker) before this function runs. */
+bool hub_archive_reconcile_cursor(hub_archive_t *db) {
+    if(!db || !db->mounted || db->failed)return false;
+    uint32_t cursor=hub_ai_read_cursor();
+    if(cursor>db->rows)return false;
+    static hub_ai_digest_t state;
+    uint32_t version=0;
+    if(!latest_active(&state,NULL,&version) || version!=ACTIVE_VERSION)
+        return true; /* v2 lacks compaction rebasing: never skip new records */
+    if(state.processed_through>cursor &&
+       state.processed_through<=db->rows) {
+        ESP_LOGW(TAG,"Recovering durable AI commit %lu -> %lu",
+                 (unsigned long)cursor,(unsigned long)state.processed_through);
+        return hub_ai_set_cursor(state.processed_through);
+    }
+    return true;
+}
 uint32_t hub_archive_digest_revision(hub_archive_t *db) {
     uint32_t gen=0;
-    if(db && db->mounted && !db->failed)(void)latest_active(NULL,&gen);
+    if(db && db->mounted && !db->failed)(void)latest_active(NULL,&gen,NULL);
     return gen;
 }
 bool hub_archive_last_digest(hub_archive_t *db,hub_ai_digest_t *out) {
     if(!db || !db->mounted || db->failed || !out)return false;
-    if(latest_active(out,NULL))return !out->cleared && out->summary[0];
+    if(latest_active(out,NULL,NULL))return !out->cleared && out->summary[0];
     return hub_archive_legacy_digest(db,out);
 }
 bool hub_archive_hide_digest(hub_archive_t *db) {
@@ -688,6 +723,9 @@ bool hub_archive_ack_digest(hub_archive_t *db) {
     memset(d.summary,0,sizeof(d.summary));
     memset(d.tasks,0,sizeof(d.tasks));
     d.task_count=0;d.included=0;d.cleared=true;d.hidden=false;
+    /* A second, bounded tombstone copy prevents a single torn slot from
+     * resurrecting the old acknowledged digest on the next boot. */
+    if(!write_active(&d))return false;
     return write_active(&d);
 }
 bool hub_archive_initialize(hub_archive_t *db,bool confirmed) {

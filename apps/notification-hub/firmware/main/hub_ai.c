@@ -9,6 +9,7 @@
 #include "hub_response.h"
 #include "hub_app_catalog.h"
 #include "hub_ai_prompt.h"
+#include "hub_ai_state.h"
 #include "esp_heap_caps.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -157,7 +158,10 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
                       const hub_ai_batch_t *batch,const hub_ai_digest_t *prior,
                       hub_ai_digest_t *out) {
     (void)conn;
-    if(!out||!batch||batch->count==0||batch->count>HUB_AI_MAX_BATCH ||
+    if(!out) return false;
+    /* Reused result objects must never resurrect read/cleared tasks. */
+    memset(out,0,sizeof(*out));
+    if(!batch||batch->count==0||batch->count>HUB_AI_MAX_BATCH ||
        !s_online || !ensure_clock()) return false;
     /* The caller owns the credentials; diagnostic calls can keep them in RAM. */
     if(!configuration || !configuration->enabled || !configuration->api_key[0])
@@ -166,6 +170,10 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
     /* Unacknowledged summaries are context even after the journal compacts
      * and renumbers records or midnight passes. */
     bool use_prior=prior && !prior->cleared && prior->summary[0];
+    if(use_prior && prior->task_count>=HUB_AI_TASK_LIMIT) {
+        ESP_LOGW(TAG,"Pending tasks full; leave original notifications untouched");
+        return false;
+    }
     static char payload[3584];
     size_t at=0;
     int count=0;
@@ -181,7 +189,8 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
         at+=(size_t)n;
         for(uint8_t i=0;i<prior->task_count && i<HUB_AI_TASK_LIMIT;i++) {
             n=snprintf(payload+at,sizeof(payload)-at,
-                "- 事项:%s / 来源:%s / 截止:%s\n",
+                "- [ID:%08lx] 事项:%s / 来源:%s / 截止:%s\n",
+                (unsigned long)hub_ai_task_id(&prior->tasks[i]),
                 prior->tasks[i].task,prior->tasks[i].source,prior->tasks[i].due);
             if(n<0 || (size_t)n>=sizeof(payload)-at)return false;
             at+=(size_t)n;
@@ -232,7 +241,7 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
         return abort_json_request(request,messages);
     if(!cJSON_AddStringToObject(request,"model",settings->model) ||
        !cJSON_AddBoolToObject(request,"stream",false) ||
-       !cJSON_AddNumberToObject(request,"max_tokens",750))
+       !cJSON_AddNumberToObject(request,"max_tokens",900))
         return abort_json_request(request,NULL);
     if(strstr(settings->endpoint,"api.deepseek.com/")) {
         /* Flash summaries need short user-facing output, not a costly chain of thought. */
@@ -240,6 +249,11 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
         if(!thinking || !cJSON_AddStringToObject(thinking,"type","disabled") ||
            !cJSON_AddItemToObject(request,"thinking",thinking))
             return abort_json_request(request,thinking);
+        /* Use provider JSON mode to eliminate prompt-only syntax drift. */
+        cJSON *format=cJSON_CreateObject();
+        if(!format || !cJSON_AddStringToObject(format,"type","json_object") ||
+           !cJSON_AddItemToObject(request,"response_format",format))
+            return abort_json_request(request,format);
     }
     cJSON *system=cJSON_CreateObject();
     if(!system || !cJSON_AddStringToObject(system,"role","system") ||
@@ -304,12 +318,11 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
             cJSON *items=cJSON_GetObjectItemCaseSensitive(document,"open_items");
             if(cJSON_IsObject(document) && cJSON_IsString(summary) &&
                summary->valuestring && summary->valuestring[0] &&
-               cJSON_IsArray(items) &&
-               cJSON_GetArraySize(items)<=HUB_AI_TASK_LIMIT) {
-                /* Keep ~1.8 KiB of decoded state off the 8 KiB TLS worker stack. */
-                static hub_ai_digest_t parsed;
-                memset(&parsed,0,sizeof(parsed));
-                hub_utf8_copy(parsed.summary,sizeof(parsed.summary),
+               cJSON_IsArray(items) && cJSON_GetArraySize(items)<=HUB_AI_TASK_LIMIT &&
+               strlen(summary->valuestring)<=HUB_AI_SUMMARY_MAX_UTF8_BYTES) {
+                static hub_ai_digest_t proposed;
+                memset(&proposed,0,sizeof(proposed));
+                hub_utf8_copy(proposed.summary,sizeof(proposed.summary),
                     (const uint8_t *)summary->valuestring,strlen(summary->valuestring));
                 int n=cJSON_GetArraySize(items);
                 bool valid=true;
@@ -320,26 +333,35 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
                     cJSON *due=cJSON_GetObjectItemCaseSensitive(item,"due");
                     if(!cJSON_IsObject(item) || !cJSON_IsString(task) ||
                        !cJSON_IsString(source) || !cJSON_IsString(due) ||
-                       !task->valuestring || !task->valuestring[0]) {
+                       !task->valuestring || !task->valuestring[0] ||
+                       !source->valuestring || !due->valuestring ||
+                       strlen(task->valuestring)>=HUB_AI_TASK_BYTES ||
+                       strlen(source->valuestring)>=HUB_AI_SOURCE_BYTES ||
+                       strlen(due->valuestring)>=HUB_AI_DUE_BYTES) {
                         valid=false;break;
                     }
-                    hub_utf8_copy(parsed.tasks[i].task,sizeof(parsed.tasks[i].task),
+                    hub_utf8_copy(proposed.tasks[i].task,sizeof(proposed.tasks[i].task),
                         (const uint8_t *)task->valuestring,strlen(task->valuestring));
-                    hub_utf8_copy(parsed.tasks[i].source,sizeof(parsed.tasks[i].source),
+                    hub_utf8_copy(proposed.tasks[i].source,sizeof(proposed.tasks[i].source),
                         (const uint8_t *)source->valuestring,strlen(source->valuestring));
-                    hub_utf8_copy(parsed.tasks[i].due,sizeof(parsed.tasks[i].due),
+                    hub_utf8_copy(proposed.tasks[i].due,sizeof(proposed.tasks[i].due),
                         (const uint8_t *)due->valuestring,strlen(due->valuestring));
-                    parsed.task_count++;
+                    proposed.task_count++;
                 }
-                if(valid && parsed.summary[0]) {
-                    parsed.processed_through=batch->through_sequence;
-                    parsed.day_tag=batch->day_tag;
-                    unsigned cumulative=(unsigned)(use_prior?prior->included:0)+(unsigned)count;
-                    parsed.included=(uint16_t)(cumulative>65535u?65535u:cumulative);
-                    parsed.hidden=false;
-                    parsed.cleared=false;
-                    *out=parsed;
-                    ok=true;
+                if(valid) {
+                    hub_ai_merge_result_t merged=hub_ai_merge_pending(
+                        use_prior?prior:NULL,&proposed,out);
+                    if(merged==HUB_AI_MERGE_OK) {
+                        out->processed_through=batch->through_sequence;
+                        out->day_tag=batch->day_tag;
+                        unsigned cumulative=(unsigned)(use_prior?prior->included:0)+
+                                            (unsigned)count;
+                        out->included=(uint16_t)(cumulative>65535u?65535u:cumulative);
+                        out->hidden=false;out->cleared=false;
+                        ok=true;
+                    }else {
+                        ESP_LOGW(TAG,"Digest task merge=%d rejected, notifications kept",merged);
+                    }
                 }
             }
             cJSON_Delete(document);

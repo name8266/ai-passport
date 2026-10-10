@@ -51,12 +51,12 @@ jobs:
             idf.py merge-bin -o notification-hub-full.bin --format raw
       - name: Prepare Chinese-named firmware and checksum
         run: |
-          cp apps/notification-hub/firmware/build/notification-hub-full.bin "Passport通知中心-公测17-合并固件.bin"
-          sha256sum "Passport通知中心-公测17-合并固件.bin"
+          cp apps/notification-hub/firmware/build/notification-hub-full.bin "Passport通知中心-公测18-合并固件.bin"
+          sha256sum "Passport通知中心-公测18-合并固件.bin"
       - name: Upload merged firmware
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: Passport通知中心-公测17
-          path: Passport通知中心-公测17-合并固件.bin
+          name: Passport通知中心-公测18
+          path: Passport通知中心-公测18-合并固件.bin
           if-no-files-found: error
           retention-days: 7

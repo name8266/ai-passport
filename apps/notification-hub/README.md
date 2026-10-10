@@ -2,6 +2,15 @@
 
 # Passport Notification Archive + AI summaries
 
+## Beta 18: crash consistency and bounded task memory
+
+This release focuses on correctness, not additional features. The AI proposes **new pending tasks only**; firmware deterministically preserves and deduplicates existing pending tasks until the user explicitly acknowledges/clears the digest. When five pending tasks are present, further summaries pause and incoming raw previews are preserved with a visible capacity warning. The reused digest object is reset before processing privacy-filtered batches, preventing old tasks from reappearing.
+
+DeepSeek endpoints now request JSON mode; responses are rejected if fields exceed fixed byte budgets. Digest snapshots use a compatible version 3 checkpoint for restart reconciliation with NVS, and archive compaction rebases this checkpoint. Explicit acknowledgment writes two cleared tombstones. Wear Levelling is configured for 512-byte safe mode, and processed notification logs are reclaimed in batches (64 committed snapshots or a full archive), instead of after every three-notification request. This reduces flash write amplification but means raw previews may remain physically present until the next compaction.
+
+ESP32-C3 has no PSRAM; all buffers and task counts are fixed. These mitigations are tested by host regressions and firmware compilation; they are not substitutes for abrupt-power-loss fault injection or extended paired-iPhone testing. **Beta 18 is not a production release.** This section supersedes historical Beta 15/17 behaviors mentioned below.
+
+
 Standalone ESP32-C3 notification accessory using Apple's public ANCS service.
 It saves notification metadata immediately, then app identifiers, titles and
 limited previews when iOS provides them. Removing a notification on the phone
