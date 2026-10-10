@@ -163,16 +163,15 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
     if(!configuration || !configuration->enabled || !configuration->api_key[0])
         return false;
     const hub_ai_settings_t *settings=configuration;
-    /* The rolling digest merges small batches without re-sending or keeping
-     * all source notifications in RAM. Only same-day context is accepted. */
-    bool use_prior=prior && batch->day_tag &&
-        prior->day_tag==batch->day_tag &&
+    /* A digest remains active until explicitly acknowledged; day boundaries
+     * must not silently discard outstanding tasks. */
+    bool use_prior=prior &&
         prior->processed_through<=batch->after_sequence && prior->summary[0];
     static char payload[3584];
     size_t at=0;
     int count=0;
     int head=snprintf(payload,sizeof(payload),
-        "【此前同日摘要】\n%s\n【本批新通知预览】\n",
+        "【尚未清除的前次摘要】\n%s\n【本批新通知预览】\n",
         use_prior?prior->summary:"（无；从本批开始）");
     if(head<0 || (size_t)head>=sizeof(payload))return false;
     at=(size_t)head;
