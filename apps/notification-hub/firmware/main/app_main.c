@@ -829,11 +829,11 @@ static void render(void) {
                 latest_digest.day_tag==hub_ai_day_tag(hub_ai_current_epoch()))
             hub_ui_set_text_fmt(page_no,"今日已分析 %u 条",(unsigned)latest_digest.included);
         else hub_ui_set_text(page_no,"最近一次综合摘要");
-        static char digest_text[1440];
+        static char digest_text[1536];
         if(latest_digest_ready) {
             size_t at=(size_t)snprintf(digest_text,sizeof(digest_text),"%s",latest_digest.summary);
             if(at>=sizeof(digest_text)) at=sizeof(digest_text)-1;
-            for(uint8_t i=0;i<latest_digest.task_count && i<3;i++) {
+            for(uint8_t i=0;i<latest_digest.task_count && i<HUB_AI_TASK_LIMIT;i++) {
                 int n=snprintf(digest_text+at,sizeof(digest_text)-at,
                                "\n待办：%s",latest_digest.tasks[i].task);
                 if(n<0 || (size_t)n>=sizeof(digest_text)-at) break;

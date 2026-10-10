@@ -48,6 +48,9 @@ jobs:
           command: |
             cd apps/notification-hub/firmware
             idf.py build
+            # Verify the generated effective Kconfig, not just sdkconfig.defaults.
+            grep -qx "CONFIG_WL_SECTOR_MODE_SAFE=y" sdkconfig
+            echo "Wear-levelling safety mode: verified"
             idf.py merge-bin -o notification-hub-full.bin --format raw
       - name: Prepare Chinese-named firmware and checksum
         run: |

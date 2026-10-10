@@ -87,6 +87,22 @@ int main(void) {
     test_cursor=0;
     assert(hub_archive_reconcile_cursor(&db));
     assert(test_cursor==3);
+    /* Simulate a pre-Beta18 v2 snapshot on an archive already renumbered.
+     * An old checkpoint must NEVER skip new notifications after migration. */
+    active_record_t legacy={0};
+    legacy.magic=ACTIVE_MAGIC;
+    legacy.version=2u;
+    legacy.generation=5u;
+    legacy.digest=digest;
+    legacy.checksum=active_hash(&legacy);
+    FILE *legacy_file=fopen(ACTIVE_SLOT1,"wb");assert(legacy_file);
+    assert(fwrite(&legacy,sizeof(legacy),1,legacy_file)==1);
+    assert(sync_file(legacy_file));assert(fclose(legacy_file)==0);
+    test_cursor=0;
+    assert(hub_archive_reconcile_cursor(&db) && test_cursor==0);
+    /* Once written in v3, a crashed checkpoint can be replayed safely. */
+    assert(hub_archive_save_digest(&db,&digest));
+    assert(hub_archive_reconcile_cursor(&db) && test_cursor==3);
     test_cursor=0;
     cursor_updates=0;
     fclose(db.file);f=fopen(HUB_ARCHIVE_PATH,"ab");assert(f);fputc(1,f);fclose(f);

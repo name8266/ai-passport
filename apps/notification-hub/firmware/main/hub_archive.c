@@ -582,6 +582,8 @@ bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,uint8_t max_cou
 #define ACTIVE_VERSION 3u /* same packed layout as Beta17 v2 */
 #define ACTIVE_SLOT0 "/archive/sum0.dat"
 #define ACTIVE_SLOT1 "/archive/sum1.dat"
+/* The archive task exclusively owns this single 1.8 KiB scratch area. */
+static hub_ai_digest_t s_archive_digest_scratch;
 typedef struct {
     uint32_t magic,version,generation;
     hub_ai_digest_t digest;
@@ -645,11 +647,11 @@ static bool write_active(const hub_ai_digest_t *d) {
  * The transaction marker remains until this extra snapshot is durable;
  * a power failure can then safely replay reconciliation. */
 static bool align_active_digest_checkpoint(uint32_t cursor) {
-    static hub_ai_digest_t state;
-    if(!latest_active(&state,NULL,NULL))return true;
-    if(state.processed_through==cursor)return true;
-    state.processed_through=cursor;
-    return write_active(&state);
+    hub_ai_digest_t *state=&s_archive_digest_scratch;
+    if(!latest_active(state,NULL,NULL))return true;
+    if(state->processed_through==cursor)return true;
+    state->processed_through=cursor;
+    return write_active(state);
 }
 bool hub_archive_save_digest(hub_archive_t *db,const hub_ai_digest_t *summary) {
     return db && db->mounted && !db->failed && write_active(summary);
@@ -688,15 +690,15 @@ bool hub_archive_reconcile_cursor(hub_archive_t *db) {
     if(!db || !db->mounted || db->failed)return false;
     uint32_t cursor=hub_ai_read_cursor();
     if(cursor>db->rows)return false;
-    static hub_ai_digest_t state;
+    hub_ai_digest_t *state=&s_archive_digest_scratch;
     uint32_t version=0;
-    if(!latest_active(&state,NULL,&version) || version!=ACTIVE_VERSION)
+    if(!latest_active(state,NULL,&version) || version!=ACTIVE_VERSION)
         return true; /* v2 lacks compaction rebasing: never skip new records */
-    if(state.processed_through>cursor &&
-       state.processed_through<=db->rows) {
+    if(state->processed_through>cursor &&
+       state->processed_through<=db->rows) {
         ESP_LOGW(TAG,"Recovering durable AI commit %lu -> %lu",
-                 (unsigned long)cursor,(unsigned long)state.processed_through);
-        return hub_ai_set_cursor(state.processed_through);
+                 (unsigned long)cursor,(unsigned long)state->processed_through);
+        return hub_ai_set_cursor(state->processed_through);
     }
     return true;
 }
@@ -711,22 +713,23 @@ bool hub_archive_last_digest(hub_archive_t *db,hub_ai_digest_t *out) {
     return hub_archive_legacy_digest(db,out);
 }
 bool hub_archive_hide_digest(hub_archive_t *db) {
-    hub_ai_digest_t d;
-    if(!hub_archive_last_digest(db,&d))return false;
-    d.hidden=true;
-    return write_active(&d);
+    hub_ai_digest_t *d=&s_archive_digest_scratch;
+    if(!hub_archive_last_digest(db,d))return false;
+    d->hidden=true;
+    return write_active(d);
 }
 bool hub_archive_ack_digest(hub_archive_t *db) {
     if(!db || !db->mounted || db->failed)return false;
-    hub_ai_digest_t d={0};
-    (void)hub_archive_last_digest(db,&d);
-    memset(d.summary,0,sizeof(d.summary));
-    memset(d.tasks,0,sizeof(d.tasks));
-    d.task_count=0;d.included=0;d.cleared=true;d.hidden=false;
+    hub_ai_digest_t *d=&s_archive_digest_scratch;
+    memset(d,0,sizeof(*d));
+    (void)hub_archive_last_digest(db,d);
+    memset(d->summary,0,sizeof(d->summary));
+    memset(d->tasks,0,sizeof(d->tasks));
+    d->task_count=0;d->included=0;d->cleared=true;d->hidden=false;
     /* A second, bounded tombstone copy prevents a single torn slot from
      * resurrecting the old acknowledged digest on the next boot. */
-    if(!write_active(&d))return false;
-    return write_active(&d);
+    if(!write_active(d))return false;
+    return write_active(d);
 }
 bool hub_archive_initialize(hub_archive_t *db,bool confirmed) {
     if(!confirmed || !db || !db->failed || db->mounted) return false;

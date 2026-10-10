@@ -160,7 +160,7 @@ bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
     (void)conn;
     if(!out) return false;
     /* Reused result objects must never resurrect read/cleared tasks. */
-    memset(out,0,sizeof(*out));
+    hub_ai_clear_output(out);
     if(!batch||batch->count==0||batch->count>HUB_AI_MAX_BATCH ||
        !s_online || !ensure_clock()) return false;
     /* The caller owns the credentials; diagnostic calls can keep them in RAM. */

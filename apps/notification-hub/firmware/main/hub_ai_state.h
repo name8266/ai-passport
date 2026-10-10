@@ -6,6 +6,11 @@
 #include <string.h>
 
 #define HUB_AI_SUMMARY_MAX_UTF8_BYTES 768u
+/* Explicit for both AI/filtered paths; avoids reuse of cleared/old tasks. */
+static inline void hub_ai_clear_output(hub_ai_digest_t *out) {
+    if(out)memset(out,0,sizeof(*out));
+}
+
 
 typedef enum {
     HUB_AI_MERGE_INVALID = 0,

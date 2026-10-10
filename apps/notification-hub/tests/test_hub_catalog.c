@@ -42,6 +42,11 @@ static void test_protected_pending(void) {
     prior.cleared=true;
     assert(hub_ai_merge_pending(&prior,&proposal,&out)==HUB_AI_MERGE_OK);
     assert(out.task_count==1 && !strcmp(out.tasks[0].task,"联系物业"));
+    /* A filtered batch must never reuse a previously cleared task array. */
+    out.task_count=HUB_AI_TASK_LIMIT;
+    strcpy(out.tasks[0].task,"旧待办不得复活");
+    hub_ai_clear_output(&out);
+    assert(out.task_count==0 && out.summary[0]==0 && out.tasks[0].task[0]==0);
     /* No truncation of an overlong summary may pass validation. */
     memset(proposal.summary,'a',HUB_AI_SUMMARY_MAX_UTF8_BYTES+1);
     proposal.summary[HUB_AI_SUMMARY_MAX_UTF8_BYTES+1]=0;
