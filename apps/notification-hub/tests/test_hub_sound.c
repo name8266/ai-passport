@@ -32,12 +32,18 @@ esp_err_t bsp_audio_deinit(void) {cleanups++;return 0;}
 const char *esp_err_to_name(int e) {(void)e;return "fault";}
 static void drain(void) {exhausted=false;if(setjmp(exit_worker)==0)saved_task(NULL);}
 int main(void) {
-    assert(hub_sound_start());assert(hub_sound_get().enabled);
+    assert(hub_sound_start());assert(!hub_sound_get().enabled && worker==NULL);
+    hub_sound_config_t initial=hub_sound_get();
+    initial.enabled=true;
+    hub_sound_set(initial); /* start audio worker lazily on opt-in */
+    assert(worker!=NULL);
+    drain(); /* persist opt-in before simulating alerts */
+    assert(hub_sound_get().enabled);
     hub_sound_notify(1,0);assert(!queued);
     hub_sound_notify(0,4);assert(!queued);
     hub_sound_notify(0,0);drain();assert(starts==1 && writes>0 && cleanups==1);
     hub_sound_config_t c=hub_sound_get();c.enabled=false;
-    hub_sound_notify(0,0);hub_sound_set(c);drain();assert(starts==1 && commits==1);
+    hub_sound_notify(0,0);hub_sound_set(c);drain();assert(starts==1 && commits==2);
     hub_sound_preview();assert(!queued);
     assert(hub_sound_start() && !hub_sound_get().enabled);
     c.enabled=true;c.tone=2;c.volume=50;hub_sound_set(c);drain();

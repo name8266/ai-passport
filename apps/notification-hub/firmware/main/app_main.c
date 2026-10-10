@@ -642,6 +642,12 @@ static void archive_task(void *arg) {
                 web_archive_snapshot.records,&web_archive_snapshot.record_count,
                 &web_archive_snapshot.next_cursor,&web_archive_snapshot.has_older);
             web_archive_snapshot.archive_rows=ok?archive_database.rows:0;
+            web_archive_snapshot.heap_internal_free=(uint32_t)
+                heap_caps_get_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+            web_archive_snapshot.heap_internal_low_water=(uint32_t)
+                heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
+            web_archive_snapshot.heap_internal_largest=(uint32_t)
+                heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL|MALLOC_CAP_8BIT);
             web_archive_snapshot.phone_connected=ready;
             web_archive_snapshot.wifi_online=hub_ai_is_online();
             web_archive_snapshot.ai_enabled=ai_enabled;

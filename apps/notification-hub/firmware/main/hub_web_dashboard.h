@@ -23,6 +23,9 @@ typedef struct {
     uint8_t record_count;
     uint32_t next_cursor;
     uint32_t archive_rows;
+    uint32_t heap_internal_free;
+    uint32_t heap_internal_low_water;
+    uint32_t heap_internal_largest;
     uint32_t summary_revision; /* optimistic concurrency for per-task completion */
     uint32_t now_epoch;
     hub_archive_record_t records[HUB_ARCHIVE_WEB_PAGE_SIZE];

@@ -4,6 +4,7 @@
 #include "hub_web_dashboard.h"
 #include "hub_app_catalog.h"
 #include "hub_ai_state.h"
+#include "hub_memory_policy.h"
 #include <inttypes.h>
 #include "hub_sound.h"
 #include <stdio.h>
@@ -242,6 +243,17 @@ static esp_err_t dashboard_page(httpd_req_t *req) {
         put(req,"<small>通知高峰期间有记录未能及时写入；建议减少通知量或稍后检查设备。</small>");
     if(loaded && dashboard_page_snapshot.ai_capacity_full)
         put(req,"<small>未完成事项已达5项，自动摘要暂停，新通知保存在设备中。可以逐项点击「完成」释放容量；仅在不再需要保留任何待办时使用「已读清除」。</small>");
+    if(loaded) {
+        char ram[200];
+        snprintf(ram,sizeof(ram),
+          "<small>内部RAM：空闲 %lu KB · 最大连续 %lu KB · 启动以来最低 %lu KB</small>",
+          (unsigned long)(dashboard_page_snapshot.heap_internal_free/1024u),
+          (unsigned long)(dashboard_page_snapshot.heap_internal_largest/1024u),
+          (unsigned long)(dashboard_page_snapshot.heap_internal_low_water/1024u));
+        put(req,ram);
+        if(dashboard_page_snapshot.heap_internal_free<HUB_MEM_WARN_BYTES)
+            put(req,"<small>内存紧张：优先保留蓝牙与存档，网页和AI可能暂缓。</small>");
+    }
     put(req,"</div></section>");
 
     put(req,"<section class=\"section\"><h2 class=\"section-title\">最近摘要</h2><div class=\"card\">");
