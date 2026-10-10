@@ -49,7 +49,11 @@ void hub_utf8_copy(char *dst,size_t cap,const uint8_t *src,size_t n) {
 }
 
 bool hub_decoder_feed(hub_decoder_t *d,const uint8_t *p,size_t n,hub_notice_t *out) {
-    if (!d || !p || !out || n==0 || d->used+n>sizeof(d->bytes)) return false;
+    if (!d || !p || !out || n==0) return false;
+    if (d->used>sizeof(d->bytes) || n>sizeof(d->bytes)-d->used) {
+        d->used=0;
+        return false;
+    }
     memcpy(d->bytes+d->used,p,n);
     d->used+=n;
     if(d->used<5) return false;

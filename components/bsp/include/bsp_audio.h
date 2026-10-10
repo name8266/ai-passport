@@ -44,3 +44,7 @@ esp_err_t bsp_audio_read(void *pcm, size_t bytes);
 
 // 输出音量 0..100(%)。
 void bsp_audio_set_volume(uint8_t percent);
+
+// Stop all PCM operations before calling. Suspends codec and releases audio
+// interfaces/I2S DMA; retains the shared I2C bus. Serialized owner task only.
+esp_err_t bsp_audio_deinit(void);

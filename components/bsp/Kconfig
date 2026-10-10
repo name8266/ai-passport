@@ -1,0 +1,24 @@
+menu "Passport display memory"
+config BSP_LVGL_DRAW_BUFFER_LINES
+    int "LVGL single draw buffer lines"
+    range 8 80
+    default 40
+    help
+        Smaller buffers reduce internal DMA RAM consumption at the expense
+        of more LCD transfers. The default preserves the board demo behavior.
+endmenu
+
+menu "Passport audio memory"
+config BSP_AUDIO_DMA_DESCRIPTORS
+    int "I2S DMA descriptors per direction"
+    range 2 8
+    default 6
+config BSP_AUDIO_DMA_FRAMES
+    int "I2S frames per DMA descriptor"
+    range 80 480
+    default 240
+    help
+        Short notification tones can use smaller buffers to leave RAM for
+        Bluetooth and Wi-Fi. Continuous audio applications should validate
+        underruns under their expected workload.
+endmenu

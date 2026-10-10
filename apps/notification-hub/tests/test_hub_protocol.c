@@ -28,6 +28,19 @@ int main(void) {
     char small[4];
     hub_utf8_copy(small,sizeof(small),(const uint8_t *)"微信",6);
     assert(strcmp(small,"微")==0);
-    puts("ANCS parser PASS");
+    hub_decoder_begin(&d,e.uid);
+    assert(!hub_decoder_feed(&d,p,1,&n));
+    assert(!hub_decoder_feed(&d,p,SIZE_MAX,&n));
+    assert(d.used==0);
+    assert(hub_decoder_feed(&d,p,sizeof(p),&n));
+    const uint8_t invalid[]={0xED,0xA0,0x80};
+    hub_utf8_copy(small,sizeof(small),invalid,sizeof(invalid));
+    assert(small[0]==0);
+    for(size_t split=1;split<sizeof(p);split++) {
+        hub_decoder_begin(&d,e.uid);
+        assert(!hub_decoder_feed(&d,p,split,&n));
+        assert(hub_decoder_feed(&d,p+split,sizeof(p)-split,&n));
+    }
+    puts("ANCS parser fragmentation, UTF-8 and overflow: PASS");
     return 0;
 }

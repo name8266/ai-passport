@@ -13,6 +13,12 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#ifndef CONFIG_BSP_AUDIO_DMA_DESCRIPTORS
+#define CONFIG_BSP_AUDIO_DMA_DESCRIPTORS 6
+#endif
+#ifndef CONFIG_BSP_AUDIO_DMA_FRAMES
+#define CONFIG_BSP_AUDIO_DMA_FRAMES 240
+#endif
 static const char *TAG = "bsp_audio";
 
 static esp_codec_dev_handle_t s_dev;
@@ -303,8 +309,8 @@ static esp_err_t i2s_full_duplex_init(void) {
     i2s_chan_config_t chan = {
         .id = BSP_I2S_PORT,
         .role = I2S_ROLE_MASTER,
-        .dma_desc_num = 6,
-        .dma_frame_num = 240,
+        .dma_desc_num = CONFIG_BSP_AUDIO_DMA_DESCRIPTORS,
+        .dma_frame_num = CONFIG_BSP_AUDIO_DMA_FRAMES,
         .auto_clear_after_cb = true,
         .auto_clear_before_cb = false,
         .intr_priority = 0,
@@ -567,4 +573,11 @@ esp_err_t bsp_audio_read(void *pcm, size_t bytes) {
 void bsp_audio_set_volume(uint8_t percent) {
     s_volume = percent > 100 ? 100 : percent;
     if (s_dev && s_opened && !s_sleeping) esp_codec_dev_set_out_vol(s_dev, s_volume);
+}
+
+esp_err_t bsp_audio_deinit(void) {
+    esp_err_t result=bsp_audio_sleep();
+    audio_cleanup();
+    if(s_tx || s_rx || s_codec_release_failed) return ESP_ERR_INVALID_STATE;
+    return result;
 }

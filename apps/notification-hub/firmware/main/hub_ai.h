@@ -7,8 +7,11 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "hub_protocol.h"
+#include "hub_alert.h"
 
-#define HUB_AI_MAX_BATCH 3
+#define HUB_AI_MAX_BATCH 8
+#define HUB_AI_TITLE_BYTES 64
+#define HUB_AI_BODY_BYTES 96
 #define HUB_AI_SUMMARY_BYTES 1024
 #define HUB_AI_DEFAULT_ENDPOINT "https://api.deepseek.com/chat/completions"
 #define HUB_AI_DEFAULT_MODEL "deepseek-flash"
@@ -20,8 +23,9 @@ typedef struct {
     struct {
         uint32_t sequence;
         char app[HUB_APP_BYTES];
-        char title[HUB_TITLE_BYTES];
-        char body[HUB_BODY_BYTES];
+        char title[HUB_AI_TITLE_BYTES];
+        char body[HUB_AI_BODY_BYTES];
+        bool sensitive; /* classified using the full archive snapshot */
     } items[HUB_AI_MAX_BATCH];
 } hub_ai_batch_t;
 
@@ -42,26 +46,47 @@ typedef struct {
     bool redact_sensitive;
     int interval_minutes;          /* 15 - 1440 */
     int max_records;               /* 1 - HUB_AI_MAX_BATCH */
+    uint16_t retention_days;       /* 1 - 365, default 30 */
+    uint8_t brightness;            /* 20 - 100 percent */
     char endpoint[192];            /* HTTPS only */
     char model[64];
     char api_key[192];             /* never returned by HTTP admin page */
     char excluded_apps[192];       /* comma-separated ANCS app identifiers */
+    uint8_t theme;                 /* 0=light, 1=dark */
+    hub_sound_config_t sound;
 } hub_ai_settings_t;
 
-/* Initializes WPA2 SoftAP admin on 192.168.4.1, and STA if provisioned.
+/* Initializes open SoftAP admin on 192.168.4.1, and STA if provisioned.
  * The admin UI and timer are implemented on Passport, not a separate server. */
 bool hub_ai_load_connection(hub_ai_connection_t *out);
 bool hub_ai_connect_wifi(const hub_ai_connection_t *conn);
 bool hub_ai_is_online(void);
-bool hub_ai_get_access(char *ssid, size_t ssid_len,
-                       char *ap_password, size_t pass_len,
-                       char *admin_password, size_t admin_len);
+bool hub_ai_get_hotspot_ssid(char *ssid,size_t ssid_len);
 bool hub_ai_read_settings(hub_ai_settings_t *out);
+uint8_t hub_ai_read_theme(void);
+uint8_t hub_ai_read_brightness(void);
+uint32_t hub_ai_current_epoch(void); /* 0 until SNTP provides a valid clock */
 bool hub_ai_save_settings(const hub_ai_settings_t *settings,
                           const hub_ai_connection_t *wifi);
 void hub_ai_web_start(void);
+/* Single AI worker temporarily releases the admin server's task/socket RAM.
+ * SoftAP remains on; restart with hub_ai_web_start after HTTPS cleanup. */
+bool hub_ai_web_pause(void);
 bool hub_ai_fetch_settings(const hub_ai_connection_t *conn,hub_ai_settings_t *out);
 bool hub_ai_summarize(const hub_ai_connection_t *conn,
                       const hub_ai_batch_t *batch,hub_ai_digest_t *out);
 uint32_t hub_ai_read_cursor(void);
 bool hub_ai_advance_cursor(uint32_t value);
+/* Replace a checkpoint after archive compaction renumbers retained rows. */
+bool hub_ai_set_cursor(uint32_t value);
+
+bool hub_ai_reset_cursor(void);
+/* Archive worker serializes the confirmed erase with BLE captures and Flash reads. */
+bool hub_ai_archive_clear_request(void);
+int hub_ai_archive_clear_status(void); /* 0=idle, 1=running, 2=complete, 3=failed */
+
+/* Same direct HTTPS request, with caller-owned, nonpersistent credentials.
+ * Must be serialized with hub_ai_summarize by the single AI worker. */
+bool hub_ai_summarize_settings(const hub_ai_connection_t *conn,
+                      const hub_ai_settings_t *configuration,
+                      const hub_ai_batch_t *batch,hub_ai_digest_t *out);

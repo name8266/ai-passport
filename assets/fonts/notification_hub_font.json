@@ -1,0 +1,16 @@
+{
+  "font": "Noto Sans SC",
+  "weight": 400,
+  "size": 16,
+  "bpp": 2,
+  "converter": "lv_font_conv 1.5.3",
+  "source": "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf",
+  "source_sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+  "glyph_count": 7540,
+  "title_font": {
+    "name": "notification_hub_24",
+    "size": 24,
+    "bpp": 2,
+    "glyph_count": 38
+  }
+}
