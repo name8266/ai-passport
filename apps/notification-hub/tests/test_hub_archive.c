@@ -102,10 +102,11 @@ int main(void) {
     active_record_t legacy={0};
     legacy.magic=ACTIVE_MAGIC;
     legacy.version=2u;
-    legacy.generation=5u;
+    legacy.generation=hub_archive_digest_revision(&db)+1u;
     legacy.digest=digest;
     legacy.checksum=active_hash(&legacy);
-    FILE *legacy_file=fopen(ACTIVE_SLOT1,"wb");assert(legacy_file);
+    FILE *legacy_file=fopen((legacy.generation&1u)?ACTIVE_SLOT1:ACTIVE_SLOT0,"wb");
+    assert(legacy_file);
     assert(fwrite(&legacy,sizeof(legacy),1,legacy_file)==1);
     assert(sync_file(legacy_file));assert(fclose(legacy_file)==0);
     test_cursor=0;
