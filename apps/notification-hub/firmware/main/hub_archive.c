@@ -1,5 +1,6 @@
 #include "hub_archive.h"
 #include "hub_ai_filter.h"
+#include "hub_app_catalog.h"
 #include <stddef.h>
 #include <errno.h>
 #include <stdio.h>
@@ -547,8 +548,15 @@ bool hub_archive_collect_since(hub_archive_t *db,uint32_t cursor,uint8_t max_cou
         hub_archive_record_t r;
         if(fread(&r,sizeof(r),1,db->file)!=1 || !valid(&r) || r.sequence!=slot+1)
             {db->failed=true;return false;}
+        if(r.kind!=HUB_ARCHIVE_PREVIEW || is_superseded(db,slot)) {
+            out->through_sequence=r.sequence;
+            continue;
+        }
+        uint16_t day=hub_ai_day_tag(r.reserved==HUB_ARCHIVE_TIME_EPOCH?
+                                     r.elapsed_seconds:hub_ai_current_epoch());
+        if(out->count && out->day_tag && day && day!=out->day_tag) break;
+        if(!out->day_tag) out->day_tag=day;
         out->through_sequence=r.sequence;
-        if(r.kind!=HUB_ARCHIVE_PREVIEW || is_superseded(db,slot)) continue;
         uint8_t i=out->count++;
         out->items[i].sequence=r.sequence;
         memcpy(out->items[i].app,r.app,sizeof(r.app));
@@ -566,7 +574,7 @@ bool hub_archive_save_digest(hub_archive_t *db,const hub_ai_digest_t *summary) {
         return false;
     stored_digest_t d={.magic=DIGEST_MAGIC,
         .processed_through=summary->processed_through,
-        .included=summary->included,.version=1};
+        .included=summary->included,.version=summary->day_tag?summary->day_tag:1};
     snprintf(d.text,sizeof(d.text),"%s",summary->summary);
     d.checksum=digest_hash(&d);
     FILE *file=fopen(DIGEST_PATH,"ab+");
@@ -596,13 +604,14 @@ bool hub_archive_last_digest(hub_archive_t *db,hub_ai_digest_t *out) {
     }
     stored_digest_t d;
     bool ok=fread(&d,sizeof(d),1,file)==1 &&
-        d.magic==DIGEST_MAGIC && d.version==1 &&
+        d.magic==DIGEST_MAGIC && (d.version==1 || (d.version&0x8000u)) &&
         d.checksum==digest_hash(&d) && memchr(d.text,0,sizeof(d.text));
     fclose(file);
     if(ok) {
         memset(out,0,sizeof(*out));
         out->processed_through=d.processed_through;
         out->included=d.included;
+        out->day_tag=(d.version&0x8000u)?d.version:0;
         memcpy(out->summary,d.text,sizeof(out->summary));
     }
     return ok;

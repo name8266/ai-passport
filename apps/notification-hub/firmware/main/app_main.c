@@ -37,6 +37,7 @@
 #include "hub_backlog.h"
 #include "hub_ai.h"
 #include "hub_web_dashboard.h"
+#include "hub_app_catalog.h"
 
 static const char *TAG="notify_hub";
 static void hub_log_memory(const char *phase) {
@@ -120,6 +121,8 @@ typedef struct {
     bool success;
     ai_archive_kind_t kind;
     hub_ai_batch_t batch;
+    hub_ai_digest_t prior;
+    bool has_prior;
 } ai_archive_resp_t;
 typedef struct {uint32_t id,before_slot;} web_archive_request_t;
 
@@ -285,6 +288,11 @@ static void handle_ai_archive_request(const ai_archive_req_t *request) {
     if(request->kind==AI_LOAD_BATCH) {
         reply->success=hub_archive_collect_since(&archive_database,
                     request->after_sequence,request->max_records,&reply->batch);
+        if(reply->success && reply->batch.count && reply->batch.day_tag &&
+           hub_archive_last_digest(&archive_database,&reply->prior) &&
+           reply->prior.day_tag==reply->batch.day_tag &&
+           reply->prior.processed_through<=request->after_sequence)
+            reply->has_prior=true;
         /* Metadata carries no body to summarize. A later detail is appended at
          * a new sequence, so skipping a metadata-only tail cannot lose it. */
         if(reply->success && !reply->batch.count &&
@@ -359,7 +367,8 @@ static void ai_task(void *arg) {
                 }
                 if(response->batch.count==0) {pending_more=false;break;}
                 static hub_ai_digest_t result;
-                if(!hub_ai_summarize_settings(&conn,&settings,&response->batch,&result)) {
+                if(!hub_ai_summarize_context(&conn,&settings,&response->batch,
+                       response->has_prior?&response->prior:NULL,&result)) {
                     ai_failed=true;break;
                 }
                 /* xQueueSend copies the complete request; reuse the LOAD
@@ -686,18 +695,7 @@ bool hub_app_screen_snapshot(hub_web_screen_t *out) {
     return ok;
 }
 static const char *app_display(const char *bundle) {
-    if(!strcmp(bundle,"com.xiaomi.mihome")) return "米家";
-    if(!strcmp(bundle,"group.za.bank")) return "ZA Bank";
-    if(!strcmp(bundle,"com.tencent.xin")) return "微信";
-    if(!strcmp(bundle,"com.tencent.mqq")) return "QQ";
-    if(!strcmp(bundle,"com.apple.MobileSMS")) return "短信";
-    if(!strcmp(bundle,"com.apple.mobilemail")) return "邮件";
-    if(!strcmp(bundle,"com.apple.mobilecal")) return "日历";
-    if(!strcmp(bundle,"com.apple.reminders")) return "提醒事项";
-    if(!strcmp(bundle,"net.whatsapp.WhatsApp")) return "WhatsApp";
-    if(!strcmp(bundle,"ph.telegra.Telegraph")) return "Telegram";
-    if(!strcmp(bundle,"Unresolved") || !bundle[0]) return "未识别应用";
-    return bundle;
+    return hub_catalog_display(bundle);
 }
 static void render(void) {
     static int last_view=-1;
@@ -747,7 +745,7 @@ static void render(void) {
         }else {
             hub_ui_set_text_fmt(page_no,"应用 %d / %lu",group_cursor+1,(unsigned long)visible_group_count);
             hub_ui_set_text(app_name,"通知档案");
-            hub_ui_set_text(title_text,app_display(selected_app));
+            hub_ui_set_text_fmt(title_text,"%s · %s",hub_catalog_category(selected_app),app_display(selected_app));
             hub_ui_set_text_fmt(body_text,"%lu 条通知\n确认查看",(unsigned long)visible_record_count);
         }
         hub_ui_set_text(help_text,"长按:上看摘要/确认设置");

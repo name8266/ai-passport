@@ -20,6 +20,7 @@ typedef struct {
     uint32_t after_sequence;
     uint32_t through_sequence;
     uint8_t count;
+    uint16_t day_tag; /* local calendar day; zero if no trusted clock */
     struct {
         uint32_t sequence;
         char app[HUB_APP_BYTES];
@@ -31,7 +32,8 @@ typedef struct {
 
 typedef struct {
     uint32_t processed_through;
-    uint16_t included;
+    uint16_t included; /* cumulative notification count in this digest */
+    uint16_t day_tag;
     char summary[HUB_AI_SUMMARY_BYTES];
 } hub_ai_digest_t;
 
@@ -90,3 +92,10 @@ int hub_ai_archive_clear_status(void); /* 0=idle, 1=running, 2=complete, 3=faile
 bool hub_ai_summarize_settings(const hub_ai_connection_t *conn,
                       const hub_ai_settings_t *configuration,
                       const hub_ai_batch_t *batch,hub_ai_digest_t *out);
+
+/* Rolling context is used only when the stored digest belongs to this day. */
+bool hub_ai_summarize_context(const hub_ai_connection_t *conn,
+                 const hub_ai_settings_t *configuration,
+                 const hub_ai_batch_t *batch,const hub_ai_digest_t *prior,
+                 hub_ai_digest_t *out);
+uint16_t hub_ai_day_tag(uint32_t epoch);

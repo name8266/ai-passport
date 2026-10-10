@@ -1,7 +1,7 @@
 name: Notification Hub
 on:
   push:
-    branches: [feature/notification-hub]
+    branches: [feature/notification-hub, codex/notification-public-beta]
     paths:
       - "apps/notification-hub/**"
       - ".github/workflows/notification-hub.yml"

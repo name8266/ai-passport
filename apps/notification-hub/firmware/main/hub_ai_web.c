@@ -2,6 +2,7 @@
 #include "hub_ai.h"
 #include "hub_form.h"
 #include "hub_web_dashboard.h"
+#include "hub_app_catalog.h"
 #include <inttypes.h>
 #include "hub_sound.h"
 #include <stdio.h>
@@ -251,7 +252,8 @@ static esp_err_t dashboard_page(httpd_req_t *req) {
         const hub_archive_record_t *record=&dashboard_page_snapshot.records[i];
         char time_text[32];notification_time(record,dashboard_page_snapshot.now_epoch,time_text,sizeof(time_text));
         put(req,"<article class=\"notice-item\"><div class=\"notice-meta\">");
-        html_escaped(req,record->app[0]?record->app:"未识别应用");put(req," · ");
+        html_escaped(req,hub_catalog_category(record->app));put(req," · ");
+        html_escaped(req,hub_catalog_display(record->app));put(req," · ");
         html_escaped(req,time_text);put(req,"</div><div class=\"notice-title\">");
         html_escaped(req,record->title[0]?record->title:"通知");put(req,"</div>");
         if(record->body[0]) {put(req,"<div class=\"notice-body\">");html_escaped(req,record->body);put(req,"</div>");}
