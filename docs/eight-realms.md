@@ -2,7 +2,7 @@
 
 # Eight Realms Arcade
 
-Eight Realms is an offline collection of eight short arcade games for the FoloToy AI Passport's 240 × 320 display and three physical buttons. It starts in an original gallery screen; UP and DOWN choose a game and OK starts it. Hold OK during a game to return to the gallery. The former Star Orbit game is excluded because aiming it with three buttons did not produce a satisfactory control scheme.
+Eight Realms is an offline collection of eight short arcade games for the FoloToy AI Passport's 240 × 320 display and three physical buttons. It starts in an original gallery screen; UP and DOWN choose a game and OK starts it. Hold OK during a game to return to the gallery, except in Moon Return where holding UP exits, leaving OK available for sustained thrust. The former Star Orbit game is excluded because aiming it with three buttons did not produce a satisfactory control scheme.
 
 ![Eight generated game backgrounds](../assets/images/eight-realms/overview.png)
 
@@ -15,11 +15,13 @@ The image is an asset preview, not a device photograph. Eight original hand-pain
 | Glass Citadel (brick breaker) | Move paddle left / right; hold to continue | Launch ball | Break 12 bricks |
 | Celestial Blocks (falling blocks) | Move piece left / right; hold to repeat | Click rotates; double-click drops | Clear six lines |
 | Cloud Leap (vertical jumper) | Steer left / right | One boost per bounce | Climb 600 points |
-| Jade Serpent (snake) | Turn relative left / right | Hold to move faster | Eat eight gems |
-| Galactic Guard (vertical shooter) | Move ship left / right | Hold to shoot | Defeat 15 enemies |
+| Jade Serpent (snake) | Turn relative left / right | Click toggles faster movement | Eat eight gems |
+| Galactic Guard (vertical shooter) | Move ship left / right | Auto-fire; click toggles fire rate | Defeat 15 enemies |
 | Sunset Wing (one-button flier) | Fine horizontal adjustment | Flap | Pass ten gates |
-| Moon Return (lander) | Rotate left / right | Hold to thrust | Land upright on the pad at safe speed |
-| Desert Sprint (dodging racer) | Change lane left / right | Hold to boost speed | Survive 25 seconds |
+| Moon Return (lander) | Tap to rotate in steps; hold UP to exit | Hold to thrust | Land upright on the pad at safe speed |
+| Desert Sprint (dodging racer) | Change lane left / right | Click toggles faster movement | Survive 25 seconds |
+
+The three keys share an ADC ladder, so games no longer rely on pressing multiple buttons at once. Shooting is automatic, speed boost toggles on click, and the lander uses stepwise turning while OK remains available for sustained thrust.
 
 Games are deliberately short and use immediate PRESS events where response time matters. Tetris rotation uses the button's CLICK event, so it follows the driver's click recognition delay. The gallery shows the selected game's generated background; gameplay overlays small generated sprites and simple high-contrast obstacles. Idle time starts an eight-game attract mode, which also records bounded per-game performance telemetry. Any button exits the attract mode.
 

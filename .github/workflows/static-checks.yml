@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - feature/eight-realms-arcade
   workflow_dispatch:
 
 permissions:

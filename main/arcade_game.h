@@ -42,3 +42,5 @@ bool arcade_tetris_cell(int piece, int rotation, int x, int y);
 const char *arcade_name(arcade_kind_t kind);
 const char *arcade_hint(arcade_kind_t kind);
 const char *arcade_goal(arcade_kind_t kind);
+/* Lander reserves OK for continuous thrust; its exit gesture uses UP instead. */
+bool arcade_long_exit_uses_up(arcade_kind_t kind);

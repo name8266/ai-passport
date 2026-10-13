@@ -63,13 +63,13 @@ static void collect_scene(scene_t *scene) {
         break;
     case ARCADE_TETRIS:
         for (int y = 0; y < 18; y++) for (int x = 0; x < 10; x++)
-            put(scene, 40 + x * 16, 37 + y * 14, s_game.grid[y][x] ? 15 : 0,
-                13, 1, 9);
+            put(scene, 40 + x * 16, 60 + y * 12, s_game.grid[y][x] ? 15 : 0,
+                11, 1, 9);
         for (int py = 0; py < 4; py++) for (int px = 0; px < 4; px++)
             if (arcade_tetris_cell(s_game.piece, s_game.rotation, px, py) &&
                 s_game.piece_y + py >= 0)
                 put(scene, 40 + (s_game.piece_x + px) * 16,
-                    37 + (s_game.piece_y + py) * 14, 15, 13, 1, 9);
+                    60 + (s_game.piece_y + py) * 12, 15, 11, 1, 9);
         break;
     case ARCADE_DOODLE:
         for (int i = 0; i < 7; i++)
@@ -322,7 +322,8 @@ static void refresh_ui(bool force) {
             "上/下选游戏  确定开始" :
             s_demo ? "试玩演示  任意键返回" :
             s_game.mode == ARCADE_PLAYING ?
-                (hint_phase ? "长按确定返回合集" : arcade_hint(s_game.kind)) :
+                (hint_phase ? (arcade_long_exit_uses_up(s_game.kind) ?
+                    "长按上键返回合集" : "长按确定返回合集") : arcade_hint(s_game.kind)) :
                 "确定重试  长按返回");
         last_hint_phase = hint_phase;
     }
@@ -360,7 +361,8 @@ static void handle_key(key_message_t message) {
             arcade_start(&s_game, s_game.kind);
         return;
     }
-    if (message.button == BSP_BTN_OK && message.event == BSP_BTN_LONG) {
+    if (message.event == BSP_BTN_LONG &&
+        message.button == (arcade_long_exit_uses_up(s_game.kind) ? BSP_BTN_UP : BSP_BTN_OK)) {
         arcade_input(&s_game, ARCADE_HOME_REQUEST); return;
     }
     if (message.button == BSP_BTN_UP || message.button == BSP_BTN_DOWN) {
@@ -437,7 +439,8 @@ static void game_task(void *arg) {
         arcade_kind_t kind = s_game.kind;
         uint32_t score = s_game.score;
         arcade_mode_t mode = s_game.mode;
-        if (s_audio_ok && score > score_before) zuma_audio_cue(ZUMA_SOUND_MATCH);
+        if (s_audio_ok && score > score_before && kind != ARCADE_RACER)
+            zuma_audio_cue(ZUMA_SOUND_MATCH);
         if (s_audio_ok && mode != mode_before && mode == ARCADE_LOST)
             zuma_audio_cue(ZUMA_SOUND_LOSE);
         if (kind != perf_kind) {

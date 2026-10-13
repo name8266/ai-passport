@@ -119,9 +119,56 @@ static void seeded_long_runs(void) {
     }
 }
 
+static void held_controls_and_scoring(void) {
+    arcade_game_t g;
+    arcade_init(&g, 9981);
+    for (int kind = 0; kind < ARCADE_GAME_COUNT; kind++)
+        assert(arcade_long_exit_uses_up((arcade_kind_t)kind) == (kind == ARCADE_LANDER));
+
+    arcade_start(&g, ARCADE_SNAKE);
+    arcade_input(&g, ARCADE_OK_DOWN);
+    arcade_input(&g, ARCADE_OK_UP);
+    assert(g.ok_held); /* Speed persists after release, so long OK may exit. */
+    arcade_input(&g, ARCADE_OK_DOWN);
+    assert(!g.ok_held);
+
+    arcade_start(&g, ARCADE_RACER);
+    arcade_input(&g, ARCADE_OK_DOWN);
+    arcade_input(&g, ARCADE_OK_UP);
+    assert(g.ok_held);
+    arcade_input(&g, ARCADE_OK_DOWN);
+    assert(!g.ok_held);
+    for (int i = 0; i < 10; i++) arcade_tick(&g, 1.0f / 30, false);
+    assert(g.score >= 3); /* Time points cannot truncate to zero each frame. */
+
+    arcade_start(&g, ARCADE_SHOOTER);
+    assert(!g.ok_held);
+    for (int i = 0; i < 10; i++) arcade_tick(&g, 1.0f / 30, false);
+    bool fired = false;
+    for (int i = 0; i < 4; i++) fired |= g.shots[i].active;
+    assert(fired); /* Shoots without holding OK while steering. */
+    arcade_input(&g, ARCADE_OK_DOWN);
+    arcade_input(&g, ARCADE_OK_UP);
+    assert(g.ok_held); /* Faster auto-fire is a toggle. */
+
+    arcade_start(&g, ARCADE_LANDER);
+    arcade_input(&g, ARCADE_LEFT_DOWN);
+    float angle = g.angle;
+    assert(angle < 0);
+    arcade_tick(&g, 1.0f / 30, false);
+    assert(fabsf(angle - g.angle) < 0.0001f); /* No held-UP turning. */
+    arcade_input(&g, ARCADE_LEFT_UP);
+    arcade_input(&g, ARCADE_OK_DOWN);
+    assert(g.ok_held);
+    arcade_tick(&g, 1.0f / 30, false);
+    arcade_input(&g, ARCADE_OK_UP);
+    assert(!g.ok_held);
+}
+
 int main(void) {
     controls();
     end_conditions();
+    held_controls_and_scoring();
     seeded_long_runs();
     puts("eight arcade games: controls, eight win paths and 96 seeded 60-second runs passed");
 }

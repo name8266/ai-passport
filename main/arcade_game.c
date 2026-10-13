@@ -8,15 +8,18 @@ static const char *NAMES[] = {
 };
 static const char *HINTS[] = {
     "上左 下右 确定发球", "上左 下右 确定转 双击落",
-    "上左 下右 确定冲刺", "上左转 下右转 确定加速",
-    "上左 下右 确定连射", "确定拍翼 上左 下右",
-    "上左转 下右转 确定推进", "上左道 下右道 确定加速"
+    "上左 下右 确定冲刺", "上左转 下右转 确定切换加速",
+    "上左 下右 自动射击 确定加速", "确定拍翼 上左 下右",
+    "上/下单击转向 确定推进", "上左道 下右道 确定切换加速"
 };
 static const char *GOALS[] = {
     "击碎12块砖", "消除6行", "攀升600分", "吃8颗宝石",
     "击败15个敌人", "穿越10道关口", "安全降落", "存活25秒"
 };
 
+bool arcade_long_exit_uses_up(arcade_kind_t kind) {
+    return kind == ARCADE_LANDER;
+}
 const char *arcade_name(arcade_kind_t kind) {
     return kind < ARCADE_GAME_COUNT ? NAMES[kind] : "未知游戏";
 }
@@ -152,9 +155,15 @@ void arcade_input(arcade_game_t *g, arcade_action_t action) {
     }
     if (action == ARCADE_LEFT_UP && g->held == -1) g->held = 0;
     if (action == ARCADE_RIGHT_UP && g->held == 1) g->held = 0;
-    if (action == ARCADE_OK_UP) g->ok_held = false;
+    if (action == ARCADE_OK_UP && g->kind == ARCADE_LANDER) g->ok_held = false;
     int dir = action == ARCADE_LEFT_DOWN ? -1 : action == ARCADE_RIGHT_DOWN ? 1 : 0;
-    if (dir) { g->held = dir; g->move_clock = 0; }
+    if (dir) {
+        g->held = dir;
+        g->move_clock = 0;
+        /* Lander turns in discrete steps, leaving a held UP key for exit. */
+        if (g->kind == ARCADE_LANDER)
+            g->angle = clampf(g->angle + dir * 0.18f, -1.0f, 1.0f);
+    }
     if (g->kind == ARCADE_TETRIS) {
         if (dir && tet_fits(g, g->piece_x + dir, g->piece_y, g->rotation)) g->piece_x += dir;
         if (action == ARCADE_OK_CLICK && tet_fits(g, g->piece_x, g->piece_y, g->rotation + 1))
@@ -165,18 +174,20 @@ void arcade_input(arcade_game_t *g, arcade_action_t action) {
         }
     } else if (g->kind == ARCADE_SNAKE) {
         if (dir) g->direction = (g->direction + (dir < 0 ? 3 : 1)) & 3;
-        if (action == ARCADE_OK_DOWN) g->ok_held = true;
+        if (action == ARCADE_OK_DOWN) g->ok_held = !g->ok_held;
     } else if (g->kind == ARCADE_RACER) {
         if (dir) { g->lane += dir; if (g->lane < 0) g->lane = 0; if (g->lane > 2) g->lane = 2; }
-        if (action == ARCADE_OK_DOWN) g->ok_held = true;
+        if (action == ARCADE_OK_DOWN) g->ok_held = !g->ok_held;
     } else if (g->kind == ARCADE_BREAKOUT) {
         if (action == ARCADE_OK_DOWN && g->phase == 0) {
             g->phase = 1; g->vx = 89; g->vy = -148;
         }
     } else if (g->kind == ARCADE_FLAPPY) {
         if (action == ARCADE_OK_DOWN) g->vy = -165;
-    } else if (g->kind == ARCADE_LANDER || g->kind == ARCADE_SHOOTER) {
+    } else if (g->kind == ARCADE_LANDER) {
         if (action == ARCADE_OK_DOWN) g->ok_held = true;
+    } else if (g->kind == ARCADE_SHOOTER) {
+        if (action == ARCADE_OK_DOWN) g->ok_held = !g->ok_held;
     } else if (g->kind == ARCADE_DOODLE && action == ARCADE_OK_DOWN && g->phase == 0) {
         g->vy = -245; g->phase = 1;
     }
@@ -282,7 +293,12 @@ static void shoot(arcade_game_t *g) {
 static void tick_shooter(arcade_game_t *g, float dt) {
     g->x = clampf(g->x + g->held * 130 * dt, 18, 222);
     g->accumulator += dt;
-    if (g->ok_held && g->accumulator >= 0.23f) { g->accumulator = 0; shoot(g); }
+    /* Auto-fire avoids unreliable simultaneous button presses on the ADC ladder. */
+    float fire_interval = g->ok_held ? 0.12f : 0.27f;
+    if (g->accumulator >= fire_interval) {
+        g->accumulator -= fire_interval;
+        shoot(g);
+    }
     for (int i = 0; i < 4; i++) if (g->shots[i].active) {
         g->shots[i].y -= 280 * dt;
         if (g->shots[i].y < 25) g->shots[i].active = false;
@@ -324,7 +340,6 @@ static void tick_flappy(arcade_game_t *g, float dt) {
     if (g->score >= 10) g->mode = ARCADE_WON;
 }
 static void tick_lander(arcade_game_t *g, float dt) {
-    g->angle = clampf(g->angle + g->held * 1.55f * dt, -1.0f, 1.0f);
     if (g->ok_held && g->fuel > 0) {
         g->vx += sinf(g->angle) * 60 * dt;
         g->vy -= cosf(g->angle) * 60 * dt;
@@ -356,7 +371,12 @@ static void tick_racer(arcade_game_t *g, float dt) {
             if (g->lives <= 0) { g->mode = ARCADE_LOST; return; }
         }
     }
-    g->score += (uint32_t)(dt * 12 + 0.5f);
+    /* Preserve fractional frame time instead of truncating every 33ms step. */
+    int time_points = (int)(g->elapsed * 12.0f);
+    if (time_points > g->phase) {
+        g->score += (uint32_t)(time_points - g->phase);
+        g->phase = time_points;
+    }
     if (g->elapsed >= 25) g->mode = ARCADE_WON;
 }
 void arcade_tick(arcade_game_t *g, float dt, bool demo) {

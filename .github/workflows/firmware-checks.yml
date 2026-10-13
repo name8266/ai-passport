@@ -9,6 +9,7 @@ on:
   push:
     branches:
       - main
+      - feature/eight-realms-arcade
     paths-ignore:
       - "docs/**"
       - "skills/**"
