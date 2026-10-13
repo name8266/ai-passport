@@ -90,7 +90,7 @@ static bool persistence_write(void)
         return false;
     }
     s_saved_sequence=seq;
-    s_has_snapshot=true;
+
     s_last_save_ms=(uint32_t)(esp_timer_get_time()/1000);
     return true;
 }
