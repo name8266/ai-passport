@@ -258,7 +258,8 @@ static void refresh_screen(void)
             "平均能量 %u\n\n"
             "确定:修改突变率\n"
             "长按上键:改变环境\n"
-            "长按确定:开始新实验",
+            "长按下键:重复实验\n"
+            "长按确定:新实验",
             s_world.seed, s_world.generation,
             rates[s_world.mutation_level],
             s_world.climate ? "周期变化" : "稳定",
