@@ -21,11 +21,6 @@ static uint32_t random_u32(av_world_t *w)
 
 static bool is_nop(uint8_t op) { return op <= AV_NOP_C; }
 static uint8_t complement(uint8_t op) { return (uint8_t)((op + 1u) % 3u); }
-static uint8_t copy_den(const av_world_t *w)
-{
-    (void)w;
-    return 0; /* 1/256 and 1/1024 need uint16_t, see mutation_divisor. */
-}
 static uint16_t mutation_divisor(uint8_t level)
 {
     static const uint16_t rates[] = {0, 1024, 256, 64};
