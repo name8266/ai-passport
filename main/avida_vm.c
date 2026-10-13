@@ -190,7 +190,7 @@ static void divide(av_world_t *w, unsigned site)
 {
     av_organism_t *o = &w->organisms[site];
     unsigned daughter_length = o->write_head >= o->length
-                             ? o->write_head - o->length : 0u;
+                             ? (unsigned)o->write_head - (unsigned)o->length : 0u;
     // Avida validity gate: allocated, enough genome copied/executed, bounds.
     if (!o->allocated || o->length < AV_CODE_MIN ||
         daughter_length < AV_CODE_MIN || daughter_length > AV_CODE_MAX ||
@@ -332,7 +332,7 @@ static void execute(av_world_t *w, unsigned site)
             if (o->allocated && o->read_head < o->length &&
                 o->write_head >= o->length &&
                 o->write_head - o->length < o->length &&
-                o->write_head - o->length < AV_CODE_MAX) {
+                (unsigned)o->write_head - (unsigned)o->length < AV_CODE_MAX) {
                 uint8_t instruction = o->code[o->read_head];
                 uint8_t written = instruction;
                 ++w->copy_attempts;
