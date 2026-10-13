@@ -349,7 +349,10 @@ static void handle_key(key_msg_t input)
     }else if(input.event==BSP_BTN_LONG) {
         if(s_page==3&&input.key==BSP_BTN_UP) {
             uint32_t seed=s_world.seed;
-            av_reset(&s_world,seed);s_focus=0;save=true;
+            uint8_t mutation=s_world.mutation_level;
+            av_reset(&s_world,seed);
+            s_world.mutation_level=mutation;
+            s_focus=0;save=true;
         }else if(s_page==3&&input.key==BSP_BTN_DOWN){
             s_visual_mode=(s_visual_mode+1u)%3u;
         }else if(s_page==3&&input.key==BSP_BTN_OK){
