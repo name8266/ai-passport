@@ -3,8 +3,10 @@ on:
   pull_request:
     paths:
       - "main/binary_life.*"
-      - "main/life_lab.c"
+      - "main/avida_vm.*"
+      - "main/life_lab_v2.c"
       - "tests/test_binary_life.c"
+      - "tests/test_avida_vm.c"
       - "tools/validate.sh"
       - ".github/workflows/binary-life-tests.yml"
   workflow_dispatch:
@@ -14,13 +16,19 @@ permissions:
 
 jobs:
   core:
-    name: Deterministic evolution and snapshot tests
+    name: Digital evolution and snapshot tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
-      - name: Build and test pure C simulation
+      - name: Build and test V1 genetic model
         run: |
-          cc -std=c11 -Wall -Wextra -Werror -Imain \
+          cc -std=c11 -O2 -Wall -Wextra -Werror -Imain \
             tests/test_binary_life.c main/binary_life.c \
             -o /tmp/test_binary_life
           /tmp/test_binary_life
+      - name: Build and test V2 self-replicating CPU
+        run: |
+          cc -std=c11 -O2 -Wall -Wextra -Werror -Imain \
+            tests/test_avida_vm.c main/avida_vm.c \
+            -o /tmp/test_avida_vm
+          /tmp/test_avida_vm
