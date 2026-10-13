@@ -39,6 +39,7 @@ static av_snapshot_t s_snapshot;
 static const esp_partition_t *s_partition;
 static uint32_t s_saved_sequence;
 static uint32_t s_last_save_ms;
+static uint32_t s_last_export_ms;
 static QueueHandle_t s_input;
 static lv_obj_t *s_root, *s_battery, *s_tabs, *s_header;
 static lv_obj_t *s_grid, *s_detail, *s_footer;
@@ -360,6 +361,23 @@ static void handle_key(key_msg_t input)
     refresh_locked();
 }
 
+// Scientific measurements are independent of LVGL and stream as CSV over
+// USB Serial/JTAG; users can capture them without a separate cloud account.
+static void export_measurement(void)
+{
+    av_stats_t s;
+    av_stats(&s_world, &s);
+    printf("AVIDA_CSV,%08"PRIX32",%"PRIu32",%"PRIu32
+           ",%u,%u,%"PRIu32",%"PRIu32",%"PRIu32",%"PRIu32
+           ",%u,%u\\n",
+           s_world.seed, s_world.updates, s_world.instructions,
+           (unsigned)s.population, (unsigned)s.genotype_count,
+           s_world.births, s_world.replacements, s_world.mutations,
+           s_world.insertion_deletions, (unsigned)s.dominant_count,
+           (unsigned)s.genotype_length);
+    fflush(stdout);
+}
+
 static void simulation_task(void *unused)
 {
     (void)unused;
@@ -377,6 +395,10 @@ static void simulation_task(void *unused)
                 bsp_lvgl_unlock();
             }
             uint32_t now=(uint32_t)(esp_timer_get_time()/1000);
+            if(now-s_last_export_ms>=20000u) {
+                export_measurement();
+                s_last_export_ms=now;
+            }
             if(!s_world.paused&&now-s_last_save_ms>=AUTOSAVE_MILLISECONDS)
                 (void)persistence_write();
             TickType_t idle=xTaskGetTickCount()-last_input;
@@ -389,6 +411,9 @@ static void simulation_task(void *unused)
 void app_main(void)
 {
     ESP_LOGI(TAG,"数字生命 V2：基于可执行指令的 Avida HEADS 模拟");
+    printf("AVIDA_CSV,seed,updates,instructions,population,genotypes,"
+           "births,replacements,copy_mutations,indels,dominant_count,"
+           "dominant_length\\n");
     (void)bsp_i2c_init();
     (void)bsp_battery_init();
     init_experiment();
