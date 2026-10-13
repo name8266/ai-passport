@@ -1,6 +1,6 @@
 <p align="right"><strong>English</strong> · <a href="eight-realms.zh_CN.md">简体中文</a></p>
 
-# 经典游戏合集-9款 (Nine Classic Arcade Games)
+# Classic Games Collection - Nine Games
 
 Classic Nine is an offline collection of nine short arcade games for the FoloToy AI Passport's 240 × 320 display and three physical buttons. It starts in an original gallery screen; UP and DOWN choose a game and OK starts it. Hold OK during a game to return to the gallery, except in Moon Return where holding UP exits, leaving OK available for sustained thrust. The former Star Orbit game is excluded because aiming it with three buttons did not produce a satisfactory control scheme.
 
