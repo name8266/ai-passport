@@ -10,6 +10,7 @@
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_random.h"
+#include "esp_timer.h"
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "freertos/FreeRTOS.h"
@@ -50,6 +51,9 @@ static uint32_t s_saved_generation;
 static bool s_storage_ok;
 static nvs_handle_t s_store;
 static lv_font_t s_chinese_font;
+// 电量通过 I2C 读取，避免每帧查询造成卡顿和功耗增加。
+static int s_cached_battery = -1;
+static int64_t s_last_battery_read_us = -10000000LL;
 
 static lv_obj_t *new_label(lv_obj_t *parent, int x, int y, int width,
                            uint32_t color)
@@ -190,9 +194,13 @@ static void refresh_screen(void)
 {
     bl_stats_t stats;
     bl_stats(&s_world, &stats);
-    int percent = bsp_battery_soc();
-    if (percent >= 0 && percent <= 100)
-        lv_label_set_text_fmt(s_battery, "%d%%", percent);
+    int64_t now_us = esp_timer_get_time();
+    if (now_us - s_last_battery_read_us >= 10000000LL) {
+        s_cached_battery = bsp_battery_soc();
+        s_last_battery_read_us = now_us;
+    }
+    if (s_cached_battery >= 0 && s_cached_battery <= 100)
+        lv_label_set_text_fmt(s_battery, "%d%%", s_cached_battery);
     else
         lv_label_set_text(s_battery, "--");
 
