@@ -39,7 +39,6 @@ static av_snapshot_t s_snapshot;
 static const esp_partition_t *s_partition;
 static uint32_t s_saved_sequence;
 static uint32_t s_last_save_ms;
-static bool s_has_snapshot;
 static QueueHandle_t s_input;
 static lv_obj_t *s_root, *s_battery, *s_tabs, *s_header;
 static lv_obj_t *s_grid, *s_detail, *s_footer;
@@ -48,7 +47,6 @@ static uint8_t s_page, s_visual_mode;
 static uint16_t s_focus;
 static int s_cached_soc=-1;
 static int64_t s_soc_time;
-static uint32_t s_painted_mutations, s_painted_births;
 
 // Two alternating independent erase/write slots: interrupted saves do not
 // erase the previous valid snapshot. Records include full CPU state + RNG.
@@ -71,7 +69,7 @@ static bool persistence_read(void)
             }
         }
     }
-    if(found){s_saved_sequence=newest;s_has_snapshot=true;}
+    if(found){s_saved_sequence=newest;}
     return found;
 }
 
@@ -141,7 +139,7 @@ static void draw_world(lv_event_t *event)
     rect.bg_opa=LV_OPA_COVER;
     rect.border_width=0;
     rect.radius=2;
-    uint8_t last_site=255u;
+    uint16_t last_site=AV_SITES;
     if(s_world.event_count) {
         unsigned last=(s_world.event_head+AV_EVENT_CAP-1u)%AV_EVENT_CAP;
         last_site=s_world.events[last].site;
