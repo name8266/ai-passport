@@ -29,7 +29,7 @@ def check():
         actual = {int(cp, 16) for cp in re.findall(r"/\* U\+([0-9A-Fa-f]+) ",
                   path.read_text(encoding="utf-8"))}
         addon_path = DEST / "arcade_nine.c"
-        extra = {int(cp, 16) for cp in re.findall(r"/\\* U\\+([0-9A-Fa-f]+) ",
+        extra = {int(cp, 16) for cp in re.findall(r"/\* U\+([0-9A-Fa-f]+) ",
                  addon_path.read_text(encoding="utf-8"))} if addon_path.exists() else set()
         missing = needed - (actual | extra)
         if missing:
