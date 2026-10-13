@@ -19,6 +19,7 @@ run_static_checks() {
     python3 tools/check_repo.py
     python3 tools/generate_star_orbit_font.py --check
     python3 tools/generate_arcade_font.py --check
+    python3 tools/decode_docking_assets.py
 
     actionlint_bin="${ACTIONLINT_BIN:-}"
     if [[ -z "${actionlint_bin}" ]]; then
@@ -31,7 +32,7 @@ run_static_checks() {
 
     test_dir="$(mktemp -d /tmp/ai-passport-host-tests.XXXXXX)"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
-        tests/test_arcade_game.c main/arcade_game.c -lm \
+        tests/test_arcade_game.c main/arcade_game.c main/arcade_docking.c -lm \
         -o "${test_dir}/test_arcade_game"
     "${test_dir}/test_arcade_game"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
@@ -99,6 +100,8 @@ run_firmware_checks() (
         echo "ERROR: idf.py is not available; activate ESP-IDF 5.5.3 first." >&2
         return 1
     fi
+
+    python3 tools/decode_docking_assets.py
 
     validation_build_dir="$(mktemp -d /tmp/ai-passport-firmware.XXXXXX)"
     trap 'case "${validation_build_dir}" in /tmp/ai-passport-firmware.*) rm -rf -- "${validation_build_dir}" ;; esac' EXIT

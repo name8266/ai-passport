@@ -45,6 +45,10 @@ static void controls(void) {
     arcade_start(&g, ARCADE_RACER);
     arcade_input(&g, ARCADE_LEFT_DOWN);
     assert(g.lane == 0);
+    arcade_start(&g, ARCADE_DOCKING);
+    assert(g.dock_axis == 0 && g.dock_z > 0.0f);
+    arcade_input(&g, ARCADE_OK_CLICK);
+    assert(g.dock_axis == 1);
 }
 
 static void end_conditions(void) {
@@ -97,6 +101,19 @@ static void end_conditions(void) {
     assert(g.mode == ARCADE_WON);
     arcade_input(&g, ARCADE_HOME_REQUEST);
     assert(g.mode == ARCADE_HOME);
+
+    arcade_start(&g, ARCADE_DOCKING);
+    g.dock_z = 0.51f; g.dock_x = 0; g.dock_y = 0;
+    g.dock_yaw = g.dock_pitch = g.dock_roll = 0;
+    g.dock_vz = -0.25f;
+    arcade_tick(&g, 0.05f, false);
+    assert(g.mode == ARCADE_WON && g.score >= 1000);
+    arcade_start(&g, ARCADE_DOCKING);
+    g.dock_z = 0.51f; g.dock_x = 0; g.dock_y = 0;
+    g.dock_yaw = g.dock_pitch = g.dock_roll = 0;
+    g.dock_vz = -2.0f;
+    arcade_tick(&g, 0.05f, false);
+    assert(g.mode == ARCADE_LOST); /* Collision: closing velocity too high. */
 }
 
 static void seeded_long_runs(void) {
@@ -117,6 +134,35 @@ static void seeded_long_runs(void) {
             }
         }
     }
+}
+
+static void docking_inertia_controls(void) {
+    arcade_game_t g;
+    arcade_init(&g, 9302);
+    arcade_start(&g, ARCADE_DOCKING);
+    float z = g.dock_z;
+    arcade_input(&g, ARCADE_LEFT_DOWN); /* Axis Z: forward thrust. */
+    arcade_tick(&g, 0.05f, false);
+    arcade_input(&g, ARCADE_LEFT_UP);
+    float velocity = g.dock_vz;
+    assert(velocity < -0.18f && g.dock_z < z);
+    arcade_tick(&g, 0.05f, false);
+    assert(fabsf(g.dock_vz - velocity) < 0.00001f); /* No drag in vacuum. */
+    arcade_input(&g, ARCADE_OK_CLICK); /* Axis X. */
+    assert(g.dock_axis == 1);
+    arcade_input(&g, ARCADE_RIGHT_DOWN);
+    arcade_tick(&g, 0.05f, false);
+    arcade_input(&g, ARCADE_RIGHT_UP);
+    assert(g.dock_vx > 0.0f);
+    arcade_input(&g, ARCADE_OK_CLICK);
+    assert(g.dock_axis == 2);
+    for (int i = 0; i < 4; i++) arcade_input(&g, ARCADE_OK_CLICK);
+    assert(g.dock_axis == 0);
+    assert(g.dock_propellant < 100.0f);
+    arcade_start(&g, ARCADE_DOCKING);
+    g.elapsed = 129.99f;
+    arcade_tick(&g, 0.05f, false);
+    assert(g.mode == ARCADE_LOST); /* Time out. */
 }
 
 static void held_controls_and_scoring(void) {
@@ -169,6 +215,7 @@ int main(void) {
     controls();
     end_conditions();
     held_controls_and_scoring();
+    docking_inertia_controls();
     seeded_long_runs();
-    puts("eight arcade games: controls, eight win paths and 96 seeded 60-second runs passed");
+    puts("nine arcade games: controls, nine win paths and 108 seeded 60-second runs passed");
 }

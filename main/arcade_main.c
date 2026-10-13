@@ -1,5 +1,6 @@
 #include "arcade_art.h"
 #include "arcade_game.h"
+#include "arcade_docking.h"
 #include "bsp_battery.h"
 #include "bsp_button.h"
 #include "bsp_display.h"
@@ -17,10 +18,10 @@
 #include <math.h>
 #include <string.h>
 
-LV_FONT_DECLARE(arcade_cjk_14);
-LV_FONT_DECLARE(arcade_cjk_20);
+LV_FONT_DECLARE(arcade_nine_14);
+LV_FONT_DECLARE(arcade_nine_20);
 
-static const char *TAG = "eight_realms";
+static const char *TAG = "classic_nine";
 typedef struct { bsp_btn_t button; bsp_btn_ev_t event; } key_message_t;
 typedef struct { int16_t x, y, w, h; uint8_t color, style; } shape_t;
 typedef struct { shape_t shapes[192]; uint16_t count; arcade_kind_t kind; } scene_t;
@@ -109,6 +110,27 @@ static void collect_scene(scene_t *scene) {
         put(scene, round_px(s_game.x) - 4, round_px(s_game.y) + 10,
             s_game.ok_held && s_game.fuel > 0 ? 8 : 0, 15, 0, 7);
         break;
+    case ARCADE_DOCKING: {
+        float depth = s_game.dock_z + 10.0f;
+        int cx = 120 - round_px(s_game.dock_x * 320.0f / depth);
+        int cy = 161 + round_px(s_game.dock_y * 320.0f / depth);
+        int radius = 24 + round_px(580.0f / depth);
+        if (radius > 150) radius = 150;
+        put(scene, cx - radius, cy - radius, radius * 2, radius * 2, 0, 10);
+        put(scene, cx - radius * 3 / 4, cy - radius * 3 / 4,
+            radius * 3 / 2, radius * 3 / 2, 3, 10);
+        put(scene, cx - 24, cy - 24, 48, 48, ARCADE_DOCKING, 9);
+        put(scene, cx - 3, cy - 3, 6, 6, 0, 0);
+        int aim_x = 120 + round_px(s_game.dock_yaw * 110.0f);
+        int aim_y = 161 - round_px(s_game.dock_pitch * 110.0f);
+        put(scene, aim_x - 16, aim_y, 12, 2, 2, 1);
+        put(scene, aim_x + 4, aim_y, 12, 2, 2, 1);
+        put(scene, aim_x, aim_y - 16, 2, 12, 2, 1);
+        put(scene, aim_x, aim_y + 4, 2, 12, 2, 1);
+        put(scene, 108 - round_px(s_game.dock_roll * 40.0f),
+            260, 24, 20, ARCADE_DOCKING, 11);
+        break;
+    }
     case ARCADE_RACER:
         for (int i = 0; i < 6; i++)
             put(scene, round_px(s_game.actors[i].x) - 12,
@@ -173,6 +195,24 @@ static void board_draw(lv_event_t *event) {
         if (s->w <= 0 || s->h <= 0 || s->x > clip->x2 || s->y > clip->y2 ||
             s->x + s->w < clip->x1 || s->y + s->h < clip->y1) continue;
         lv_area_t area = {s->x, s->y, s->x + s->w - 1, s->y + s->h - 1};
+        if (s->style == 10) {
+            lv_draw_rect_dsc_t ring;
+            lv_draw_rect_dsc_init(&ring);
+            ring.bg_opa = LV_OPA_TRANSP;
+            ring.radius = LV_RADIUS_CIRCLE;
+            ring.border_width = 2;
+            ring.border_opa = LV_OPA_COVER;
+            ring.border_color = lv_color_hex(PALETTE[s->color % 8]);
+            lv_draw_rect(layer, &ring, &area);
+            continue;
+        }
+        if (s->style == 11) {
+            lv_draw_image_dsc_t ship;
+            lv_draw_image_dsc_init(&ship);
+            ship.src = &arcade_docking_ship;
+            lv_draw_image(layer, &ship, &area);
+            continue;
+        }
         if (s->style == 9) {
             if (s->color != ARCADE_TETRIS) {
                 lv_draw_rect_dsc_t backing;
@@ -250,13 +290,13 @@ static void build_ui(void) {
     lv_obj_set_style_border_width(s_board, 0, 0);
     lv_obj_set_style_pad_all(s_board, 0, 0);
     lv_obj_add_event_cb(s_board, board_draw, LV_EVENT_DRAW_MAIN, NULL);
-    s_title = text_label(12, 8, 174, 26, "八境街机", &arcade_cjk_20,
+    s_title = text_label(12, 8, 174, 26, "经典游戏合集-9款", &arcade_nine_20,
                          LV_TEXT_ALIGN_LEFT, 0xFFE4A1);
     s_battery = text_label(184, 12, 44, 18, "--", &lv_font_montserrat_12,
                            LV_TEXT_ALIGN_RIGHT, 0xFFFFFF);
-    s_hud = text_label(12, 35, 216, 20, "", &arcade_cjk_14,
+    s_hud = text_label(12, 35, 216, 20, "", &arcade_nine_14,
                        LV_TEXT_ALIGN_CENTER, 0xFFFFFF);
-    s_footer = text_label(8, 296, 224, 22, "", &arcade_cjk_14,
+    s_footer = text_label(8, 296, 224, 22, "", &arcade_nine_14,
                           LV_TEXT_ALIGN_CENTER, 0xFFFFFF);
     lv_obj_t *readable[] = {s_title, s_battery, s_hud, s_footer};
     for (int i = 0; i < 4; i++) {
@@ -277,13 +317,13 @@ static void build_ui(void) {
     s_panel_title = lv_label_create(s_panel);
     lv_obj_set_pos(s_panel_title, 8, 16);
     lv_obj_set_size(s_panel_title, 184, 29);
-    lv_obj_set_style_text_font(s_panel_title, &arcade_cjk_20, 0);
+    lv_obj_set_style_text_font(s_panel_title, &arcade_nine_20, 0);
     lv_obj_set_style_text_color(s_panel_title, lv_color_hex(0xFFE4A1), 0);
     lv_obj_set_style_text_align(s_panel_title, LV_TEXT_ALIGN_CENTER, 0);
     s_panel_body = lv_label_create(s_panel);
     lv_obj_set_pos(s_panel_body, 8, 54);
     lv_obj_set_size(s_panel_body, 184, 60);
-    lv_obj_set_style_text_font(s_panel_body, &arcade_cjk_14, 0);
+    lv_obj_set_style_text_font(s_panel_body, &arcade_nine_14, 0);
     lv_obj_set_style_text_color(s_panel_body, lv_color_hex(0xFFFFFF), 0);
     lv_obj_set_style_text_align(s_panel_body, LV_TEXT_ALIGN_CENTER, 0);
     lv_screen_load(s_screen);
@@ -301,7 +341,7 @@ static void refresh_ui(bool force) {
     if (last_kind != s_game.kind || force)
         lv_image_set_src(s_background, &arcade_backgrounds[s_game.kind]);
     if (page_changed) {
-        lv_label_set_text(s_title, s_game.mode == ARCADE_HOME ? "八境街机" : arcade_name(s_game.kind));
+        lv_label_set_text(s_title, s_game.mode == ARCADE_HOME ? "经典游戏合集-9款" : arcade_name(s_game.kind));
         if (s_game.mode == ARCADE_PLAYING) {
             lv_obj_add_flag(s_panel, LV_OBJ_FLAG_HIDDEN);
         } else {
@@ -309,12 +349,12 @@ static void refresh_ui(bool force) {
             lv_label_set_text(s_panel_title, s_game.mode == ARCADE_HOME ?
                 arcade_name(s_game.kind) : s_game.mode == ARCADE_WON ? "挑战成功" : "挑战结束");
             if (s_game.mode == ARCADE_HOME)
-                lv_label_set_text_fmt(s_panel_body, "%d / 8\n%s\n确定开始",
+                lv_label_set_text_fmt(s_panel_body, "%d / 9\n%s\n确定开始",
                                       (int)s_game.kind + 1, arcade_goal(s_game.kind));
             else lv_label_set_text_fmt(s_panel_body, "分 %lu\n确定再试一次",
                                        (unsigned long)s_game.score);
             lv_label_set_text(s_hud, s_game.mode == ARCADE_HOME ?
-                              "八款独立游戏  三键畅玩" : arcade_goal(s_game.kind));
+                              "9款独立游戏  三键畅玩" : arcade_goal(s_game.kind));
         }
     }
     if (page_changed || hint_phase != last_hint_phase) {
@@ -327,7 +367,13 @@ static void refresh_ui(bool force) {
                 "确定重试  长按返回");
         last_hint_phase = hint_phase;
     }
-    if (page_changed || last_score != s_game.score || last_lives != s_game.lives) {
+    if (s_game.mode == ARCADE_PLAYING && s_game.kind == ARCADE_DOCKING) {
+        static uint32_t hud_tick = 0;
+        if (page_changed || (hud_tick++ % 3u) == 0)
+            lv_label_set_text_fmt(s_hud, "%s %.1fm V %.2f",
+                arcade_docking_axis_name(s_game.dock_axis),
+                (double)s_game.dock_z, (double)s_game.dock_vz);
+    } else if (page_changed || last_score != s_game.score || last_lives != s_game.lives) {
         if (s_game.mode == ARCADE_PLAYING)
             lv_label_set_text_fmt(s_hud, "分 %lu   生命 %d", (unsigned long)s_game.score, s_game.lives);
     }
@@ -494,7 +540,7 @@ void app_main(void) {
         ESP_LOGW(TAG, "Battery task unavailable");
     s_audio_ok = zuma_audio_start();
     if (!s_audio_ok) ESP_LOGW(TAG, "Audio unavailable; continuing silently");
-    if (xTaskCreate(game_task, "eight_realms", 8192, NULL, 4, NULL) != pdPASS)
+    if (xTaskCreate(game_task, "classic_nine", 8192, NULL, 4, NULL) != pdPASS)
         ESP_LOGE(TAG, "Game task allocation failed");
     else s_input_ready = true;
 }

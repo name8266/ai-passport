@@ -1,20 +1,22 @@
 #include "arcade_game.h"
+#include "arcade_docking.h"
 #include <math.h>
 #include <string.h>
 
 static const char *NAMES[] = {
     "琉璃破阵", "星石方阵", "云端跃迁", "苍翠灵蛇",
-    "银河守卫", "霞谷飞翼", "月面归航", "沙海疾驰"
+    "银河守卫", "霞谷飞翼", "月面归航", "沙海疾驰", "太空对接"
 };
 static const char *HINTS[] = {
     "上左 下右 确定发球", "上左 下右 确定转 双击落",
     "上左 下右 确定冲刺", "左右转 确定加速/降速",
     "上左下右 连发 确定加速", "确定拍翼 上左 下右",
-    "上左转 下右转 确定推进", "上左道 下右道 确定加速/降速"
+    "上左转 下右转 确定推进", "上左道 下右道 确定加速/降速",
+    "上/下推进 确定换轴"
 };
 static const char *GOALS[] = {
     "击碎12块砖", "消除6行", "攀升600分", "吃8颗宝石",
-    "击败15个敌人", "穿越10道关口", "安全降落", "存活25秒"
+    "击败15个敌人", "穿越10道关口", "安全降落", "存活25秒", "安全对接"
 };
 
 bool arcade_long_exit_uses_up(arcade_kind_t kind) {
@@ -144,6 +146,8 @@ void arcade_start(arcade_game_t *g, arcade_kind_t kind) {
         g->fuel = 100; g->lives = 1; break;
     case ARCADE_RACER:
         g->lane = 1; g->x = 120; g->y = 257; g->lives = 3; break;
+    case ARCADE_DOCKING:
+        arcade_docking_start(g); break;
     default: break;
     }
 }
@@ -155,6 +159,7 @@ void arcade_input(arcade_game_t *g, arcade_action_t action) {
     }
     if (action == ARCADE_LEFT_UP && g->held == -1) g->held = 0;
     if (action == ARCADE_RIGHT_UP && g->held == 1) g->held = 0;
+    if (g->kind == ARCADE_DOCKING) { arcade_docking_input(g, action); return; }
     if (action == ARCADE_OK_UP && g->kind == ARCADE_LANDER) g->ok_held = false;
     int dir = action == ARCADE_LEFT_DOWN ? -1 : action == ARCADE_RIGHT_DOWN ? 1 : 0;
     if (dir) {
@@ -420,6 +425,7 @@ void arcade_tick(arcade_game_t *g, float dt, bool demo) {
             break;
         case ARCADE_LANDER:
             g->ok_held = g->vy > 24; break;
+        case ARCADE_DOCKING: arcade_docking_demo(g, dt); break;
         case ARCADE_RACER:
             {
                 int risk[3] = {0};
@@ -447,6 +453,7 @@ void arcade_tick(arcade_game_t *g, float dt, bool demo) {
     case ARCADE_FLAPPY: tick_flappy(g, dt); break;
     case ARCADE_LANDER: tick_lander(g, dt); break;
     case ARCADE_RACER: tick_racer(g, dt); break;
+    case ARCADE_DOCKING: arcade_docking_tick(g, dt); break;
     default: break;
     }
 }

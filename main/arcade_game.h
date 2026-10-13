@@ -6,6 +6,7 @@
 typedef enum {
     ARCADE_BREAKOUT, ARCADE_TETRIS, ARCADE_DOODLE, ARCADE_SNAKE,
     ARCADE_SHOOTER, ARCADE_FLAPPY, ARCADE_LANDER, ARCADE_RACER,
+    ARCADE_DOCKING,
     ARCADE_GAME_COUNT
 } arcade_kind_t;
 
@@ -25,6 +26,11 @@ typedef struct {
     int lives;
     float elapsed, accumulator, move_clock, x, y, vx, vy, angle, fuel;
     int direction, held, lane, lines, phase, piece, rotation, piece_x, piece_y;
+    /* Spacecraft docking: six inertial control axes, metre and radian units. */
+    float dock_x, dock_y, dock_z, dock_vx, dock_vy, dock_vz;
+    float dock_yaw, dock_pitch, dock_roll, dock_wyaw, dock_wpitch, dock_wroll;
+    float dock_propellant;
+    int dock_axis;
     bool ok_held;
     uint8_t bricks[5][6];
     uint8_t grid[18][10];

@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "arcade_main.c" "arcade_game.c" "arcade_art.c"
+    SRCS "arcade_main.c" "arcade_game.c" "arcade_docking.c" "arcade_art.c"
          "zuma_audio.c" "zuma_synth.c"
     INCLUDE_DIRS "."
     REQUIRES bsp esp_hw_support esp_timer heap
@@ -11,6 +11,7 @@ idf_component_register(
                 "art/eight-realms/flappy.rgb565"
                 "art/eight-realms/lander.rgb565"
                 "art/eight-realms/racer.rgb565"
+                "art/eight-realms/docking.rgb565"
                 "art/eight-realms/breakout-sprite.rgb565a8"
                 "art/eight-realms/tetris-sprite.rgb565a8"
                 "art/eight-realms/doodle-sprite.rgb565a8"
@@ -19,9 +20,12 @@ idf_component_register(
                 "art/eight-realms/flappy-sprite.rgb565a8"
                 "art/eight-realms/lander-sprite.rgb565a8"
                 "art/eight-realms/racer-sprite.rgb565a8"
+                "art/eight-realms/docking-sprite.rgb565a8"
+                "art/eight-realms/docking-ship.rgb565a8"
 )
 
 target_sources(${COMPONENT_LIB} PRIVATE
     "${CMAKE_CURRENT_LIST_DIR}/../assets/fonts/arcade_cjk_14.c"
     "${CMAKE_CURRENT_LIST_DIR}/../assets/fonts/arcade_cjk_20.c"
+    "${CMAKE_CURRENT_LIST_DIR}/../assets/fonts/arcade_nine.c"
 )

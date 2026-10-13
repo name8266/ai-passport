@@ -28,7 +28,10 @@ def check():
         path = DEST / f"arcade_cjk_{size}.c"
         actual = {int(cp, 16) for cp in re.findall(r"/\* U\+([0-9A-Fa-f]+) ",
                   path.read_text(encoding="utf-8"))}
-        missing = needed - actual
+        addon_path = DEST / "arcade_nine.c"
+        extra = {int(cp, 16) for cp in re.findall(r"/\\* U\\+([0-9A-Fa-f]+) ",
+                 addon_path.read_text(encoding="utf-8"))} if addon_path.exists() else set()
+        missing = needed - (actual | extra)
         if missing:
             raise SystemExit(f"{path}: missing " + ", ".join(f"U+{x:04X}" for x in sorted(missing)))
         print(f"{path.relative_to(ROOT)}: {len(needed)} UI/ASCII glyphs covered")
