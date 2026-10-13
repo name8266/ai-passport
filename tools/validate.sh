@@ -11,8 +11,14 @@ usage() {
 run_static_checks() {
     local actionlint_bin
     local test_dir
+    local linker_gc=(-Wl,--gc-sections)
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        linker_gc=(-Wl,-dead_strip)
+    fi
 
     python3 tools/check_repo.py
+    python3 tools/generate_star_orbit_font.py --check
+    python3 tools/generate_arcade_font.py --check
 
     actionlint_bin="${ACTIONLINT_BIN:-}"
     if [[ -z "${actionlint_bin}" ]]; then
@@ -24,6 +30,18 @@ run_static_checks() {
     "${actionlint_bin}" -color .github/workflows/*.yml
 
     test_dir="$(mktemp -d /tmp/ai-passport-host-tests.XXXXXX)"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_arcade_game.c main/arcade_game.c -lm \
+        -o "${test_dir}/test_arcade_game"
+    "${test_dir}/test_arcade_game"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_zuma_game.c main/zuma_game.c -lm \
+        -o "${test_dir}/test_zuma_game"
+    "${test_dir}/test_zuma_game"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_zuma_synth.c main/zuma_synth.c \
+        -o "${test_dir}/test_zuma_synth"
+    "${test_dir}/test_zuma_synth"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
         tests/test_ui_pixel_math.c main/ui_pixel_math.c \
         -o "${test_dir}/test_ui_pixel_math"
@@ -60,7 +78,7 @@ run_static_checks() {
     for demo in audio low_power ble wifi; do
         "${CC:-cc}" -std=c11 -Wall -Wextra -Werror \
             -ffunction-sections -fdata-sections -Itests/demo_stubs -Imain \
-            "tests/test_demo_${demo}_runtime.c" -Wl,--gc-sections \
+            "tests/test_demo_${demo}_runtime.c" "${linker_gc[@]}" \
             -o "${test_dir}/test_demo_${demo}_runtime"
         "${test_dir}/test_demo_${demo}_runtime"
     done

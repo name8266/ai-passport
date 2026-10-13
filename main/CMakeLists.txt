@@ -1,16 +1,27 @@
 idf_component_register(
-    SRCS "main.c"
-         "demo_navigation.c"
-         "ui_pixel.c"
-         "ui_pixel_math.c"
-         "demo_display.c"
-         "demo_button.c"
-         "demo_audio.c"
-         "demo_battery.c"
-         "demo_radio.c"
-         "demo_wifi.c"
-         "demo_ble.c"
-         "demo_low_power.c"
+    SRCS "arcade_main.c" "arcade_game.c" "arcade_art.c"
+         "zuma_audio.c" "zuma_synth.c"
     INCLUDE_DIRS "."
-    REQUIRES bsp bt esp_event esp_hw_support esp_netif esp_timer esp_wifi nvs_flash
+    REQUIRES bsp esp_hw_support esp_timer heap
+    EMBED_FILES "art/eight-realms/breakout.rgb565"
+                "art/eight-realms/tetris.rgb565"
+                "art/eight-realms/doodle.rgb565"
+                "art/eight-realms/snake.rgb565"
+                "art/eight-realms/shooter.rgb565"
+                "art/eight-realms/flappy.rgb565"
+                "art/eight-realms/lander.rgb565"
+                "art/eight-realms/racer.rgb565"
+                "art/eight-realms/breakout-sprite.rgb565a8"
+                "art/eight-realms/tetris-sprite.rgb565a8"
+                "art/eight-realms/doodle-sprite.rgb565a8"
+                "art/eight-realms/snake-sprite.rgb565a8"
+                "art/eight-realms/shooter-sprite.rgb565a8"
+                "art/eight-realms/flappy-sprite.rgb565a8"
+                "art/eight-realms/lander-sprite.rgb565a8"
+                "art/eight-realms/racer-sprite.rgb565a8"
+)
+
+target_sources(${COMPONENT_LIB} PRIVATE
+    "${CMAKE_CURRENT_LIST_DIR}/../assets/fonts/arcade_cjk_14.c"
+    "${CMAKE_CURRENT_LIST_DIR}/../assets/fonts/arcade_cjk_20.c"
 )

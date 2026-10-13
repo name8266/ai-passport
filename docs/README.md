@@ -211,6 +211,7 @@ provide reference material. Choose the entry that matches your task.
 | [Chinese fonts](development/engineering/lvgl-chinese-fonts.md) | Glyph coverage, widget font selection, and blank-text troubleshooting |
 | [Wi-Fi provisioning](development/engineering/wifi-provisioning.md) | Bluetooth provisioning reference and companion mini program |
 | [Community projects and experience](reference/README.md) | Playbooks and reusable knowledge under `docs/reference/<username>/` |
+| [Eight Realms Arcade](eight-realms.md) | Eight-game Passport application, controls, generated art, and device validation |
 | [Contributing](contribution/README.md) | Documentation, commits, and pull-request conventions |
 | [Brand assets](brand/README.md) | Product visual references and [brand language](brand/brand-and-product.md) |
 | [Fork guide](fork-guide.md) · [Changelog](CHANGELOG.md) | Downstream workflows and release history |
