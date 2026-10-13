@@ -369,10 +369,16 @@ static void refresh_ui(bool force) {
     }
     if (s_game.mode == ARCADE_PLAYING && s_game.kind == ARCADE_DOCKING) {
         static uint32_t hud_tick = 0;
-        if (page_changed || (hud_tick++ % 3u) == 0)
-            lv_label_set_text_fmt(s_hud, "%s %.1fm V %.2f",
-                arcade_docking_axis_name(s_game.dock_axis),
-                (double)s_game.dock_z, (double)s_game.dock_vz);
+        if (page_changed || (hud_tick++ % 3u) == 0) {
+            const float offsets[6] = {s_game.dock_z, s_game.dock_x, s_game.dock_y,
+                s_game.dock_yaw, s_game.dock_pitch, s_game.dock_roll};
+            const float rates[6] = {s_game.dock_vz, s_game.dock_vx, s_game.dock_vy,
+                s_game.dock_wyaw, s_game.dock_wpitch, s_game.dock_wroll};
+            int axis = s_game.dock_axis;
+            lv_label_set_text_fmt(s_hud, "%s %+.2f v%+.2f Z%.1f",
+                arcade_docking_axis_name(axis), (double)offsets[axis],
+                (double)rates[axis], (double)s_game.dock_z);
+        }
     } else if (page_changed || last_score != s_game.score || last_lives != s_game.lives) {
         if (s_game.mode == ARCADE_PLAYING)
             lv_label_set_text_fmt(s_hud, "分 %lu   生命 %d", (unsigned long)s_game.score, s_game.lives);
