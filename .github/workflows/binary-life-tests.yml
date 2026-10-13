@@ -1,0 +1,26 @@
+name: Binary life host tests
+on:
+  pull_request:
+    paths:
+      - "main/binary_life.*"
+      - "main/life_lab.c"
+      - "tests/test_binary_life.c"
+      - "tools/validate.sh"
+      - ".github/workflows/binary-life-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: Deterministic evolution and snapshot tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Build and test pure C simulation
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -Imain \
+            tests/test_binary_life.c main/binary_life.c \
+            -o /tmp/test_binary_life
+          /tmp/test_binary_life
