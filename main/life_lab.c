@@ -216,9 +216,8 @@ static void refresh_screen(void)
     } else if (s_page == 1) {
         lv_obj_add_flag(s_board, LV_OBJ_FLAG_HIDDEN);
         lv_obj_remove_flag(s_detail, LV_OBJ_FLAG_HIDDEN);
-        lv_label_set_text_fmt(s_headline, "样本分析  %u/%u",
-            (unsigned)(stats.population ? 1u : 0u),
-            (unsigned)stats.population);
+        lv_label_set_text_fmt(s_headline, "样本ID %03u  总数 %u",
+            (unsigned)s_sample, (unsigned)stats.population);
         if (stats.population == 0) {
             lv_label_set_text(s_detail, "实验群体已全部死亡\n\n可在设置页重新开始实验");
         } else {
@@ -308,6 +307,11 @@ static void handle_button(input_t input)
     } else if (input.event == BSP_BTN_LONG && s_page == 2) {
         if (input.button == BSP_BTN_UP) {
             s_world.climate ^= 1u;
+            save_now = true;
+        } else if (input.button == BSP_BTN_DOWN) {
+            uint32_t original_seed = s_world.seed;
+            bl_reset(&s_world, original_seed);
+            s_sample = 0;
             save_now = true;
         } else if (input.button == BSP_BTN_OK) {
             bl_reset(&s_world, esp_random());
