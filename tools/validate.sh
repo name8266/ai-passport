@@ -32,6 +32,10 @@ run_static_checks() {
         tests/test_binary_life.c main/binary_life.c \
         -o "${test_dir}/test_binary_life"
     "${test_dir}/test_binary_life"
+    "${CC:-cc}" -std=c11 -O2 -Wall -Wextra -Werror -Imain \
+        tests/test_avida_vm.c main/avida_vm.c \
+        -o "${test_dir}/test_avida_vm"
+    "${test_dir}/test_avida_vm"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
         tests/test_demo_navigation.c main/demo_navigation.c \
         -o "${test_dir}/test_demo_navigation"
