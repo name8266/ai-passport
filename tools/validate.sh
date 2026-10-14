@@ -28,8 +28,8 @@ run_static_checks() {
         tests/test_ui_pixel_math.c main/ui_pixel_math.c \
         -o "${test_dir}/test_ui_pixel_math"
     "${test_dir}/test_ui_pixel_math"
-    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \\
-        tests/test_pachinko_engine.c main/pachinko_engine.c -lm \\
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_pachinko_engine.c main/pachinko_engine.c -lm \
         -o "${test_dir}/test_pachinko_engine"
     "${test_dir}/test_pachinko_engine"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
