@@ -1,9 +1,7 @@
 name: Pachinko arcade branch validation
 
 on:
-  push:
-    branches:
-      - feature/pachinko-arcade
+  # Design iteration: run build and tests only on explicit manual dispatch.
   workflow_dispatch:
 
 permissions:
