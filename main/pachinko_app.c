@@ -34,6 +34,7 @@ static const char *const MODE_CN[] = {"经典", "限时", "生存"};
 static const char *const MODE_EN[] = {"CLASSIC", "RUSH", "SURVIVAL"};
 static const int REEL_FACE[PK_REEL_SYMBOLS] = {1, 2, 3, 5, 7};
 static const char *const GOAL_NAME[] = {"PEG", "CENTER", "BUMPER"};
+static const char *const GOAL_CN[] = {"碰钉", "入槽", "撞靶"};
 
 /* s_game is owned exclusively by LVGL task after boot-time initialization. */
 static pk_state_t s_game;
@@ -274,16 +275,30 @@ static void refresh_hud(void)
         lv_label_set_text_fmt(s_status, "COMBO x%d",
                               s_game.combo);
     }
-    lv_label_set_text_fmt(s_pool, "JP %lu",
-                          (unsigned long)s_game.awards.meta.pool);
-    lv_label_set_text_fmt(s_luck, "LUCK %u/%u",
-                          (unsigned)s_game.awards.no_big_streak,
-                          (unsigned)PK_PITY_SPINS);
-    lv_label_set_text_fmt(s_mission, "ST%u %s %u/%u",
-                          (unsigned)s_game.awards.mission_stage,
-                          GOAL_NAME[s_game.awards.mission_goal],
-                          (unsigned)s_game.awards.mission_progress,
-                          (unsigned)s_game.awards.mission_target);
+    char cn[64], en[64];
+    snprintf(cn, sizeof(cn), "奖池 %lu",
+             (unsigned long)s_game.awards.meta.pool);
+    snprintf(en, sizeof(en), "JP %lu",
+             (unsigned long)s_game.awards.meta.pool);
+    label_bilingual(s_pool, cn, en);
+    snprintf(cn, sizeof(cn), "保底 %u/%u",
+             (unsigned)s_game.awards.no_big_streak,
+             (unsigned)PK_PITY_SPINS);
+    snprintf(en, sizeof(en), "LUCK %u/%u",
+             (unsigned)s_game.awards.no_big_streak,
+             (unsigned)PK_PITY_SPINS);
+    label_bilingual(s_luck, cn, en);
+    snprintf(cn, sizeof(cn), "关%u %s %u/%u",
+             (unsigned)s_game.awards.mission_stage,
+             GOAL_CN[s_game.awards.mission_goal],
+             (unsigned)s_game.awards.mission_progress,
+             (unsigned)s_game.awards.mission_target);
+    snprintf(en, sizeof(en), "ST%u %s %u/%u",
+             (unsigned)s_game.awards.mission_stage,
+             GOAL_NAME[s_game.awards.mission_goal],
+             (unsigned)s_game.awards.mission_progress,
+             (unsigned)s_game.awards.mission_target);
+    label_bilingual(s_mission, cn, en);
     for (int i = 0; i < 5; ++i) {
         const char *value = s_game.mode == PK_SURVIVAL && (i == 0 || i == 4)
                           ? "0" : (i == 2 ? "160" : (i == 1 || i == 3 ? "40" : "10"));
@@ -366,17 +381,18 @@ static void game_tick(lv_timer_t *unused)
         lv_obj_remove_flag(s_bonus_panel, LV_OBJ_FLAG_HIDDEN);
         if (a->event_seq != s_seen_event_seq) {
             s_seen_event_seq = a->event_seq;
-            const char *name = "WIN";
+            const char *cn = "获奖";
+            const char *en = "WIN";
             switch (a->event) {
-            case PK_PRIZE_PAIR: name = "PAIR WIN"; break;
-            case PK_PRIZE_MINI: name = "MINI WIN"; break;
-            case PK_PRIZE_BIG: name = "BIG BONUS"; break;
-            case PK_PRIZE_SUPER: name = "SUPER BONUS"; break;
-            case PK_PRIZE_JACKPOT: name = "777 MEGA JACKPOT"; break;
-            case PK_PRIZE_MISSION: name = "MISSION CLEAR"; break;
+            case PK_PRIZE_PAIR: cn = "双连奖"; en = "PAIR WIN"; break;
+            case PK_PRIZE_MINI: cn = "小奖"; en = "MINI WIN"; break;
+            case PK_PRIZE_BIG: cn = "大奖"; en = "BIG BONUS"; break;
+            case PK_PRIZE_SUPER: cn = "超级大奖"; en = "SUPER BONUS"; break;
+            case PK_PRIZE_JACKPOT: cn = "777 终极大奖"; en = "777 MEGA JACKPOT"; break;
+            case PK_PRIZE_MISSION: cn = "任务完成"; en = "MISSION CLEAR"; break;
             default: break;
             }
-            lv_label_set_text(s_bonus_title, name);
+            label_bilingual(s_bonus_title, cn, en);
             lv_label_set_text_fmt(s_bonus_value, "+%lu",
                                   (unsigned long)a->event_points);
         }
