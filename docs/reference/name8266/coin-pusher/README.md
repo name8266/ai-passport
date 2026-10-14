@@ -7,7 +7,7 @@ It boots directly to a new coin-pusher cabinet rather than the hardware demo men
 
 ## Core simulation
 
-- Up to 72 independent finite cylinders with position, velocity, radius, thickness and mass. Fixed-step (60 Hz physics / 30 Hz intended rendering), deterministic seeded xorshift, 2 contact solver passes, vertical gravity and stacking, side-wall constraints, motor-driven reciprocating pusher, front ledge and side-loss pockets.
+- Up to 72 independent finite cylinders with position, velocity, radius, thickness and mass. Fixed-step (60 Hz physics / 30 Hz intended rendering), deterministic seeded xorshift, 2 contact solver passes, vertical gravity and stacking (floor-on-floor contacts favor pushing, elevated coins can settle on others), side-wall constraints, motor-driven reciprocating pusher, front ledge and side-loss pockets.
 - This is **2.5D**, not a full 6-DOF rigid-body solver: cylinders stay upright, do not spin or tip, and contacts are approximations. Realistic density/throughput and target frame rate require physical-device measurement.
 - Collecting at the center front awards virtual bank and score; dropping into the two side gutters loses coins. Copper 1, gold 3, ruby 15, giant 9 credits before combo/multipliers. Consecutive payouts within 2.4 seconds increase the combo up to 5. Each inserted coin grows the jackpot pool.
 - Random effects: coin rain, magnetic attraction, earthquake, gold-rush x3, moon gravity, wormhole relocation, black-hole suction and jackpot pool payout. These alter the actual simulation state, not only the HUD.

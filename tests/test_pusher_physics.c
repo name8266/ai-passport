@@ -68,6 +68,16 @@ int main(void)
     g.coins[0].falling = true;
     progress(&g, 30);
     assert(g.lost == 1 && g.collected == 0 && g.bank == 90);
+    /* Grounded coins must transmit pressure sideways, not jump into piles. */
+    cp_init(&g, 80u, 90u, 0u, 0u);
+    for (unsigned i = 2; i < CP_MAX_COINS; ++i) g.coins[i].active = false;
+    g.coins[0].x = 98.0f; g.coins[0].y = 105.0f;
+    g.coins[1].x = 111.0f; g.coins[1].y = 105.0f;
+    g.coins[0].z = g.coins[1].z = 0.0f;
+    cp_step(&g, 1.0f / 60.0f);
+    assert(g.coins[0].x < 98.0f);
+    assert(g.coins[1].x > 111.0f);
+    assert(g.coins[0].z < 0.001f && g.coins[1].z < 0.001f);
     cp_init(&g, 77u, 0u, 0u, 0u);
     assert(!cp_drop(&g));
     assert(cp_event_name(CP_EVENT_PORTAL) != NULL);

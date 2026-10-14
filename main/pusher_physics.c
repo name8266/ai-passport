@@ -116,7 +116,7 @@ void cp_init(cp_game_t *g, uint32_t seed, uint32_t bank,
     for (unsigned row = 0; row < 6; ++row) {
         for (unsigned col = 0; col < 9; ++col) {
             float x = 17.0f + col * 21.7f + (row % 2) * 2.0f;
-            float y = 72.0f + row * 17.4f;
+            float y = 50.0f + row * 17.4f;
             cp_coin_kind_t kind = ((row * 9 + col) % 17 == 0) ? CP_COIN_GOLD
                                  : CP_COIN_COPPER;
             spawn(g, x, y, 0.0f, kind);
@@ -199,7 +199,7 @@ static void pair_contact(cp_coin_t *a, cp_coin_t *b)
     float inv_b = 1.0f / b->mass;
     float weight = inv_a + inv_b;
     /* SAT-style contact selection for finite cylinders, not point sprites. */
-    if (vpen < hpen * 0.65f) {
+    if (vpen < hpen * 0.65f && (a->z > 0.6f || b->z > 0.6f)) {
         float sign = (dz > 0.001f || (fabsf(dz) < 0.001f && a < b)) ? 1.0f : -1.0f;
         float correction = (vpen + 0.001f) / weight;
         a->z -= sign * correction * inv_a;
