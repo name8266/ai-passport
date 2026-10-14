@@ -29,9 +29,14 @@ run_static_checks() {
         -o "${test_dir}/test_ui_pixel_math"
     "${test_dir}/test_ui_pixel_math"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
-        tests/test_pachinko_engine.c main/pachinko_engine.c -lm \
+        tests/test_pachinko_engine.c main/pachinko_engine.c \
+        main/pachinko_rewards.c -lm \
         -o "${test_dir}/test_pachinko_engine"
     "${test_dir}/test_pachinko_engine"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_pachinko_rewards.c main/pachinko_rewards.c \
+        -o "${test_dir}/test_pachinko_rewards"
+    "${test_dir}/test_pachinko_rewards"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
         tests/test_demo_navigation.c main/demo_navigation.c \
         -o "${test_dir}/test_demo_navigation"
