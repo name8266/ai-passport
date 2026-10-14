@@ -1,0 +1,46 @@
+name: Pachinko arcade branch validation
+
+on:
+  push:
+    branches:
+      - feature/pachinko-arcade
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pachinko-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host:
+    name: Game physics and repository checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Install actionlint
+        run: |
+          actionlint_bin="$(./tools/install-actionlint.sh "$RUNNER_TEMP/actionlint")"
+          echo "ACTIONLINT_BIN=${actionlint_bin}" >> "$GITHUB_ENV"
+      - name: Run host validation
+        run: ./tools/validate.sh --static
+
+  firmware:
+    name: ESP-IDF 5.5.3 firmware and merged binary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Build standalone pachinko firmware
+        uses: espressif/esp-idf-ci-action@9d38657f3d789ca759b2b37aaf5ceffbc42c4f0d # v1
+        with:
+          esp_idf_version: v5.5.3
+          target: esp32c3
+          command: ./tools/validate.sh --firmware
+      - name: Upload verified full image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: passport-pachinko-full
+          path: build/FoloToy-AI-Passport-full.bin
+          if-no-files-found: error
+          retention-days: 7
