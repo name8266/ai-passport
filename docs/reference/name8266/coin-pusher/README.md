@@ -12,7 +12,7 @@ It boots directly to a new coin-pusher cabinet rather than the hardware demo men
 - Collecting at the center front awards virtual bank and score; dropping into the two side gutters loses coins. Copper 1, gold 3, ruby 15, giant 9 credits before combo/multipliers. Consecutive payouts within 2.4 seconds increase the combo up to 5. Each inserted coin grows the jackpot pool.
 - Random effects: coin rain, magnetic attraction, earthquake, gold-rush x3, moon gravity, wormhole relocation, black-hole suction and jackpot pool payout. These alter the actual simulation state, not only the HUD.
 - Three buttons: UP/DOWN move the drop cursor, OK click inserts a coin, OK double spends six virtual credits to force a random event, OK long pauses/resumes. Double OK when out of coins gives 30 free-play credits.
-- Fully offline. Saves a versioned full tray snapshot and virtual balance in NVS when dirty (five-second debounce). No real-money play, payout, transactions or online component.
+- Fully offline. Saves a versioned full tray snapshot and virtual balance in NVS when dirty (five-second check, with a thirty-second idle snapshot). No real-money play, payout, transactions or online component.
 
 ## Technical constraints / validation
 

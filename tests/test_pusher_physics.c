@@ -50,6 +50,24 @@ int main(void)
     assert(cp_buy_chaos(&g));
     assert(g.bank == bank - 6);
     assert(g.event != CP_EVENT_NONE);
+    /* Payout is determined by physically crossing the lip and falling. */
+    cp_init(&g, 77u, 90u, 0u, 0u);
+    for (unsigned i = 1; i < CP_MAX_COINS; ++i) g.coins[i].active = false;
+    g.coins[0].x = 104.0f;
+    g.coins[0].y = CP_FRONT_EDGE + 1.0f;
+    g.coins[0].z = 0.0f;
+    g.coins[0].falling = true;
+    g.coins[0].kind = CP_COIN_GOLD;
+    progress(&g, 30);
+    assert(g.collected == 1 && g.bank == 93);
+    assert(!g.coins[0].active);
+    cp_init(&g, 78u, 90u, 0u, 0u);
+    for (unsigned i = 1; i < CP_MAX_COINS; ++i) g.coins[i].active = false;
+    g.coins[0].x = 8.5f;
+    g.coins[0].y = CP_FRONT_EDGE + 1.0f;
+    g.coins[0].falling = true;
+    progress(&g, 30);
+    assert(g.lost == 1 && g.collected == 0 && g.bank == 90);
     cp_init(&g, 77u, 0u, 0u, 0u);
     assert(!cp_drop(&g));
     assert(cp_event_name(CP_EVENT_PORTAL) != NULL);

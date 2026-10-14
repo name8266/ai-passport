@@ -175,7 +175,8 @@ static void render(void)
         const cp_coin_t *c = &s_game.coins[i];
         lv_obj_t *view = s_coin_view[i];
         if (!c->active) {
-            lv_obj_add_flag(view, LV_OBJ_FLAG_HIDDEN);
+            if (!lv_obj_has_flag(view, LV_OBJ_FLAG_HIDDEN))
+                lv_obj_add_flag(view, LV_OBJ_FLAG_HIDDEN);
             continue;
         }
         if (s_prev_kind[i] != (uint8_t)c->kind) {
@@ -186,10 +187,13 @@ static void render(void)
             s_prev_kind[i] = (uint8_t)c->kind;
         }
         int d = (int)(c->radius * 2.0f + 0.5f);
-        lv_obj_set_size(view, d, d);
-        lv_obj_set_pos(view, 4 + (int)(c->x - c->radius),
-                       (int)(c->y - c->radius - c->z * 0.60f));
-        lv_obj_remove_flag(view, LV_OBJ_FLAG_HIDDEN);
+        if (lv_obj_get_width(view) != d) lv_obj_set_size(view, d, d);
+        int x = 4 + (int)(c->x - c->radius);
+        int y = (int)(c->y - c->radius - c->z * 0.60f);
+        if (lv_obj_get_x(view) != x || lv_obj_get_y(view) != y)
+            lv_obj_set_pos(view, x, y);
+        if (lv_obj_has_flag(view, LV_OBJ_FLAG_HIDDEN))
+            lv_obj_remove_flag(view, LV_OBJ_FLAG_HIDDEN);
     }
     lv_obj_set_style_bg_color(s_stage,
         lv_color_hex(s_game.event == CP_EVENT_BLACK_HOLE ? 0x20112F :
@@ -294,11 +298,13 @@ static void read_save(void)
 static void save_loop(void *ctx)
 {
     (void)ctx;
+    unsigned saves = 0;
     while (true) {
         vTaskDelay(pdMS_TO_TICKS(APP_SAVE_SECONDS * 1000));
         s_battery_level = bsp_battery_soc();
         if (!s_nvs_ready || !bsp_lvgl_lock(2000)) continue;
-        bool must_save = s_dirty;
+        /* Save currency changes promptly and drifting tray state every 30 s. */
+        bool must_save = s_dirty || (++saves % 6u) == 0u;
         if (must_save) {
             memcpy(&s_save_snapshot, &s_game, sizeof(s_game));
             s_dirty = false;
