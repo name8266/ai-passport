@@ -13,6 +13,7 @@ int main(void)
     cp_game_t g, other;
     cp_init(&g, 123456u, 120u, 50u, 70u);
     cp_init(&other, 123456u, 120u, 50u, 70u);
+    assert(CP_MAX_COINS == 192);
     assert(cp_coin_count(&g) == 54);
     assert(g.best == 50 && g.jackpot_pool == 70);
     cp_aim(&g, 1000);
@@ -78,6 +79,26 @@ int main(void)
     assert(g.coins[0].x < 98.0f);
     assert(g.coins[1].x > 111.0f);
     assert(g.coins[0].z < 0.001f && g.coins[1].z < 0.001f);
+    /* Reaching capacity must never deduct credits or soft-lock simulation. */
+    cp_init(&g, 77u, 300u, 0u, 0u);
+    for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
+        g.coins[i].active = true;
+        g.coins[i].x = 20.0f + (float)(i % 9u) * 21.0f;
+        g.coins[i].y = 28.0f + (float)(i / 9u) * 6.0f;
+    }
+    uint32_t full_bank = g.bank;
+    assert(!cp_drop(&g));
+    assert(g.bank == full_bank);
+    assert(cp_pulse(&g));
+    assert(g.boost_left > 0.0f && !cp_pulse(&g));
+    progress(&g, 10);
+    assert(isfinite(g.pusher_y));
+    cp_init(&g, 500u, 100u, 0u, 0u);
+    assert(cp_pulse(&g));
+    assert(!cp_pulse(&g));
+    progress(&g, 240);
+    assert(g.boost_left == 0.0f && g.pulse_cooldown == 0.0f);
+    assert(cp_pulse(&g));
     cp_init(&g, 77u, 0u, 0u, 0u);
     assert(!cp_drop(&g));
     assert(cp_event_name(CP_EVENT_PORTAL) != NULL);

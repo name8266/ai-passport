@@ -8,6 +8,12 @@
 #define CP_EDGE_GUTTER 24.0f
 #define CP_GRAVITY 560.0f
 #define CP_PHYS_DT (1.0f / 60.0f)
+/* Cell width >= max coin diameter: collision candidates live in 9 adjacent cells. */
+#define CP_GRID_SIZE 24.0f
+#define CP_GRID_W 9
+#define CP_GRID_H 8
+#define CP_GRID_CELLS (CP_GRID_W * CP_GRID_H)
+#define CP_JAM_THRESHOLD 142u
 
 static float minf(float a, float b) { return a < b ? a : b; }
 static float maxf(float a, float b) { return a > b ? a : b; }
@@ -66,6 +72,7 @@ static void begin_event(cp_game_t *g, cp_event_t event)
             cp_coin_t *c = spawn(g, 15.0f + 178.0f * unit(g),
                                  48.0f + 30.0f * unit(g), 8.0f + n * 2.0f, kind);
             if (c) c->vy = 18.0f;
+            else g->jackpot_pool += (kind == CP_COIN_RUBY ? 15u : 3u);
         }
     } else if (event == CP_EVENT_PORTAL) {
         for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
@@ -112,6 +119,7 @@ void cp_init(cp_game_t *g, uint32_t seed, uint32_t bank,
     g->jackpot_pool = jackpot_pool;
     g->drop_x = 104.0f;
     g->pusher_y = 28.0f;
+    g->last_progress = 0.0f;
     /* Packed staggered rows provide a physical pile from the first frame. */
     for (unsigned row = 0; row < 6; ++row) {
         for (unsigned col = 0; col < 9; ++col) {
@@ -142,6 +150,7 @@ bool cp_drop(cp_game_t *g)
     g->bank--;
     g->drops++;
     g->jackpot_pool += 1u;
+    g->last_progress = g->game_time;
     if (g->event_left <= 0.0f && (g->drops % 7u == 0u || rnd(g) % 13u == 0u)) {
         choose_event(g);
     }
@@ -154,6 +163,16 @@ bool cp_buy_chaos(cp_game_t *g)
     g->bank -= 6u;
     g->jackpot_pool += 6u;
     choose_event(g);
+    return true;
+}
+
+bool cp_pulse(cp_game_t *g)
+{
+    if (g->paused || g->pulse_cooldown > 0.0f || g->boost_left > 0.0f) return false;
+    g->boost_left = 3.2f;
+    g->pulse_cooldown = 7.0f;
+    g->pulses++;
+    g->last_progress = g->game_time;
     return true;
 }
 
@@ -179,6 +198,7 @@ static void payout(cp_game_t *g, cp_coin_t *c)
         }
     }
     c->active = false;
+    g->last_progress = g->game_time;
 }
 
 static void pair_contact(cp_coin_t *a, cp_coin_t *b)
@@ -186,8 +206,9 @@ static void pair_contact(cp_coin_t *a, cp_coin_t *b)
     if (!a->active || !b->active || a->falling || b->falling) return;
     float dx = b->x - a->x;
     float dy = b->y - a->y;
-    float dist2 = dx * dx + dy * dy;
     float radius = a->radius + b->radius;
+    if (fabsf(dx) >= radius || fabsf(dy) >= radius) return;
+    float dist2 = dx * dx + dy * dy;
     if (dist2 >= radius * radius) return;
     float dz = b->z - a->z;
     float thickness = (a->height + b->height) * 0.5f;
@@ -225,23 +246,72 @@ static void pair_contact(cp_coin_t *a, cp_coin_t *b)
     }
 }
 
+/* Small spatial hash: rebucket between solver passes to follow displaced coins.
+ * No pointers, heap allocation, or quadratic full-array pair scan. */
+static void solve_contacts(cp_game_t *g)
+{
+    int16_t heads[CP_GRID_CELLS];
+    int16_t next[CP_MAX_COINS];
+    for (unsigned k = 0; k < CP_GRID_CELLS; ++k) heads[k] = -1;
+    for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
+        next[i] = -1;
+        cp_coin_t *coin = &g->coins[i];
+        if (!coin->active || coin->falling) continue;
+        int x = (int)(coin->x / CP_GRID_SIZE);
+        int y = (int)(coin->y / CP_GRID_SIZE);
+        if (x < 0) x = 0;
+        if (x >= CP_GRID_W) x = CP_GRID_W - 1;
+        if (y < 0) y = 0;
+        if (y >= CP_GRID_H) y = CP_GRID_H - 1;
+        int bucket = y * CP_GRID_W + x;
+        next[i] = heads[bucket];
+        heads[bucket] = (int16_t)i;
+    }
+    for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
+        cp_coin_t *coin = &g->coins[i];
+        if (!coin->active || coin->falling) continue;
+        int cx = (int)(coin->x / CP_GRID_SIZE);
+        int cy = (int)(coin->y / CP_GRID_SIZE);
+        if (cx < 0) cx = 0;
+        if (cx >= CP_GRID_W) cx = CP_GRID_W - 1;
+        if (cy < 0) cy = 0;
+        if (cy >= CP_GRID_H) cy = CP_GRID_H - 1;
+        for (int dy = -1; dy <= 1; ++dy) {
+            const int row = cy + dy;
+            if (row < 0 || row >= CP_GRID_H) continue;
+            for (int dx = -1; dx <= 1; ++dx) {
+                const int col = cx + dx;
+                if (col < 0 || col >= CP_GRID_W) continue;
+                for (int16_t j = heads[row * CP_GRID_W + col];
+                     j >= 0; j = next[j]) {
+                    if ((unsigned)j > i) pair_contact(coin, &g->coins[j]);
+                }
+            }
+        }
+    }
+}
+
 static void simulate(cp_game_t *g, float dt)
 {
     float previous_pusher = g->pusher_y;
     g->phase += dt * (2.0f * CP_PI / 2.1f);
     if (g->phase > 2.0f * CP_PI) g->phase -= 2.0f * CP_PI;
-    g->pusher_y = 28.0f + 27.0f * (1.0f - cosf(g->phase)) * 0.5f;
+    /* Hydraulic boost extends the drive stroke, then returns to normal. */
+    float stroke = g->boost_left > 0.0f ? 49.0f : 27.0f;
+    g->pusher_y = 28.0f + stroke * (1.0f - cosf(g->phase)) * 0.5f;
     float pusher_speed = maxf(0.0f, (g->pusher_y - previous_pusher) / dt);
 
-    if (g->event == CP_EVENT_EARTHQUAKE) {
+    if (g->event == CP_EVENT_EARTHQUAKE || g->boost_left > 0.0f) {
         g->event_clock += dt;
-        if (g->event_clock > 0.11f) {
+        if (g->event_clock > (g->boost_left > 0.0f ? 0.17f : 0.11f)) {
             g->event_clock = 0;
             for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
                 cp_coin_t *c = &g->coins[i];
                 if (c->active && !c->falling) {
-                    c->vx += (unit(g) - 0.5f) * 27.0f;
-                    c->vy += (unit(g) - 0.35f) * 23.0f;
+                    float lateral = g->boost_left > 0.0f ? 9.0f : 27.0f;
+                    c->vx += (unit(g) - 0.5f) * lateral;
+                    c->vy += (unit(g) - 0.35f) *
+                             (g->boost_left > 0.0f ? 12.0f : 23.0f);
                 }
             }
         }
@@ -275,7 +345,8 @@ static void simulate(cp_game_t *g, float dt)
             }
             if (c->y < g->pusher_y + c->radius && c->z < 7.0f) {
                 c->y = g->pusher_y + c->radius;
-                c->vy = maxf(c->vy, pusher_speed * 0.85f);
+                c->vy = maxf(c->vy, pusher_speed * 0.85f +
+                                      (g->boost_left > 0.0f ? 12.0f : 0.0f));
             }
             if (c->z < 0.0f) {
                 c->z = 0.0f;
@@ -284,14 +355,9 @@ static void simulate(cp_game_t *g, float dt)
         }
     }
 
-    /* Fixed solver budget: 72 coins, 2 iterations, no allocations. */
+    /* Two spatially bucketed contact passes. */
     for (unsigned iteration = 0; iteration < 2; ++iteration) {
-        for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
-            if (!g->coins[i].active || g->coins[i].falling) continue;
-            for (unsigned j = i + 1; j < CP_MAX_COINS; ++j) {
-                pair_contact(&g->coins[i], &g->coins[j]);
-            }
-        }
+        solve_contacts(g);
         for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
             cp_coin_t *c = &g->coins[i];
             if (!c->active || c->falling) continue;
@@ -320,6 +386,17 @@ void cp_step(cp_game_t *g, float seconds)
         simulate(g, dt);
         remaining -= dt;
         g->game_time += dt;
+        if (g->boost_left > 0.0f) g->boost_left = maxf(0.0f, g->boost_left - dt);
+        if (g->pulse_cooldown > 0.0f) {
+            g->pulse_cooldown = maxf(0.0f, g->pulse_cooldown - dt);
+        }
+        /* A congested tray is allowed to jam, but never remains permanently
+         * locked. Overdrive applies impulses instead of erasing coins. */
+        if (cp_coin_count(g) >= CP_JAM_THRESHOLD &&
+            g->game_time - g->last_progress >= 9.0f &&
+            cp_pulse(g)) {
+            g->automatic_releases++;
+        }
         if (g->event_left > 0.0f) {
             g->event_left -= dt;
             if (g->event_left <= 0.0f) {

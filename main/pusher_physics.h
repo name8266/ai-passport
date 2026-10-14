@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define CP_MAX_COINS 72
+#define CP_MAX_COINS 192
 #define CP_BOARD_WIDTH 208.0f
 #define CP_FRONT_EDGE 171.0f
 
@@ -46,6 +46,8 @@ typedef struct {
     uint8_t combo;
     float drop_x, pusher_y, phase, event_left, combo_left;
     float game_time, event_clock;
+    float boost_left, pulse_cooldown, last_progress;
+    uint32_t pulses, automatic_releases;
     cp_event_t event;
     bool paused;
 } cp_game_t;
@@ -55,6 +57,8 @@ void cp_init(cp_game_t *game, uint32_t seed, uint32_t bank,
 void cp_aim(cp_game_t *game, float offset);
 bool cp_drop(cp_game_t *game);
 bool cp_buy_chaos(cp_game_t *game);
+/* Temporary hydraulic overdrive: no coin removal or teleportation. */
+bool cp_pulse(cp_game_t *game);
 void cp_step(cp_game_t *game, float seconds);
 unsigned cp_coin_count(const cp_game_t *game);
 const char *cp_event_name(cp_event_t event);
