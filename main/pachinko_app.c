@@ -50,6 +50,7 @@ static lv_obj_t *s_status;
 static lv_obj_t *s_slots;
 static lv_obj_t *s_battery;
 static lv_obj_t *s_charge;
+static lv_obj_t *s_pocket_text[5];
 static lv_timer_t *s_timer;
 static uint32_t s_last_input_tick;
 static uint32_t s_last_saved[PK_MODE_COUNT];
@@ -232,6 +233,11 @@ static void refresh_hud(void)
         lv_label_set_text_fmt(s_status, "COMBO x%d  +%d",
                               s_game.combo, s_game.last_award);
     }
+    for (int i = 0; i < 5; ++i) {
+        const char *value = s_game.mode == PK_SURVIVAL && (i == 0 || i == 4)
+                          ? "0" : (i == 2 ? "160" : (i == 1 || i == 3 ? "40" : "10"));
+        lv_label_set_text(s_pocket_text[i], value);
+    }
     lv_bar_set_value(s_charge, s_game.energy, LV_ANIM_OFF);
     if (s_game.ticks % 25 == 0) {
         int soc = bsp_battery_soc();
@@ -345,8 +351,8 @@ static void build_ui(void)
     for (int i = 0; i < 5; ++i) {
         int x = 13 + i * 43;
         panel(s_screen, x, 240, 41, 17, pocket_color[i], 4);
-        caption(s_screen, x + (i == 2 ? 5 : 10), 241, pocket_label[i],
-                PK_COLOR_WHITE, &lv_font_montserrat_14);
+        s_pocket_text[i] = caption(s_screen, x + (i == 2 ? 5 : 10), 241,
+                pocket_label[i], PK_COLOR_WHITE, &lv_font_montserrat_14);
     }
 
     /* Six simultaneously reusable sprites, each only 8x8 pixels. */
