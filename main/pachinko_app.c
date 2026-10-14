@@ -65,7 +65,8 @@ static uint32_t s_seen_spins;
 static uint8_t s_reel_anim_ticks;
 static lv_obj_t *s_pocket_text[5];
 static lv_timer_t *s_timer;
-static uint32_t s_last_input_tick;
+static uint32_t s_cabinet_frames;
+static uint32_t s_last_input_frame;
 static uint32_t s_last_saved[PK_MODE_COUNT];
 static pk_reward_meta_t s_last_saved_meta;
 static bool s_dimmed;
@@ -239,7 +240,7 @@ static void process_key(pk_input_t input)
     }
     if (input.event == BSP_BTN_CLICK || input.event == BSP_BTN_DOUBLE ||
         input.event == BSP_BTN_LONG) {
-        s_last_input_tick = s_game.ticks;
+        s_last_input_frame = s_cabinet_frames;
         if (s_dimmed) {
             bsp_display_backlight(82);
             s_dimmed = false;
@@ -300,6 +301,7 @@ static void refresh_hud(void)
 static void game_tick(lv_timer_t *unused)
 {
     (void)unused;
+    ++s_cabinet_frames;
     pk_input_t input;
     int processed = 0;
     while (processed++ < PK_INPUT_QUEUE_LEN &&
@@ -323,7 +325,12 @@ static void game_tick(lv_timer_t *unused)
             faces[i] = REEL_FACE[s_game.reels[i]];
         }
     }
-    lv_label_set_text_fmt(s_slots, "%d %d %d", faces[0], faces[1], faces[2]);
+    char reel_text[20];
+    snprintf(reel_text, sizeof(reel_text), "%d %d %d",
+             faces[0], faces[1], faces[2]);
+    if (strcmp(lv_label_get_text(s_slots), reel_text) != 0) {
+        lv_label_set_text(s_slots, reel_text);
+    }
     lv_obj_set_style_text_color(s_slots, lv_color_hex(
         s_reel_anim_ticks && ((s_game.ticks / 3) & 1) ?
         PK_COLOR_CYAN : PK_COLOR_MAGENTA), 0);
@@ -387,7 +394,7 @@ static void game_tick(lv_timer_t *unused)
     }
 
     /* Dim after a minute without any control input; restore on next action. */
-    if (!s_dimmed && s_game.ticks - s_last_input_tick >= 1500) {
+    if (!s_dimmed && s_cabinet_frames - s_last_input_frame >= 1500) {
         bsp_display_backlight(24);
         s_dimmed = true;
     }
