@@ -117,9 +117,11 @@ bool pk_fire(pk_state_t *s)
 bool pk_nudge(pk_state_t *s)
 {
     if (s->energy < 25 || !pk_active_balls(s)) return false;
-    if (s->last_nudge_tick && s->ticks - s->last_nudge_tick < 40) return false;
+    /* +1 distinguishes tick zero from the 'never nudged' sentinel. */
+    if (s->last_nudge_tick &&
+        (s->ticks + 1u - s->last_nudge_tick) < 40u) return false;
     s->energy -= 25;
-    s->last_nudge_tick = s->ticks ? s->ticks : 1;
+    s->last_nudge_tick = s->ticks + 1u;
     for (int i = 0; i < PK_MAX_BALLS; ++i) {
         if (s->balls[i].active) {
             s->balls[i].vx += s->balls[i].x < 120.0f ? 48.0f : -48.0f;
