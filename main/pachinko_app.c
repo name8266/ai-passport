@@ -123,10 +123,13 @@ static bool chinese_supported(const char *utf8)
 static void label_bilingual(lv_obj_t *label, const char *cn, const char *en)
 {
     bool available = chinese_supported(cn);
+    const char *selected = available ? cn : en;
+    /* Skip redundant allocations and serial warnings on every HUD update. */
+    if (strcmp(lv_label_get_text(label), selected) == 0) return;
     lv_obj_set_style_text_font(label,
         available ? &lv_font_source_han_sans_sc_16_cjk :
                     &lv_font_montserrat_14, 0);
-    lv_label_set_text(label, available ? cn : en);
+    lv_label_set_text(label, selected);
     if (!available) ESP_LOGW(TAG, "CJK subset lacks glyph for: %s", cn);
 }
 
