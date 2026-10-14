@@ -37,6 +37,7 @@ static float unit(cp_game_t *g)
 static cp_coin_t *spawn(cp_game_t *g, float x, float y, float z,
                         cp_coin_kind_t kind)
 {
+    if (cp_coin_count(g) + cp_ball_count(g) >= CP_MAX_COINS) return NULL;
     for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
         cp_coin_t *c = &g->coins[i];
         if (c->active) continue;
@@ -61,10 +62,44 @@ unsigned cp_coin_count(const cp_game_t *g)
     return n;
 }
 
+unsigned cp_ball_count(const cp_game_t *g)
+{
+    unsigned n = 0;
+    for (unsigned i = 0; i < CP_MAX_BALLS; ++i) n += g->balls[i].active;
+    return n;
+}
+
+void cp_peg_position(unsigned row, unsigned col, float *x, float *y)
+{
+    *x = 13.0f + col * 25.0f + (row % 2u) * 12.5f;
+    *y = 13.0f + row * 12.0f;
+}
+
+static bool launch(cp_game_t *g, cp_coin_kind_t kind)
+{
+    if (cp_coin_count(g) + cp_ball_count(g) >= CP_MAX_COINS) return false;
+    /* Do not overlap a ball still inside the injection nozzle. */
+    for (unsigned i = 0; i < CP_MAX_BALLS; ++i) {
+        const cp_ball_t *b = &g->balls[i];
+        if (b->active && b->y < 8.0f && fabsf(b->x - g->drop_x) < 8.0f)
+            return false;
+    }
+    for (unsigned i = 0; i < CP_MAX_BALLS; ++i) {
+        cp_ball_t *b = &g->balls[i];
+        if (b->active) continue;
+        *b = (cp_ball_t){.x=g->drop_x, .y=3.5f,
+            .vx=(unit(g)-0.5f)*18.0f, .vy=28.0f,
+            .kind=kind, .active=true};
+        return true;
+    }
+    return false;
+}
+
 static void begin_event(cp_game_t *g, cp_event_t event)
 {
     g->event = event;
     g->event_clock = 0;
+    g->rapid_clock = 0;
     g->event_left = event == CP_EVENT_JACKPOT ? 2.0f : 5.5f;
     if (event == CP_EVENT_COIN_RAIN) {
         for (int n = 0; n < 6; ++n) {
@@ -104,8 +139,8 @@ static void choose_event(cp_game_t *g)
                      : roll < 65 ? CP_EVENT_GOLD_RUSH
                      : roll < 78 ? CP_EVENT_MOON
                      : roll < 89 ? CP_EVENT_PORTAL
-                     : roll < 98 ? CP_EVENT_BLACK_HOLE
-                     : CP_EVENT_JACKPOT;
+                     : roll < 95 ? CP_EVENT_BLACK_HOLE
+                     : roll < 98 ? CP_EVENT_RAPID_FIRE : CP_EVENT_JACKPOT;
     begin_event(g, event);
 }
 
@@ -139,14 +174,12 @@ void cp_aim(cp_game_t *g, float offset)
 
 bool cp_drop(cp_game_t *g)
 {
-    if (g->paused || g->bank == 0 || cp_coin_count(g) >= CP_MAX_COINS) return false;
+    if (g->paused || g->bank == 0 || cp_coin_count(g) + cp_ball_count(g) >= CP_MAX_COINS) return false;
     uint32_t r = rnd(g) % 100u;
     cp_coin_kind_t kind = r < 77 ? CP_COIN_COPPER
                         : r < 95 ? CP_COIN_GOLD
                         : r < 99 ? CP_COIN_RUBY : CP_COIN_GIANT;
-    cp_coin_t *c = spawn(g, g->drop_x, g->pusher_y + 13.0f, 5.0f, kind);
-    if (!c) return false;
-    c->vy = 10.0f;
+    if (!launch(g, kind)) return false;
     g->bank--;
     g->drops++;
     g->jackpot_pool += 1u;
@@ -291,8 +324,82 @@ static void solve_contacts(cp_game_t *g)
     }
 }
 
+static void step_balls(cp_game_t *g, float dt)
+{
+    const float radius = 3.5f, contact = 5.5f;
+    for (unsigned i = 0; i < CP_MAX_BALLS; ++i) {
+        cp_ball_t *b = &g->balls[i];
+        if (!b->active) continue;
+        b->vy = minf(b->vy + 220.0f * dt, 160.0f);
+        b->x += b->vx * dt;
+        b->y += b->vy * dt;
+        if (b->x < radius || b->x > CP_BOARD_WIDTH - radius) {
+            b->x = clampf(b->x, radius, CP_BOARD_WIDTH - radius);
+            b->vx = -b->vx * 0.7f;
+        }
+        for (unsigned row = 0; row < CP_PEG_ROWS; ++row) {
+            if (fabsf(b->y - (13.0f + row * 12.0f)) > contact) continue;
+            for (unsigned col = 0; col < CP_PEG_COLS; ++col) {
+                float px, py;
+                cp_peg_position(row, col, &px, &py);
+                float dx=b->x-px, dy=b->y-py, d2=dx*dx+dy*dy;
+                if (d2 >= contact*contact) continue;
+                float d=sqrtf(maxf(d2, 0.0001f));
+                float nx=d2 > 0.0001f ? dx/d : 1.0f;
+                float ny=d2 > 0.0001f ? dy/d : 0.0f;
+                b->x=px+nx*contact; b->y=py+ny*contact;
+                float vn=b->vx*nx+b->vy*ny;
+                if (vn < 0.0f) {
+                    b->vx -= 1.65f*vn*nx; b->vy -= 1.65f*vn*ny;
+                    /* Imperfect pin surface prevents a forever-balanced ball. */
+                    b->vx += (unit(g)-0.5f)*12.0f;
+                    g->peg_hits++;
+                }
+            }
+        }
+        b->vx=clampf(b->vx, -120.0f, 120.0f);
+        if (b->y >= CP_PIN_HEIGHT) {
+            unsigned slot=(unsigned)(b->x/(CP_BOARD_WIDTH/5.0f));
+            if (slot > 4) slot=4;
+            g->slot_hits[slot]++; g->last_slot=(uint8_t)slot; g->slot_flash=0.65f;
+            b->active=false;
+            cp_coin_kind_t kind=b->kind;
+            if (slot==1 || slot==3) kind=CP_COIN_GOLD;
+            if (slot==2) kind=CP_COIN_RUBY;
+            if ((slot==0 || slot==4) && g->pulse_cooldown<=0) (void)cp_pulse(g);
+            cp_coin_t *c=spawn(g, b->x, g->pusher_y+13.0f, 8.0f, kind);
+            if (c) { c->vx=b->vx*0.25f; c->vy=18.0f; }
+            if (slot==2 && g->event_left<=0) choose_event(g);
+        }
+    }
+    /* Equal mass ball collisions; bounded 16-body pool. */
+    for (unsigned i=0; i<CP_MAX_BALLS; ++i) {
+        cp_ball_t *a=&g->balls[i];
+        if (!a->active) continue;
+        for (unsigned j=i+1; j<CP_MAX_BALLS; ++j) {
+            cp_ball_t *b=&g->balls[j];
+            if (!b->active) continue;
+            float dx=b->x-a->x, dy=b->y-a->y, d2=dx*dx+dy*dy;
+            if (d2 >= 49.0f) continue;
+            float d=sqrtf(maxf(d2,0.0001f));
+            float nx=d2>0.0001f?dx/d:1.0f, ny=d2>0.0001f?dy/d:0.0f;
+            float pen=(7.0f-d)*0.5f;
+            a->x-=nx*pen; a->y-=ny*pen; b->x+=nx*pen; b->y+=ny*pen;
+            float vn=(b->vx-a->vx)*nx+(b->vy-a->vy)*ny;
+            if (vn<0) { float imp=-0.8f*vn;
+                a->vx-=imp*nx; a->vy-=imp*ny; b->vx+=imp*nx; b->vy+=imp*ny; }
+        }
+    }
+}
+
 static void simulate(cp_game_t *g, float dt)
 {
+    step_balls(g, dt);
+    if (g->slot_flash > 0) g->slot_flash=maxf(0, g->slot_flash-dt);
+    if (g->event==CP_EVENT_RAPID_FIRE) {
+        g->rapid_clock+=dt;
+        if (g->rapid_clock>=0.16f) { g->rapid_clock=0; (void)launch(g, CP_COIN_GOLD); }
+    }
     float previous_pusher = g->pusher_y;
     g->phase += dt * (2.0f * CP_PI / 2.1f);
     if (g->phase > 2.0f * CP_PI) g->phase -= 2.0f * CP_PI;
@@ -422,6 +529,7 @@ const char *cp_event_name(cp_event_t event)
     case CP_EVENT_PORTAL: return "WORMHOLE";
     case CP_EVENT_BLACK_HOLE: return "BLACK HOLE";
     case CP_EVENT_JACKPOT: return "JACKPOT!";
+    case CP_EVENT_RAPID_FIRE: return "RAPID FIRE";
     default: return "PUSH YOUR LUCK";
     }
 }

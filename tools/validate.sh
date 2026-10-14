@@ -29,7 +29,7 @@ run_static_checks() {
         -o "${test_dir}/test_ui_pixel_math"
     "${test_dir}/test_ui_pixel_math"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
-        tests/test_pusher_physics.c main/pusher_physics.c -lm \
+        tests/test_pusher_physics.c main/pusher_physics.c main/coin_save.c -lm \
         -o "${test_dir}/test_pusher_physics"
     "${test_dir}/test_pusher_physics"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \

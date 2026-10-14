@@ -1,4 +1,5 @@
 #include "pusher_physics.h"
+#include "coin_save.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -100,6 +101,8 @@ int main(void)
     assert(g.boost_left > 0.0f && !cp_pulse(&g));
     progress(&g, 10);
     assert(isfinite(g.pusher_y));
+    progress(&g,900);
+    assert(cp_coin_count(&g)<CP_MAX_COINS && g.collected+g.lost>0);
     cp_init(&g, 500u, 100u, 0u, 0u);
     assert(cp_pulse(&g));
     assert(!cp_pulse(&g));
@@ -109,6 +112,69 @@ int main(void)
     cp_init(&g, 77u, 0u, 0u, 0u);
     assert(!cp_drop(&g));
     assert(cp_event_name(CP_EVENT_PORTAL) != NULL);
+    /* Injection is physical: charge once, collide with pins, land in a slot. */
+    cp_init(&g,1234,100,0,70);
+    assert(cp_drop(&g));
+    assert(cp_ball_count(&g)==1 && cp_coin_count(&g)==54);
+    progress(&g,900);
+    assert(cp_ball_count(&g)==0);
+    unsigned slots=0;
+    for (unsigned i=0;i<5;++i) slots+=g.slot_hits[i];
+    assert(slots>=1 && g.peg_hits>0);
+    /* Every exit band routes the intended physical reward. */
+    for (unsigned slot=0;slot<5;++slot) {
+        cp_init(&g,20,100,0,70);
+        g.balls[0]=(cp_ball_t){.x=(slot+0.5f)*(CP_BOARD_WIDTH/5),
+            .y=CP_PIN_HEIGHT-0.1f,.vy=40,.kind=CP_COIN_COPPER,.active=true};
+        cp_step(&g,1.0f/60);
+        assert(g.slot_hits[slot]==1 && !g.balls[0].active);
+        assert(cp_coin_count(&g)>=55);
+        if (slot==1 || slot==3) assert(g.coins[54].kind==CP_COIN_GOLD);
+        if (slot==2) assert(g.coins[54].kind==CP_COIN_RUBY);
+        if (slot==0 || slot==4) assert(g.boost_left>0);
+    }
+    /* Free rapid fire is bounded by the shared reserved coin capacity. */
+    cp_init(&g,55,100,0,70);
+    g.event=CP_EVENT_RAPID_FIRE; g.event_left=5.5f;
+    progress(&g,30);
+    assert(cp_ball_count(&g)>0 && g.bank==100);
+    /* Dense long sessions: no NaNs, overflow, permanent pin stalls, or charges
+       when no injection slot is available. Host speed is not device FPS. */
+    for (unsigned seed=1;seed<=12;++seed) {
+        cp_init(&g,seed,100000,0,70);
+        for (unsigned frame=0;frame<3600;++frame) {
+            if (frame%5==0) {
+                cp_aim(&g,frame%10==0?21:-17);
+                uint32_t before=g.bank;
+                if (!cp_drop(&g)) assert(g.bank==before);
+            }
+            if (frame%151==0) (void)cp_buy_chaos(&g);
+            cp_step(&g,1.0f/30);
+            assert(cp_coin_count(&g)+cp_ball_count(&g)<=CP_MAX_COINS);
+            for (unsigned i=0;i<CP_MAX_COINS;++i) {
+                const cp_coin_t *c=&g.coins[i];
+                if (c->active) assert(isfinite(c->x)&&isfinite(c->y)&&isfinite(c->z));
+            }
+            for (unsigned i=0;i<CP_MAX_BALLS;++i) {
+                const cp_ball_t *b=&g.balls[i];
+                if (b->active) assert(isfinite(b->x)&&isfinite(b->y));
+            }
+        }
+        unsigned hits=0; for(unsigned i=0;i<5;++i) hits+=g.slot_hits[i];
+        assert(hits>20 && g.peg_hits>20);
+    }
+    cp_save_t snapshot;
+    cp_save_encode(&snapshot,&g);
+    assert(sizeof(snapshot)<4000);
+    assert(cp_save_decode(&other,&snapshot));
+    assert(other.bank==g.bank && other.score==g.score);
+    assert(cp_coin_count(&other)==cp_coin_count(&g));
+    assert(cp_ball_count(&other)==cp_ball_count(&g));
+    for (unsigned i=0;i<CP_MAX_COINS;++i) {
+        if(g.coins[i].active) assert(fabsf(other.coins[i].x-g.coins[i].x)<=0.032f);
+    }
+    snapshot.coins[0].x^=1;
+    assert(!cp_save_decode(&other,&snapshot));
     puts("coin pusher physics: PASS");
     return 0;
 }
