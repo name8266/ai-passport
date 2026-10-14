@@ -58,6 +58,8 @@ static lv_obj_t *s_mission;
 static lv_obj_t *s_bonus_panel;
 static lv_obj_t *s_bonus_title;
 static lv_obj_t *s_bonus_value;
+static lv_obj_t *s_rank;
+static lv_obj_t *s_help_panel;
 static uint32_t s_seen_event_seq;
 static uint32_t s_seen_spins;
 static uint8_t s_reel_anim_ticks;
@@ -252,6 +254,10 @@ static void refresh_hud(void)
     lv_label_set_text_fmt(s_best, "%lu",
                           (unsigned long)s_game.high_score[s_game.mode]);
     label_bilingual(s_mode, MODE_CN[s_game.mode], MODE_EN[s_game.mode]);
+    uint32_t medals = s_game.awards.meta.medals;
+    unsigned rank = medals >= 100 ? 4u : medals >= 40 ? 3u :
+                    medals >= 10 ? 2u : 1u;
+    lv_label_set_text_fmt(s_rank, "R%u", rank);
     if (s_game.mode == PK_RUSH) {
         unsigned remaining = s_game.ticks >= 1500 ? 0 : (1500 - s_game.ticks) / 25;
         lv_label_set_text_fmt(s_ammo, "TIME %02us", remaining);
@@ -374,6 +380,11 @@ static void game_tick(lv_timer_t *unused)
         }
     }
     maybe_save();
+    if (s_game.shots || s_game.ticks >= 125) {
+        lv_obj_add_flag(s_help_panel, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_remove_flag(s_help_panel, LV_OBJ_FLAG_HIDDEN);
+    }
 
     /* Dim after a minute without any control input; restore on next action. */
     if (!s_dimmed && s_game.ticks - s_last_input_tick >= 1500) {
@@ -411,6 +422,8 @@ static void build_ui(void)
                      &lv_font_montserrat_14);
     s_battery = caption(s_screen, 192, 6, "--%", 0xA8C5DC,
                         &lv_font_montserrat_14);
+    s_rank = caption(s_screen, 151, 6, "R1", PK_COLOR_CYAN,
+                     &lv_font_montserrat_14);
 
     s_board = panel(s_screen, 7, 73, 226, 186, PK_COLOR_PANEL, 12);
     lv_obj_set_style_border_width(s_board, 2, 0);
@@ -488,6 +501,14 @@ static void build_ui(void)
     s_bonus_value = caption(s_bonus_panel, 12, 29, "+0", PK_COLOR_WHITE,
                             &lv_font_montserrat_20);
     lv_obj_add_flag(s_bonus_panel, LV_OBJ_FLAG_HIDDEN);
+    s_help_panel = panel(s_screen, 13, 86, 214, 50, 0x142C48, 8);
+    lv_obj_set_style_border_width(s_help_panel, 1, 0);
+    lv_obj_set_style_border_color(s_help_panel,
+                                  lv_color_hex(PK_COLOR_CYAN), 0);
+    caption(s_help_panel, 10, 5, "UP/DN AIM  OK SHOOT",
+            PK_COLOR_WHITE, &lv_font_montserrat_14);
+    caption(s_help_panel, 10, 25, "2x OK NUDGE  HOLD MODE",
+            PK_COLOR_GOLD, &lv_font_montserrat_14);
     lv_screen_load(s_screen);
     refresh_hud();
     s_timer = lv_timer_create(game_tick, PK_FRAME_MS, NULL);
