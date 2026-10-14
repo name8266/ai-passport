@@ -59,6 +59,8 @@ static lv_obj_t *s_bonus_panel;
 static lv_obj_t *s_bonus_title;
 static lv_obj_t *s_bonus_value;
 static uint32_t s_seen_event_seq;
+static uint32_t s_seen_spins;
+static uint8_t s_reel_anim_ticks;
 static lv_obj_t *s_pocket_text[5];
 static lv_timer_t *s_timer;
 static uint32_t s_last_input_tick;
@@ -218,13 +220,20 @@ static void process_key(pk_input_t input)
         if (input.button == BSP_BTN_UP) pk_aim(&s_game, -1);
         if (input.button == BSP_BTN_DOWN) pk_aim(&s_game, 1);
         if (input.button == BSP_BTN_OK) {
-            if (s_game.finished) pk_start(&s_game, s_game.mode);
-            else (void)pk_fire(&s_game);
+            if (s_game.finished) {
+                pk_start(&s_game, s_game.mode);
+                s_seen_event_seq = s_seen_spins = 0;
+                s_reel_anim_ticks = 0;
+            } else {
+                (void)pk_fire(&s_game);
+            }
         }
     } else if (input.button == BSP_BTN_OK && input.event == BSP_BTN_DOUBLE) {
         (void)pk_nudge(&s_game);
     } else if (input.button == BSP_BTN_OK && input.event == BSP_BTN_LONG) {
         pk_start(&s_game, (pk_mode_t)((s_game.mode + 1) % PK_MODE_COUNT));
+        s_seen_event_seq = s_seen_spins = 0;
+        s_reel_anim_ticks = 0;
     }
     if (input.event == BSP_BTN_CLICK || input.event == BSP_BTN_DOUBLE ||
         input.event == BSP_BTN_LONG) {
@@ -249,11 +258,7 @@ static void refresh_hud(void)
     } else {
         lv_label_set_text_fmt(s_ammo, "BALL %d", s_game.ammo);
     }
-    lv_label_set_text_fmt(s_slots, "%d %d %d",
-                          REEL_FACE[s_game.reels[0]],
-                          REEL_FACE[s_game.reels[1]],
-                          REEL_FACE[s_game.reels[2]]);
-    if (s_game.finished) {
+     if (s_game.finished) {
         label_bilingual(s_status, "本局结束", "ROUND END");
     } else if (s_game.fever_ticks) {
         lv_label_set_text_fmt(s_status, "FEVER x3 %us",
@@ -296,6 +301,26 @@ static void game_tick(lv_timer_t *unused)
         process_key(input);
     }
     pk_step(&s_game);
+
+    /* Sequential stopping reels create anticipation without blocking physics. */
+    if (s_seen_spins != s_game.awards.spins) {
+        s_seen_spins = s_game.awards.spins;
+        s_reel_anim_ticks = 18;   /* 720 ms total at 25 Hz */
+    }
+    if (s_reel_anim_ticks) --s_reel_anim_ticks;
+    int faces[3];
+    for (int i = 0; i < 3; ++i) {
+        const int stop_at = 12 - 6 * i;
+        if (s_reel_anim_ticks > stop_at) {
+            faces[i] = REEL_FACE[(s_game.ticks / 2 + i * 2) % PK_REEL_SYMBOLS];
+        } else {
+            faces[i] = REEL_FACE[s_game.reels[i]];
+        }
+    }
+    lv_label_set_text_fmt(s_slots, "%d %d %d", faces[0], faces[1], faces[2]);
+    lv_obj_set_style_text_color(s_slots, lv_color_hex(
+        s_reel_anim_ticks && ((s_game.ticks / 3) & 1) ?
+        PK_COLOR_CYAN : PK_COLOR_MAGENTA), 0);
     for (int i = 0; i < PK_MAX_BALLS; ++i) {
         pk_ball_t *ball = &s_game.balls[i];
         if (ball->active) {
@@ -320,7 +345,8 @@ static void game_tick(lv_timer_t *unused)
     }
     if (s_game.ticks % 5 == 0 || s_game.finished) refresh_hud();
     /* Celebration is a bounded, high-contrast overlay on the playfield. */
-    if (s_game.awards.event_ticks == 0) {
+    if (s_game.awards.event_ticks == 0 ||
+        (s_reel_anim_ticks && s_game.awards.event != PK_PRIZE_MISSION)) {
         lv_obj_add_flag(s_bonus_panel, LV_OBJ_FLAG_HIDDEN);
     } else {
         const pk_rewards_t *a = &s_game.awards;
@@ -436,7 +462,8 @@ static void build_ui(void)
     panel(s_screen, 7, 264, 226, 52, 0x10253F, 9);
     s_status = caption(s_screen, 13, 266, "COMBO x1", PK_COLOR_GOLD,
                        &lv_font_montserrat_14);
-    s_slots = caption(s_screen, 162, 266, "1 1 1", PK_COLOR_MAGENTA,
+    panel(s_screen, 155, 265, 72, 18, 0x30194B, 4);
+    s_slots = caption(s_screen, 161, 266, "1 1 1", PK_COLOR_MAGENTA,
                       &lv_font_montserrat_14);
     s_pool = caption(s_screen, 13, 283, "JP 500", PK_COLOR_GOLD,
                      &lv_font_montserrat_14);
