@@ -202,6 +202,24 @@ static void settle_ball(pk_state_t *s, pk_ball_t *b)
     }
     award(s, points);
     b->active = false;
+
+    /* Jackpot grants two automatic extra balls; they consume no ammunition.
+     * Reusing inactive fixed slots avoids allocating sprites at runtime. */
+    if (s->last_jackpot) {
+        int spawned = 0;
+        for (int i = 0; i < PK_MAX_BALLS && spawned < 2; ++i) {
+            if (s->balls[i].active) continue;
+            uint32_t r = random32(s);
+            s->balls[i] = (pk_ball_t) {
+                .x = 115.0f + 10.0f * spawned,
+                .y = 88.0f,
+                .vx = ((int)(r % 91) - 45) * 0.8f,
+                .vy = 28.0f,
+                .active = true
+            };
+            ++spawned;
+        }
+    }
     /* New launch begins a fresh combo chain, but not a timed fever window. */
     if (!pk_active_balls(s)) s->combo = 1;
 }
