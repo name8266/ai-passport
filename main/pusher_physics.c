@@ -230,7 +230,7 @@ static void simulate(cp_game_t *g, float dt)
     float previous_pusher = g->pusher_y;
     g->phase += dt * (2.0f * CP_PI / 2.1f);
     if (g->phase > 2.0f * CP_PI) g->phase -= 2.0f * CP_PI;
-    g->pusher_y = 24.0f + 17.0f * (1.0f - cosf(g->phase)) * 0.5f;
+    g->pusher_y = 28.0f + 27.0f * (1.0f - cosf(g->phase)) * 0.5f;
     float pusher_speed = maxf(0.0f, (g->pusher_y - previous_pusher) / dt);
 
     if (g->event == CP_EVENT_EARTHQUAKE) {
