@@ -14,8 +14,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  host:
-    name: Game physics and repository checks
+  game-tests:
+    name: Dedicated Pachinko physics tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Compile and run pure C game engine tests
+        run: |
+          cc -std=c11 -Wall -Wextra -Werror -Imain \
+            tests/test_pachinko_engine.c main/pachinko_engine.c \
+            -lm -o /tmp/pachinko_engine_tests
+          /tmp/pachinko_engine_tests
+
+  repository-checks:
+    name: Full repository checks (may report preexisting issues)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
