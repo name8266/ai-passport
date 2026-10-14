@@ -1,16 +1,6 @@
+# Standalone game app: keep original demo sources in the repository for BSP reference.
 idf_component_register(
-    SRCS "main.c"
-         "demo_navigation.c"
-         "ui_pixel.c"
-         "ui_pixel_math.c"
-         "demo_display.c"
-         "demo_button.c"
-         "demo_audio.c"
-         "demo_battery.c"
-         "demo_radio.c"
-         "demo_wifi.c"
-         "demo_ble.c"
-         "demo_low_power.c"
+    SRCS "pachinko_app.c" "pachinko_engine.c"
     INCLUDE_DIRS "."
-    REQUIRES bsp bt esp_event esp_hw_support esp_netif esp_timer esp_wifi nvs_flash
+    REQUIRES bsp esp_hw_support esp_timer nvs_flash lvgl
 )
