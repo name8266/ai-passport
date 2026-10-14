@@ -50,10 +50,18 @@ static lv_obj_t *s_status;
 static lv_obj_t *s_slots;
 static lv_obj_t *s_battery;
 static lv_obj_t *s_charge;
+static lv_obj_t *s_pool;
+static lv_obj_t *s_luck;
+static lv_obj_t *s_mission;
+static lv_obj_t *s_bonus_panel;
+static lv_obj_t *s_bonus_title;
+static lv_obj_t *s_bonus_value;
+static uint32_t s_seen_event_seq;
 static lv_obj_t *s_pocket_text[5];
 static lv_timer_t *s_timer;
 static uint32_t s_last_input_tick;
 static uint32_t s_last_saved[PK_MODE_COUNT];
+static pk_reward_meta_t s_last_saved_meta;
 static bool s_dimmed;
 
 typedef struct {
@@ -63,6 +71,7 @@ typedef struct {
 
 typedef struct {
     uint32_t best[PK_MODE_COUNT];
+    pk_reward_meta_t meta;
 } pk_save_t;
 
 /* Create a rectangle in absolute 240x320 coordinates with no default padding. */
@@ -146,7 +155,14 @@ static void load_best(void)
             s_game.high_score[i] = score;
         }
     }
+    pk_reward_meta_t meta = { .pool = PK_POOL_SEED };
+    (void)nvs_get_u32(handle, "pool", &meta.pool);
+    (void)nvs_get_u32(handle, "total", &meta.lifetime_score);
+    (void)nvs_get_u32(handle, "jackpots", &meta.total_jackpots);
+    (void)nvs_get_u32(handle, "medals", &meta.medals);
+    pk_rewards_import(&s_game.awards, &meta);
     memcpy(s_last_saved, s_game.high_score, sizeof(s_last_saved));
+    s_last_saved_meta = s_game.awards.meta;
     nvs_close(handle);
 }
 
@@ -164,6 +180,10 @@ static void storage_task(void *unused)
             snprintf(key, sizeof(key), "best%d", i);
             if (nvs_set_u32(handle, key, job.best[i]) != ESP_OK) result = ESP_FAIL;
         }
+        if (result == ESP_OK) result = nvs_set_u32(handle, "pool", job.meta.pool);
+        if (result == ESP_OK) result = nvs_set_u32(handle, "total", job.meta.lifetime_score);
+        if (result == ESP_OK) result = nvs_set_u32(handle, "jackpots", job.meta.total_jackpots);
+        if (result == ESP_OK) result = nvs_set_u32(handle, "medals", job.meta.medals);
         if (result == ESP_OK) result = nvs_commit(handle);
         if (result != ESP_OK) ESP_LOGW(TAG, "best score commit failed");
         nvs_close(handle);
@@ -176,11 +196,16 @@ static void maybe_save(void)
 {
     if (!s_storage_queue) return;
     if (s_game.ticks % 25 != 0 && !s_game.finished) return;
-    if (memcmp(s_game.high_score, s_last_saved, sizeof(s_last_saved)) == 0) return;
+    if (memcmp(s_game.high_score, s_last_saved, sizeof(s_last_saved)) == 0 &&
+        memcmp(&s_game.awards.meta, &s_last_saved_meta, sizeof(s_last_saved_meta)) == 0) {
+        return;
+    }
     pk_save_t job = {0};
     memcpy(job.best, s_game.high_score, sizeof(job.best));
+    job.meta = s_game.awards.meta;
     if (xQueueOverwrite(s_storage_queue, &job) == pdTRUE) {
         memcpy(s_last_saved, job.best, sizeof(s_last_saved));
+        s_last_saved_meta = job.meta;
     }
 }
 
