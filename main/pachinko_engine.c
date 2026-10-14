@@ -1,6 +1,7 @@
 #include "pachinko_engine.h"
 
 #include <math.h>
+#include <limits.h>
 #include <string.h>
 
 #define PK_DT (0.020f)         /* two physics substeps per 40 ms UI frame */
@@ -26,10 +27,23 @@ static uint32_t clamp_score_add(uint32_t score, uint32_t add)
 
 static void award(pk_state_t *s, uint32_t value)
 {
+    uint32_t before = s->score;
     s->score = clamp_score_add(s->score, value);
+    pk_rewards_add_lifetime(&s->awards, s->score - before);
     s->last_award = value > INT16_MAX ? INT16_MAX : (int16_t)value;
     if (s->score > s->high_score[s->mode]) {
         s->high_score[s->mode] = s->score;
+    }
+}
+
+/* Mission milestones award deterministic bonus points and limited free shots. */
+static void mission_note(pk_state_t *s, pk_goal_t goal)
+{
+    pk_reward_result_t reward = pk_rewards_record(&s->awards, goal);
+    if (reward.prize != PK_PRIZE_MISSION) return;
+    award(s, reward.points);
+    if (s->ammo > 0 && s->ammo <= INT16_MAX - (int)reward.extra_balls) {
+        s->ammo += reward.extra_balls;
     }
 }
 
@@ -63,9 +77,12 @@ void pk_start(pk_state_t *s, pk_mode_t mode)
 {
     uint32_t best[PK_MODE_COUNT];
     memcpy(best, s->high_score, sizeof(best));
+    pk_rewards_t rewards = s->awards;
+    pk_rewards_new_round(&rewards);
     uint32_t seed = s->rng ? s->rng : 0xB5297A4Du;
     memset(s, 0, sizeof(*s));
     memcpy(s->high_score, best, sizeof(best));
+    s->awards = rewards;
     s->rng = seed;
     s->mode = mode < PK_MODE_COUNT ? mode : PK_CLASSIC;
     s->ammo = s->mode == PK_CLASSIC ? 30 : (s->mode == PK_SURVIVAL ? 12 : -1);
@@ -78,6 +95,7 @@ void pk_init(pk_state_t *s, uint32_t seed)
 {
     memset(s, 0, sizeof(*s));
     s->rng = seed ? seed : 0x9E3779B9u;
+    pk_rewards_init(&s->awards);
     pk_start(s, PK_CLASSIC);
 }
 
@@ -105,6 +123,7 @@ bool pk_fire(pk_state_t *s)
         };
         if (s->ammo > 0) --s->ammo;
         ++s->shots;
+        pk_rewards_on_shot(&s->awards);
         s->last_shot_tick = s->ticks;
         s->last_award = 0;
         s->last_jackpot = false;
@@ -149,6 +168,7 @@ static void hit_peg(pk_state_t *s, pk_ball_t *b, float cx, float cy)
     b->vy -= 1.80f * vn * ny;
     b->vx += ((int)(random32(s) % 9) - 4) * 0.7f;
     if (b->hits < UINT8_MAX) ++b->hits;
+    mission_note(s, PK_GOAL_PEG);
     if ((b->hits % 4) == 0 && s->energy <= 97) s->energy += 3;
     if ((b->hits % 7) == 0 && s->combo < 8) ++s->combo;
 }
@@ -171,6 +191,7 @@ static void hit_bumper(pk_state_t *s, pk_ball_t *b)
     }
     if (b->bumper_hit) return;
     b->bumper_hit = true;
+    mission_note(s, PK_GOAL_BUMPER);
     s->energy = (uint8_t)(s->energy > 80 ? 100 : s->energy + 20);
     award(s, 25u * s->combo);
     if (s->energy == 100) {
@@ -189,27 +210,34 @@ static void settle_ball(pk_state_t *s, pk_ball_t *b)
     uint32_t points = payouts[slot] * s->combo;
     if (s->mode == PK_SURVIVAL && (slot == 0 || slot == 4)) points = 0;
     if (s->fever_ticks) points *= 3;
+    pk_reward_result_t bonus = {0};
     if (slot == 2) {
-        bool same = true;
-        for (int i = 0; i < 3; ++i) s->reels[i] = random32(s) % 3;
-        for (int i = 1; i < 3; ++i) same &= s->reels[i] == s->reels[0];
-        s->last_jackpot = same;
-        if (same) {
-            points += 1000;
-            s->fever_ticks = 250;
-            s->energy = 0;
+        mission_note(s, PK_GOAL_CENTER);
+        for (int i = 0; i < 3; ++i) {
+            /* Five printed symbols; progressive awards are explicitly visible. */
+            s->reels[i] = (uint8_t)(random32(s) % PK_REEL_SYMBOLS);
         }
-    } else {
-        s->last_jackpot = false;
+        bonus = pk_rewards_spin(&s->awards, s->reels);
+    }
+    s->last_jackpot = bonus.prize == PK_PRIZE_JACKPOT;
+    points = clamp_score_add(points, bonus.points);
+    if (bonus.fever_ticks) {
+        s->fever_ticks = bonus.fever_ticks;
+        s->energy = 0;
     }
     award(s, points);
     b->active = false;
 
-    /* Jackpot grants two automatic extra balls; they consume no ammunition.
-     * Reusing inactive fixed slots avoids allocating sprites at runtime. */
+    /* BIG/SUPER give a free future shot; MEGA launches two instant multiballs.
+     * In RUSH, unlimited manual ammunition makes an extra shot redundant. */
+    if (bonus.prize != PK_PRIZE_JACKPOT &&
+        bonus.extra_balls && s->ammo >= 0 &&
+        s->ammo <= INT16_MAX - (int)bonus.extra_balls) {
+        s->ammo += bonus.extra_balls;
+    }
     if (s->last_jackpot) {
         int spawned = 0;
-        for (int i = 0; i < PK_MAX_BALLS && spawned < 2; ++i) {
+        for (int i = 0; i < PK_MAX_BALLS && spawned < bonus.extra_balls; ++i) {
             if (s->balls[i].active) continue;
             uint32_t r = random32(s);
             s->balls[i] = (pk_ball_t) {
@@ -230,6 +258,7 @@ void pk_step(pk_state_t *s)
 {
     if (s->finished) return;
     ++s->ticks;
+    pk_rewards_tick(&s->awards);
     if (s->fever_ticks) --s->fever_ticks;
     for (int i = 0; i < PK_MAX_BALLS; ++i) {
         pk_ball_t *b = &s->balls[i];
