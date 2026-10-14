@@ -42,7 +42,7 @@ static void mission_note(pk_state_t *s, pk_goal_t goal)
     pk_reward_result_t reward = pk_rewards_record(&s->awards, goal);
     if (reward.prize != PK_PRIZE_MISSION) return;
     award(s, reward.points);
-    if (s->ammo > 0 && s->ammo <= INT16_MAX - (int)reward.extra_balls) {
+    if (s->ammo >= 0 && s->ammo <= INT16_MAX - (int)reward.extra_balls) {
         s->ammo += reward.extra_balls;
     }
 }
