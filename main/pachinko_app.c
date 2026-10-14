@@ -32,6 +32,8 @@
 static const char *TAG = "pachinko";
 static const char *const MODE_CN[] = {"经典", "限时", "生存"};
 static const char *const MODE_EN[] = {"CLASSIC", "RUSH", "SURVIVAL"};
+static const int REEL_FACE[PK_REEL_SYMBOLS] = {1, 2, 3, 5, 7};
+static const char *const GOAL_NAME[] = {"PEG", "CENTER", "BUMPER"};
 
 /* s_game is owned exclusively by LVGL task after boot-time initialization. */
 static pk_state_t s_game;
@@ -247,20 +249,29 @@ static void refresh_hud(void)
     } else {
         lv_label_set_text_fmt(s_ammo, "BALL %d", s_game.ammo);
     }
-    lv_label_set_text_fmt(s_slots, "%d - %d - %d",
-                          s_game.reels[0] + 1, s_game.reels[1] + 1,
-                          s_game.reels[2] + 1);
+    lv_label_set_text_fmt(s_slots, "%d %d %d",
+                          REEL_FACE[s_game.reels[0]],
+                          REEL_FACE[s_game.reels[1]],
+                          REEL_FACE[s_game.reels[2]]);
     if (s_game.finished) {
-        label_bilingual(s_status, "本局结束", "FINISHED");
-    } else if (s_game.last_jackpot) {
-        lv_label_set_text(s_status, "JACKPOT +1000");
+        label_bilingual(s_status, "本局结束", "ROUND END");
     } else if (s_game.fever_ticks) {
-        lv_label_set_text_fmt(s_status, "FEVER x3  %us",
+        lv_label_set_text_fmt(s_status, "FEVER x3 %us",
                               (unsigned)(s_game.fever_ticks / 25));
     } else {
-        lv_label_set_text_fmt(s_status, "COMBO x%d  +%d",
-                              s_game.combo, s_game.last_award);
+        lv_label_set_text_fmt(s_status, "COMBO x%d",
+                              s_game.combo);
     }
+    lv_label_set_text_fmt(s_pool, "JP %lu",
+                          (unsigned long)s_game.awards.meta.pool);
+    lv_label_set_text_fmt(s_luck, "LUCK %u/%u",
+                          (unsigned)s_game.awards.no_big_streak,
+                          (unsigned)PK_PITY_SPINS);
+    lv_label_set_text_fmt(s_mission, "ST%u %s %u/%u",
+                          (unsigned)s_game.awards.mission_stage,
+                          GOAL_NAME[s_game.awards.mission_goal],
+                          (unsigned)s_game.awards.mission_progress,
+                          (unsigned)s_game.awards.mission_target);
     for (int i = 0; i < 5; ++i) {
         const char *value = s_game.mode == PK_SURVIVAL && (i == 0 || i == 4)
                           ? "0" : (i == 2 ? "160" : (i == 1 || i == 3 ? "40" : "10"));
@@ -308,6 +319,34 @@ static void game_tick(lv_timer_t *unused)
             lv_color_hex(s_game.fever_ticks ? PK_COLOR_MAGENTA : 0x2F648B), 0);
     }
     if (s_game.ticks % 5 == 0 || s_game.finished) refresh_hud();
+    /* Celebration is a bounded, high-contrast overlay on the playfield. */
+    if (s_game.awards.event_ticks == 0) {
+        lv_obj_add_flag(s_bonus_panel, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        const pk_rewards_t *a = &s_game.awards;
+        lv_obj_remove_flag(s_bonus_panel, LV_OBJ_FLAG_HIDDEN);
+        if (a->event_seq != s_seen_event_seq) {
+            s_seen_event_seq = a->event_seq;
+            const char *name = "WIN";
+            switch (a->event) {
+            case PK_PRIZE_PAIR: name = "PAIR WIN"; break;
+            case PK_PRIZE_MINI: name = "MINI WIN"; break;
+            case PK_PRIZE_BIG: name = "BIG BONUS"; break;
+            case PK_PRIZE_SUPER: name = "SUPER BONUS"; break;
+            case PK_PRIZE_JACKPOT: name = "777 MEGA JACKPOT"; break;
+            case PK_PRIZE_MISSION: name = "MISSION CLEAR"; break;
+            default: break;
+            }
+            lv_label_set_text(s_bonus_title, name);
+            lv_label_set_text_fmt(s_bonus_value, "+%lu",
+                                  (unsigned long)a->event_points);
+        }
+        if (s_game.ticks % 5 == 0) {
+            lv_obj_set_style_border_color(s_bonus_panel,
+                lv_color_hex((s_game.ticks / 5) % 2 ? PK_COLOR_GOLD :
+                             PK_COLOR_MAGENTA), 0);
+        }
+    }
     maybe_save();
 
     /* Dim after a minute without any control input; restore on next action. */
@@ -393,22 +432,35 @@ static void build_ui(void)
         lv_obj_add_flag(s_balls[i], LV_OBJ_FLAG_HIDDEN);
     }
 
-    panel(s_screen, 7, 264, 226, 49, 0x10253F, 9);
-    s_status = caption(s_screen, 13, 268, "COMBO x1", PK_COLOR_GOLD,
+    /* Console HUD: reel, progressive pool, guarantee and level mission. */
+    panel(s_screen, 7, 264, 226, 52, 0x10253F, 9);
+    s_status = caption(s_screen, 13, 266, "COMBO x1", PK_COLOR_GOLD,
                        &lv_font_montserrat_14);
-    s_slots = caption(s_screen, 149, 268, "1 - 1 - 1", PK_COLOR_MAGENTA,
+    s_slots = caption(s_screen, 162, 266, "1 1 1", PK_COLOR_MAGENTA,
                       &lv_font_montserrat_14);
+    s_pool = caption(s_screen, 13, 283, "JP 500", PK_COLOR_GOLD,
+                     &lv_font_montserrat_14);
+    s_luck = caption(s_screen, 132, 283, "LUCK 0/12", PK_COLOR_CYAN,
+                     &lv_font_montserrat_14);
+    s_mission = caption(s_screen, 13, 299, "ST1 PEG 0/12", PK_COLOR_WHITE,
+                        &lv_font_montserrat_14);
     s_charge = lv_bar_create(s_screen);
-    lv_obj_set_pos(s_charge, 13, 290);
-    lv_obj_set_size(s_charge, 142, 8);
+    lv_obj_set_pos(s_charge, 180, 303);
+    lv_obj_set_size(s_charge, 43, 7);
     lv_bar_set_range(s_charge, 0, 100);
     lv_obj_set_style_radius(s_charge, 4, 0);
     lv_obj_set_style_bg_color(s_charge, lv_color_hex(0x30475F), 0);
     lv_obj_set_style_bg_color(s_charge, lv_color_hex(PK_COLOR_CYAN),
                               LV_PART_INDICATOR);
-    caption(s_screen, 163, 285, "NUDGE", 0xB2C8DF, &lv_font_montserrat_14);
-    caption(s_screen, 14, 302, "UP/DN AIM  OK FIRE  HOLD MODE",
-            0x9AB8D3, &lv_font_montserrat_14);
+    /* Overlay is allocated once: no sprites or fonts created at 25 Hz. */
+    s_bonus_panel = panel(s_screen, 22, 127, 196, 60, 0x310E40, 11);
+    lv_obj_set_style_border_width(s_bonus_panel, 3, 0);
+    lv_obj_set_style_border_color(s_bonus_panel, lv_color_hex(PK_COLOR_GOLD), 0);
+    s_bonus_title = caption(s_bonus_panel, 12, 8, "BONUS", PK_COLOR_GOLD,
+                            &lv_font_montserrat_14);
+    s_bonus_value = caption(s_bonus_panel, 12, 29, "+0", PK_COLOR_WHITE,
+                            &lv_font_montserrat_20);
+    lv_obj_add_flag(s_bonus_panel, LV_OBJ_FLAG_HIDDEN);
     lv_screen_load(s_screen);
     refresh_hud();
     s_timer = lv_timer_create(game_tick, PK_FRAME_MS, NULL);
