@@ -21,8 +21,12 @@ jobs:
         run: |
           cc -std=c11 -Wall -Wextra -Werror -Imain \
             tests/test_pachinko_engine.c main/pachinko_engine.c \
-            -lm -o /tmp/pachinko_engine_tests
+            main/pachinko_rewards.c -lm -o /tmp/pachinko_engine_tests
           /tmp/pachinko_engine_tests
+          cc -std=c11 -Wall -Wextra -Werror -Imain \
+            tests/test_pachinko_rewards.c main/pachinko_rewards.c \
+            -o /tmp/pachinko_reward_tests
+          /tmp/pachinko_reward_tests
 
   repository-checks:
     name: Full repository checks (may report preexisting issues)
