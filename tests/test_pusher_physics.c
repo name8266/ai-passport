@@ -85,6 +85,13 @@ int main(void)
         g.coins[i].active = true;
         g.coins[i].x = 20.0f + (float)(i % 9u) * 21.0f;
         g.coins[i].y = 28.0f + (float)(i / 9u) * 6.0f;
+        g.coins[i].z = 0.0f;
+        g.coins[i].radius = 8.2f;
+        g.coins[i].height = 2.9f;
+        g.coins[i].mass = 1.0f;
+        g.coins[i].vx = g.coins[i].vy = g.coins[i].vz = 0.0f;
+        g.coins[i].kind = CP_COIN_COPPER;
+        g.coins[i].falling = false;
     }
     uint32_t full_bank = g.bank;
     assert(!cp_drop(&g));

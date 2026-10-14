@@ -1,6 +1,7 @@
 #include "pusher_physics.h"
 
 #include <math.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
@@ -19,7 +20,8 @@
 #include "nvs_flash.h"
 
 #define APP_FPS_MS 33
-#define APP_SAVE_FORMAT 1u
+#define APP_SAVE_FORMAT 2u
+#define APP_V1_MAX_COINS 72u
 #define APP_SAVE_SECONDS 5
 #define COLOR_BG 0x080D19
 #define COLOR_PAPER 0xF8E7BC
@@ -32,8 +34,8 @@ static cp_game_t s_game;
 static cp_game_t s_save_snapshot;
 static lv_obj_t *s_screen, *s_stage, *s_bar, *s_cursor;
 static lv_obj_t *s_bank, *s_pool, *s_status, *s_battery, *s_pause;
-static lv_obj_t *s_coin_view[CP_MAX_COINS];
-static uint8_t s_prev_kind[CP_MAX_COINS];
+/* Rendering uses one custom LVGL draw callback, not 192 child widgets.
+ * This keeps object memory bounded on the ESP32-C3 without PSRAM. */
 static lv_timer_t *s_timer;
 static lv_font_t s_zh_font;
 static bool s_zh_ok, s_nvs_ready, s_dirty;
@@ -42,6 +44,22 @@ static QueueHandle_t s_keys;
 static TaskHandle_t s_input_task, s_save_task;
 static uint32_t s_render_count;
 static uint32_t s_last_collected, s_last_lost, s_last_hits;
+static uint32_t s_stage_color = 0x122B38;
+
+/* NVS format 1 used the original 72-coin struct. Keep old saves loadable. */
+typedef struct {
+    cp_coin_t coins[APP_V1_MAX_COINS];
+    uint32_t rng;
+    uint32_t bank, score, best, jackpot_pool;
+    uint32_t drops, collected, lost, jackpot_hits;
+    uint8_t combo;
+    float drop_x, pusher_y, phase, event_left, combo_left;
+    float game_time, event_clock;
+    cp_event_t event;
+    bool paused;
+} cp_legacy_save_v1_t;
+
+static cp_legacy_save_v1_t s_legacy;
 
 typedef struct {
     bsp_btn_t key;
@@ -117,6 +135,41 @@ static const char *event_text(cp_event_t event)
     return s_zh_ok && glyphs(&s_zh_font, zh) ? zh : cp_event_name(event);
 }
 
+/* Draw all coins directly into LVGL's existing tile/draw layer.
+ * No 240x320 framebuffer and no per-coin lv_obj allocation. */
+static void draw_coins(lv_event_t *event)
+{
+    lv_layer_t *layer = lv_event_get_layer(event);
+    lv_area_t box;
+    lv_obj_get_coords(s_stage, &box);
+    static const uint32_t fills[] = {0xBA8145, 0xF6C953, 0xD74F88, 0xE8EEF0};
+    static const uint32_t rims[]  = {0xE4B77C, 0xFFF7BD, 0xFFB7DE, 0xFFFFFF};
+    /* Near-ground coins first, raised coins over them. */
+    for (unsigned elevation = 0; elevation < 2; ++elevation) {
+        for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
+            const cp_coin_t *coin = &s_game.coins[i];
+            if (!coin->active || ((coin->z >= 4.0f) != (elevation == 1u))) continue;
+            int diameter = (int)(coin->radius * 2.0f + 0.5f);
+            lv_area_t area = {
+                .x1 = box.x1 + 4 + (int)(coin->x - coin->radius),
+                .y1 = box.y1 + (int)(coin->y - coin->radius - coin->z * 0.60f),
+            };
+            area.x2 = area.x1 + diameter - 1;
+            area.y2 = area.y1 + diameter - 1;
+            if (area.x2 < box.x1 || area.x1 > box.x2 ||
+                area.y2 < box.y1 || area.y1 > box.y2) continue;
+            lv_draw_rect_dsc_t dsc;
+            lv_draw_rect_dsc_init(&dsc);
+            dsc.bg_color = lv_color_hex(fills[coin->kind]);
+            dsc.bg_opa = LV_OPA_COVER;
+            dsc.border_color = lv_color_hex(rims[coin->kind]);
+            dsc.border_width = 2;
+            dsc.radius = LV_RADIUS_CIRCLE;
+            lv_draw_rect(layer, &dsc, &area);
+        }
+    }
+}
+
 static void make_scene(void)
 {
     s_zh_font = lv_font_source_han_sans_sc_16_cjk;
@@ -135,6 +188,7 @@ static void make_scene(void)
 
     solid(s_screen, 8, 54, 224, 220, 0xB68A45, 9);
     s_stage = solid(s_screen, 12, 58, 216, 212, 0x122B38, 5);
+    lv_obj_add_event_cb(s_stage, draw_coins, LV_EVENT_DRAW_MAIN_END, NULL);
     lv_obj_set_style_bg_grad_color(s_stage, lv_color_hex(0x214854), 0);
     lv_obj_set_style_bg_grad_dir(s_stage, LV_GRAD_DIR_VER, 0);
     /* Dramatic slot and gutter: the geometry, not the UI, awards coins. */
@@ -147,15 +201,6 @@ static void make_scene(void)
     lv_obj_set_style_bg_grad_dir(s_bar, LV_GRAD_DIR_VER, 0);
     s_cursor = solid(s_stage, 105, 3, 10, 7, 0xFBE784, 3);
 
-    for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
-        s_coin_view[i] = solid(s_stage, -30, -30, 17, 17, 0xD89C4A, LV_RADIUS_CIRCLE);
-        lv_obj_set_style_border_width(s_coin_view[i], 2, 0);
-        lv_obj_set_style_border_color(s_coin_view[i], lv_color_hex(0xFFF0B3), 0);
-        lv_obj_set_style_shadow_width(s_coin_view[i], 1, 0);
-        lv_obj_set_style_shadow_color(s_coin_view[i], lv_color_hex(0x050A16), 0);
-        lv_obj_add_flag(s_coin_view[i], LV_OBJ_FLAG_HIDDEN);
-        s_prev_kind[i] = 0xffu;
-    }
     s_pause = label(s_stage, "PAUSED", 68, 99,
                     &lv_font_montserrat_20, 0xFFFFFF);
     lv_obj_add_flag(s_pause, LV_OBJ_FLAG_HIDDEN);
@@ -171,33 +216,14 @@ static void render(void)
 {
     lv_obj_set_y(s_bar, (int)s_game.pusher_y - 7);
     lv_obj_set_x(s_cursor, 4 + (int)s_game.drop_x - 5);
-    for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
-        const cp_coin_t *c = &s_game.coins[i];
-        lv_obj_t *view = s_coin_view[i];
-        if (!c->active) {
-            if (!lv_obj_has_flag(view, LV_OBJ_FLAG_HIDDEN))
-                lv_obj_add_flag(view, LV_OBJ_FLAG_HIDDEN);
-            continue;
-        }
-        if (s_prev_kind[i] != (uint8_t)c->kind) {
-            static const uint32_t fills[] = {0xBA8145, 0xF6C953, 0xD74F88, 0xE8EEF0};
-            static const uint32_t rims[] = {0xE4B77C, 0xFFF7BD, 0xFFB7DE, 0xFFFFFF};
-            lv_obj_set_style_bg_color(view, lv_color_hex(fills[c->kind]), 0);
-            lv_obj_set_style_border_color(view, lv_color_hex(rims[c->kind]), 0);
-            s_prev_kind[i] = (uint8_t)c->kind;
-        }
-        int d = (int)(c->radius * 2.0f + 0.5f);
-        if (lv_obj_get_width(view) != d) lv_obj_set_size(view, d, d);
-        int x = 4 + (int)(c->x - c->radius);
-        int y = (int)(c->y - c->radius - c->z * 0.60f);
-        if (lv_obj_get_x(view) != x || lv_obj_get_y(view) != y)
-            lv_obj_set_pos(view, x, y);
-        if (lv_obj_has_flag(view, LV_OBJ_FLAG_HIDDEN))
-            lv_obj_remove_flag(view, LV_OBJ_FLAG_HIDDEN);
+    /* One dirty rectangle for the stage; drawing handled by draw_coins(). */
+    uint32_t color = s_game.event == CP_EVENT_BLACK_HOLE ? 0x20112F :
+                     s_game.event == CP_EVENT_GOLD_RUSH ? 0x4A3A16 : 0x122B38;
+    if (color != s_stage_color) {
+        s_stage_color = color;
+        lv_obj_set_style_bg_color(s_stage, lv_color_hex(color), 0);
     }
-    lv_obj_set_style_bg_color(s_stage,
-        lv_color_hex(s_game.event == CP_EVENT_BLACK_HOLE ? 0x20112F :
-                     s_game.event == CP_EVENT_GOLD_RUSH ? 0x4A3A16 : 0x122B38), 0);
+    lv_obj_invalidate(s_stage);
     if (s_game.paused) lv_obj_remove_flag(s_pause, LV_OBJ_FLAG_HIDDEN);
     else lv_obj_add_flag(s_pause, LV_OBJ_FLAG_HIDDEN);
 
@@ -205,9 +231,15 @@ static void render(void)
         lv_label_set_text_fmt(s_bank, "BANK %lu  x%d", (unsigned long)s_game.bank,
                               s_game.combo ? (int)s_game.combo : 1);
         lv_label_set_text_fmt(s_pool, "POOL %lu", (unsigned long)s_game.jackpot_pool);
-        lv_label_set_text(s_status, s_game.paused ? "PAUSE / HOLD OK" :
-                          s_game.bank == 0 ? "OUT OF COINS: DOUBLE OK" :
-                          event_text(s_game.event));
+        const char *message = s_game.paused ? "PAUSED" :
+                              s_game.boost_left > 0.0f ? "HYDRAULIC BOOST" :
+                              cp_coin_count(&s_game) >= CP_MAX_COINS ? "TRAY FULL" :
+                              s_game.bank == 0 ? "DOUBLE OK = +30" :
+                              event_text(s_game.event);
+        char status[68];
+        snprintf(status, sizeof(status), "%s %u/%u", message,
+                 cp_coin_count(&s_game), (unsigned)CP_MAX_COINS);
+        lv_label_set_text(s_status, status);
     }
     if ((s_render_count % 30) == 0) {
         if (s_battery_level >= 0) lv_label_set_text_fmt(s_battery, "%d%%", s_battery_level);
@@ -250,7 +282,15 @@ static void input_loop(void *ctx)
         } else if (!s_game.paused && msg.ev == BSP_BTN_CLICK) {
             if (msg.key == BSP_BTN_UP) cp_aim(&s_game, -10.0f);
             if (msg.key == BSP_BTN_DOWN) cp_aim(&s_game, 10.0f);
-            if (msg.key == BSP_BTN_OK && cp_drop(&s_game)) s_dirty = true;
+            if (msg.key == BSP_BTN_OK) {
+                if (cp_drop(&s_game)) s_dirty = true;
+                else if (s_game.bank > 0 &&
+                         cp_coin_count(&s_game) >= CP_MAX_COINS &&
+                         cp_pulse(&s_game)) s_dirty = true;
+            }
+        } else if (!s_game.paused && msg.ev == BSP_BTN_DOUBLE &&
+                   (msg.key == BSP_BTN_UP || msg.key == BSP_BTN_DOWN)) {
+            if (cp_pulse(&s_game)) s_dirty = true;
         } else if (!s_game.paused && msg.ev == BSP_BTN_DOUBLE && msg.key == BSP_BTN_OK) {
             if (s_game.bank == 0) {
                 s_game.bank = 30;  /* Offline free-play recovery, not a monetary prize. */
@@ -284,13 +324,44 @@ static void read_save(void)
     nvs_handle_t h;
     if (!s_nvs_ready || nvs_open("coin_pusher", NVS_READONLY, &h) != ESP_OK) return;
     size_t bytes = sizeof(s_save_snapshot);
-    if (nvs_get_u32(h, "format", &format) == ESP_OK &&
-        format == APP_SAVE_FORMAT &&
+    if (nvs_get_u32(h, "format", &format) != ESP_OK) {
+        nvs_close(h);
+        return;
+    }
+    if (format == APP_SAVE_FORMAT &&
         nvs_get_blob(h, "game", &s_save_snapshot, &bytes) == ESP_OK &&
         bytes == sizeof(s_save_snapshot) && saved_game_valid(&s_save_snapshot)) {
         memcpy(&s_game, &s_save_snapshot, sizeof(s_game));
         s_game.paused = false;
         ESP_LOGI(TAG, "Saved tray and virtual credits restored");
+    } else if (format == 1u) {
+        bytes = sizeof(s_legacy);
+        if (nvs_get_blob(h, "game", &s_legacy, &bytes) == ESP_OK &&
+            bytes == sizeof(s_legacy) && s_legacy.rng != 0u &&
+            s_legacy.bank <= 10000000u) {
+            cp_init(&s_game, s_legacy.rng, s_legacy.bank,
+                    s_legacy.best, s_legacy.jackpot_pool);
+            memcpy(s_game.coins, s_legacy.coins, sizeof(s_legacy.coins));
+            s_game.rng = s_legacy.rng;
+            s_game.score = s_legacy.score;
+            s_game.drops = s_legacy.drops;
+            s_game.collected = s_legacy.collected;
+            s_game.lost = s_legacy.lost;
+            s_game.jackpot_hits = s_legacy.jackpot_hits;
+            s_game.combo = s_legacy.combo;
+            s_game.drop_x = s_legacy.drop_x;
+            s_game.pusher_y = s_legacy.pusher_y;
+            s_game.phase = s_legacy.phase;
+            s_game.event_left = s_legacy.event_left;
+            s_game.combo_left = s_legacy.combo_left;
+            s_game.game_time = s_legacy.game_time;
+            s_game.event_clock = s_legacy.event_clock;
+            s_game.event = s_legacy.event;
+            s_game.last_progress = s_game.game_time;
+            s_game.paused = false;
+            s_dirty = true;
+            ESP_LOGI(TAG, "Migrated coin pusher save from 72-coin format");
+        }
     }
     nvs_close(h);
 }
