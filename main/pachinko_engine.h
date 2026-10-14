@@ -2,6 +2,7 @@
 #pragma once
 #include <stdbool.h>
 #include <stdint.h>
+#include "pachinko_rewards.h"
 
 #define PK_MAX_BALLS 6
 #define PK_PEG_ROWS 5
@@ -26,6 +27,7 @@ typedef struct {
 
 typedef struct {
     pk_ball_t balls[PK_MAX_BALLS];
+    pk_rewards_t awards;       /* progressive pool, milestones, cabinet events */
     pk_mode_t mode;
     uint32_t rng;
     uint32_t score;
