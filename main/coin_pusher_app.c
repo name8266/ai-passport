@@ -199,7 +199,7 @@ static bool frame_bytes(const uint16_t *tile,size_t size)
 static bool draw(void)
 {
     int64_t stamp=esp_timer_get_time();cp_render_prepare(&s_game);unsigned prep=(unsigned)(esp_timer_get_time()-stamp),raster=0,swap=0,dma=0;
-    bool shot=s_shot;s_shot=false;int battery=cp_fx_battery();bool frame_dense=cp_coin_count(&s_game)>=250;
+    bool shot=s_shot;s_shot=false;int battery=cp_fx_battery();bool frame_dense=cp_coin_count(&s_game)>=150;
     if(shot){s_usb_capture=true;printf("CP3D_FRAME 240 320 RGB565_LE\n");fflush(stdout);}
     static int previous_battery=-2;uint16_t dirty=shot?UINT16_MAX:cp_render_dirty();
     bool battery_changed=previous_battery!=battery;if(battery_changed){dirty|=7;previous_battery=battery;}s_frame_changed=dirty!=0;
@@ -316,7 +316,7 @@ static void game_task(void *ctx)
                 (unsigned)esp_get_free_heap_size(),(unsigned)esp_get_minimum_free_heap_size(),
                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
             if(s_play_elapsed>1000000)ESP_LOGI(TAG,"PLAY_FRAME %.1f Hz active_s=%.2f intervals_over40ms=%u interval_max_us=%u",(double)s_play_frames*1000000/(double)s_play_elapsed,(double)s_play_elapsed/1000000,s_play_slow,s_play_interval_peak);
-            if(s_dense_elapsed>0)ESP_LOGI(TAG,"DENSE_FRAME %.1f Hz bodies>=250 active_s=%.3f presented=%u interval_max_us=%u",(double)s_dense_frames*1000000/(double)s_dense_elapsed,(double)s_dense_elapsed/1000000,s_dense_frames,s_dense_interval_peak);
+            if(s_dense_elapsed>0)ESP_LOGI(TAG,"DENSE_FRAME %.1f Hz bodies>=150 active_s=%.3f presented=%u interval_max_us=%u",(double)s_dense_frames*1000000/(double)s_dense_elapsed,(double)s_dense_elapsed/1000000,s_dense_frames,s_dense_interval_peak);
             s_dense_frames=s_dense_interval_peak=0;s_dense_elapsed=0;
             s_play_frames=s_play_slow=s_play_interval_peak=0;s_play_elapsed=0;
             cp_render_profile_t rp=cp_render_profile();
