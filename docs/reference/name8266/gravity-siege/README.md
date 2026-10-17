@@ -10,7 +10,7 @@ pachinko, or the original BSP demonstration menu.
 Launch a heavy orange projectile into towers of turquoise breakable glass
 spheres and gray stone spheres. The impact solver transfers momentum through
 contact chains. Aim low to strike the base or high to scatter the upper stack.
-Destroy every turquoise target within five shots to advance to the next stage.
+Destroy every turquoise target within the stage's 5–8 shot allowance to advance to the next stage.
 Combos increase the score; a stage clear awards 250 points.
 
 - **UP click:** raise launch angle by 5°
