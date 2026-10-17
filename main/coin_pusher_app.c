@@ -42,6 +42,7 @@ static unsigned s_frames,s_frame_peak,s_physics_peak,s_flush_peak,s_draw_peak,s_
 static uint64_t s_physics_sum,s_draw_sum,s_dense_physics_sum,s_dense_draw_sum;
 static unsigned s_physics_ticks,s_draw_calls,s_dense_physics_ticks,s_dense_draw_calls;
 static float s_test_left,s_burst_clock;
+static bool s_bench_dense;
 static unsigned s_burst;
 static bool s_autorun;static unsigned s_run_left;static float s_run_pause;
 static int64_t s_metrics_start;
@@ -119,7 +120,7 @@ static void new_game_seed(uint32_t seed)
 {
     cp_fx_notify(CP_FX_RESET);
     uint32_t best=s_game.best;cp_init(&s_game,seed,CP_RUN_COINS,best,1);cp_rogue_start(&s_game,s_records.discovered);s_game.rogue.muted=cp_fx_muted();
-    s_test_left=0;s_draft_clock=0;s_burst=0;s_burst_clock=0;s_dirty=true;ESP_LOGI(TAG,"Fresh physical cabinet: 156-body cabinet, 180 maximum, 16 event reserves, 2 towers, 3 prizes; paid coin chute ready");
+    s_test_left=0;s_bench_dense=false;s_draft_clock=0;s_burst=0;s_burst_clock=0;s_dirty=true;ESP_LOGI(TAG,"Fresh physical cabinet: 156-body cabinet, 180 maximum, 16 event reserves, 2 towers, 3 prizes; paid coin chute ready");
 }
 static void new_game(void){new_game_seed(esp_random());}
 static void inputs(void)
@@ -142,7 +143,7 @@ static void inputs(void)
             break;
         case IN_CAST:cast((unsigned)m.arg);break;
         case IN_AUTORUN:s_autorun=m.arg>0;s_run_left=(unsigned)m.arg;s_run_pause=0;if(!s_autorun)s_game.autoplay=false;if(s_autorun){new_game();s_game.rogue.practice=true;s_game.autoplay=true;}ESP_LOGI(TAG,"AUTORUN rounds=%u practice=1",s_run_left);break;
-        case IN_BENCH:s_autorun=false;s_run_left=0;new_game_seed((uint32_t)m.arg);s_game.rogue.practice=true;s_game.autoplay=true;s_test_left=90;ESP_LOGI(TAG,"BENCH seed=%d seconds=90 practice=1",m.arg);break;
+        case IN_BENCH:s_autorun=false;s_run_left=0;new_game_seed((uint32_t)m.arg);s_game.rogue.practice=true;s_game.autoplay=true;s_test_left=90;s_bench_dense=true;ESP_LOGI(TAG,"BENCH seed=%d seconds=90 practice=1 dense_target=150",m.arg);break;
         case IN_DROP:launch();break;
         case IN_PAUSE:if(s_game.rogue.view==CP_VIEW_PLAY)cp_rogue_view(&s_game,CP_VIEW_PAUSE);else if(s_game.rogue.view==CP_VIEW_PAUSE)cp_rogue_view(&s_game,CP_VIEW_PLAY);break;
         case IN_AUTO:if(s_game.rogue.view==CP_VIEW_PLAY)s_game.autoplay=!s_game.autoplay;break;
@@ -257,7 +258,7 @@ static void game_task(void *ctx)
         float elapsed=(float)interval/1000000.0f;previous=start;
         if(s_test_left>0) {
             s_test_left-=elapsed;
-            if(s_test_left<=0){s_game.autoplay=false;ESP_LOGI(TAG,"TEST end");status();}
+            if(s_test_left<=0){s_game.autoplay=false;s_bench_dense=false;ESP_LOGI(TAG,"TEST end");status();}
         }
         if((s_test_left>0||s_autorun)&&(s_game.rogue.view==CP_VIEW_DRAFT||s_game.rogue.view==CP_VIEW_SUPPLY)){s_draft_clock+=elapsed;
             if(s_draft_clock>=.5f){
@@ -270,6 +271,11 @@ static void game_task(void *ctx)
             if(s_burst_clock<=0) {if(cp_drop(&s_game)){--s_burst;s_dirty=true;}s_burst_clock=.35f;}
         }
         if(s_autorun&&!s_game.rogue.finished&&s_game.bank<=3)(void)cp_rogue_buy(&s_game);
+        /* Practice-only physical coin supply: keep density near 150 for the
+         * entire 90s BENCH. All added coins still use the ordinary guarded
+         * bonus chute, full 3D collisions and the 16 protected event slots. */
+        if(s_bench_dense&&!s_game.paused&&cp_coin_count(&s_game)<150&&s_game.bonus_queue<12)
+            s_game.bonus_queue=12;
         unsigned prior_steps=s_game.steps;
         int64_t phy=esp_timer_get_time();cp_step(&s_game,elapsed);
         unsigned phy_us=(unsigned)(esp_timer_get_time()-phy);

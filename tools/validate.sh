@@ -18,6 +18,7 @@ run_static_checks() {
     PYTHONDONTWRITEBYTECODE=1 python3 tools/model_pusher_capacity.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_pusher_support_fastpath.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_pusher_vertical_cull.py
+    PYTHONDONTWRITEBYTECODE=1 python3 tests/test_perf_analyzer.py
 
     actionlint_bin="${ACTIONLINT_BIN:-}"
     if [[ -z "${actionlint_bin}" ]]; then
