@@ -63,6 +63,11 @@ static void test_gravity_and_boundaries(void)
     g.phase = KIN_PLAY;
     g.shots = 1;
     g.aim_deg = 20;
+    g.targets = 1;
+    g.bodies[1] = (kin_body_t){
+        .alive = 1, .kind = KIN_GLASS, .x = 185, .y = 262,
+        .radius = 8, .mass = 1.2f,
+    };
     g.bodies[0] = (kin_body_t){
         .alive = 1, .kind = KIN_STONE, .x = 110, .y = 110,
         .radius = 8, .mass = 2.8f,
