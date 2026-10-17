@@ -1,242 +1,303 @@
-// main/main.c —— FoloToy AI Passport BSP 驱动参考示例:初始化 + 菜单 + 按键分发。
-//
-// 按键语义(全局统一):
-//   上/下 短按   菜单中=移动选中项;演示页中=该页自定义
-//   确定  短按   菜单中=进入选中项;演示页中=该页自定义
-//   确定  长按   演示页中=返回菜单(由本文件统一拦截)
+/* GRAVITY SIEGE: standalone Passport physics arcade (no demo menu).
+ * Runs fixed-step simulation in the LVGL timer task. Hardware button callbacks
+ * enqueue small events only, avoiding display access in the esp_timer context. */
+#include "kinetic_core.h"
 #include "bsp_i2c.h"
 #include "bsp_display.h"
 #include "bsp_button.h"
-#include "bsp_audio.h"
 #include "bsp_battery.h"
-#include "bsp_pins.h"      // 错误日志里要打印 BSP_LCD_* 引脚号
-#include "demo.h"
-#include "demo_navigation.h"
-#include "ui_pixel.h"
-#include "lvgl.h"
+#include "bsp_pins.h"
 #include "esp_log.h"
-#include "esp_sleep.h"
+#include "esp_system.h"
+#include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
-#include "freertos/task.h"
+#include "lvgl.h"
+#include <math.h>
+#include <stdint.h>
 
-static const char *TAG = "main";
-
-static const demo_entry_t DEMOS[] = {
-    { .name = "Display", .enter = demo_display_enter, .exit = demo_display_exit,
-      .key = demo_display_key },
-    { .name = "Button", .enter = demo_button_enter, .exit = demo_button_exit,
-      .key = demo_button_key },
-    { .name = "Audio", .enter = demo_audio_enter, .exit = demo_audio_exit,
-      .key = demo_audio_key, .start = demo_audio_start, .stop = demo_audio_stop },
-    { .name = "Battery", .enter = demo_battery_enter, .exit = demo_battery_exit,
-      .key = demo_battery_key },
-    { .name = "Wi-Fi", .enter = demo_wifi_enter, .exit = demo_wifi_exit,
-      .key = demo_wifi_key, .start = demo_wifi_start, .stop = demo_wifi_stop },
-    { .name = "BLE", .enter = demo_ble_enter, .exit = demo_ble_exit,
-      .key = demo_ble_key, .start = demo_ble_start, .stop = demo_ble_stop },
-    { .name = "Low Power", .enter = demo_low_power_enter, .exit = demo_low_power_exit,
-      .key = demo_low_power_key, .start = demo_low_power_start, .stop = demo_low_power_stop },
-};
-#define DEMO_COUNT (sizeof(DEMOS) / sizeof(DEMOS[0]))
-#define INPUT_QUEUE_DEPTH 8
+#define COLOR_BG       0x0B1425u
+#define COLOR_TOP      0x142D41u
+#define COLOR_PANEL    0x152437u
+#define COLOR_FLOOR    0x4F6377u
+#define COLOR_GOLD     0xFFC867u
+#define COLOR_GLASS    0x55E2EEu
+#define COLOR_STONE    0x8D95A9u
+#define COLOR_BALL     0xFF8152u
+#define COLOR_TEXT     0xF3F5F5u
+#define INPUT_QUEUE_SIZE 12
+#define AIM_DOTS 7
+#define SIM_STEP_US 16667ull
 
 typedef struct {
-    bsp_btn_t btn;
+    bsp_btn_t key;
     bsp_btn_ev_t event;
-} input_event_t;
+} game_event_t;
 
-// 各外设初始化结果:失败的项在菜单里标 [FAIL] 且不允许进入。
-static bool s_ok[DEMO_COUNT];
+static const char *TAG = "gravity_siege";
+static kin_game_t s_game;
+static QueueHandle_t s_events;
+static lv_obj_t *s_root, *s_bodies[KIN_MAX_BODIES];
+static lv_obj_t *s_marks[KIN_MAX_BODIES];
+static lv_obj_t *s_aim[AIM_DOTS];
+static lv_obj_t *s_flash, *s_status;
+static lv_obj_t *s_title, *s_score, *s_battery, *s_power, *s_help;
+static uint8_t s_style[KIN_MAX_BODIES];
+static uint32_t s_frames;
+static uint64_t s_last_us, s_lag_us;
+static bool s_battery_ok;
 
-static lv_obj_t *s_menu_scr;
-static lv_obj_t *s_cards[DEMO_COUNT];
-static lv_obj_t *s_rows[DEMO_COUNT];
-static lv_obj_t *s_mascot;
-static demo_navigation_t s_navigation;
-static QueueHandle_t s_input_queue;
-static TaskHandle_t s_input_task;
-static volatile bool s_input_ready;
+static lv_obj_t *rect(lv_obj_t *parent, int x, int y, int w, int h,
+                      uint32_t color, int radius)
+{
+    lv_obj_t *obj = lv_obj_create(parent);
+    lv_obj_set_pos(obj, x, y);
+    lv_obj_set_size(obj, w, h);
+    lv_obj_remove_flag(obj, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_style_radius(obj, radius, 0);
+    lv_obj_set_style_bg_color(obj, lv_color_hex(color), 0);
+    lv_obj_set_style_bg_opa(obj, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(obj, 0, 0);
+    lv_obj_set_style_pad_all(obj, 0, 0);
+    lv_obj_set_style_shadow_width(obj, 0, 0);
+    return obj;
+}
 
-static void menu_refresh(void) {
-    for (size_t i = 0; i < DEMO_COUNT; i++) {
-        lv_label_set_text_fmt(s_rows[i], "%s%s",
-                              DEMOS[i].name,
-                              s_ok[i] ? "" : "  [FAIL]");
-        ui_pixel_set_selected(s_cards[i], i == s_navigation.selected, s_ok[i]);
-        lv_obj_set_style_text_color(s_rows[i],
-            s_ok[i] ? lv_color_hex(UI_INK) : lv_color_hex(0x7A2020), 0);
+static lv_obj_t *label(lv_obj_t *parent, int x, int y,
+                       const char *text, uint32_t color)
+{
+    lv_obj_t *obj = lv_label_create(parent);
+    lv_label_set_text(obj, text);
+    lv_obj_set_pos(obj, x, y);
+    lv_obj_set_style_text_font(obj, LV_FONT_DEFAULT, 0);
+    lv_obj_set_style_text_color(obj, lv_color_hex(color), 0);
+    lv_obj_set_style_bg_opa(obj, LV_OPA_TRANSP, 0);
+    return obj;
+}
+
+static void create_game_ui(void)
+{
+    s_root = lv_obj_create(NULL);
+    lv_obj_set_size(s_root, 240, 320);
+    lv_obj_set_style_bg_color(s_root, lv_color_hex(COLOR_BG), 0);
+    lv_obj_set_style_bg_opa(s_root, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(s_root, 0, 0);
+    lv_obj_set_style_radius(s_root, 0, 0);
+    lv_obj_set_style_pad_all(s_root, 0, 0);
+    lv_obj_remove_flag(s_root, LV_OBJ_FLAG_SCROLLABLE);
+
+    (void)rect(s_root, 0, 0, 240, 47, COLOR_TOP, 0);
+    (void)rect(s_root, 0, 47, 240, 2, COLOR_GOLD, 0);
+    s_title = label(s_root, 9, 5, "GRAVITY SIEGE", COLOR_GOLD);
+    s_score = label(s_root, 9, 26, "SCORE 000000", COLOR_TEXT);
+    s_battery = label(s_root, 179, 5, "", COLOR_TEXT);
+
+    /* Industrial test arena: static backdrop and floor are independent of
+     * the original Passport BSP demo menu and pixel UI shell. */
+    for (int i = 0; i < 7; ++i) {
+        (void)rect(s_root, 14 + i * 35, 66, 1, 190, 0x1D2B3E, 0);
     }
-}
-
-static void menu_build(void) {
-    s_menu_scr = ui_pixel_screen_create("FoloToy");
-
-    for (size_t i = 0; i < DEMO_COUNT; i++) {
-        int x = 11 + (int)(i % 2) * 112;
-        int y = 52 + (int)(i / 2) * 47;
-        s_cards[i] = ui_pixel_panel_create(s_menu_scr, x, y, 102, 40, UI_PAPER);
-        s_rows[i] = lv_label_create(s_cards[i]);
-        lv_obj_set_style_text_font(s_rows[i], &lv_font_montserrat_14, 0);
-        lv_obj_set_style_text_align(s_rows[i], LV_TEXT_ALIGN_CENTER, 0);
-        lv_obj_center(s_rows[i]);
+    for (int i = 0; i < 6; ++i) {
+        (void)rect(s_root, 14, 77 + i * 32, 211, 1, 0x1A293B, 0);
+    }
+    (void)rect(s_root, 6, 271, 228, 4, COLOR_FLOOR, 0);
+    for (int i = 0; i < 15; ++i) {
+        (void)rect(s_root, 8 + 16*i, 276, 7, 2, 0x43586A, 0);
     }
 
-    s_mascot = ui_pixel_mascot_create(s_menu_scr, 101, 242);
+    /* The reusable pool avoids LVGL allocations while physics is running. */
+    for (int i = 0; i < KIN_MAX_BODIES; ++i) {
+        s_bodies[i] = rect(s_root, 0, 0, 16, 16, COLOR_GLASS, LV_RADIUS_CIRCLE);
+        lv_obj_set_style_border_width(s_bodies[i], 2, 0);
+        lv_obj_set_style_border_color(s_bodies[i], lv_color_hex(0xE8FFFF), 0);
+        s_marks[i] = rect(s_root, 0, 0, 3, 3, COLOR_TEXT, LV_RADIUS_CIRCLE);
+        lv_obj_add_flag(s_bodies[i], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_marks[i], LV_OBJ_FLAG_HIDDEN);
+        s_style[i] = KIN_NONE;
+    }
+    for (int i = 0; i < AIM_DOTS; ++i) {
+        s_aim[i] = rect(s_root, 0, 0, 3, 3, COLOR_GOLD, LV_RADIUS_CIRCLE);
+    }
+    s_flash = rect(s_root, 0, 0, 16, 16, COLOR_GOLD, LV_RADIUS_CIRCLE);
+    lv_obj_set_style_bg_opa(s_flash, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(s_flash, 2, 0);
+    lv_obj_set_style_border_color(s_flash, lv_color_hex(COLOR_GOLD), 0);
+    lv_obj_add_flag(s_flash, LV_OBJ_FLAG_HIDDEN);
 
-    menu_refresh();
-    lv_screen_load(s_menu_scr);
+    (void)rect(s_root, 0, 282, 240, 38, COLOR_PANEL, 0);
+    (void)rect(s_root, 0, 282, 240, 1, COLOR_GOLD, 0);
+    s_power = label(s_root, 9, 283, "ANGLE 25  PWR 2", COLOR_GOLD);
+    s_help = label(s_root, 9, 302, "UP/DN AIM  OK FIRE", COLOR_TEXT);
+    s_status = label(s_root, 15, 137, "", COLOR_TEXT);
+    lv_obj_add_flag(s_status, LV_OBJ_FLAG_HIDDEN);
+    lv_screen_load(s_root);
 }
 
-static void enter_menu(void) {
-    menu_build();
+static void update_ball_style(int i, uint8_t kind)
+{
+    if (s_style[i] == kind) return;
+    s_style[i] = kind;
+    uint32_t bg = kind == KIN_PROJECTILE ? COLOR_BALL :
+                  kind == KIN_STONE ? COLOR_STONE : COLOR_GLASS;
+    uint32_t edge = kind == KIN_PROJECTILE ? 0xFFEEC8 :
+                    kind == KIN_STONE ? 0xE5E6F4 : 0xD3FEFF;
+    lv_obj_set_style_bg_color(s_bodies[i], lv_color_hex(bg), 0);
+    lv_obj_set_style_border_color(s_bodies[i], lv_color_hex(edge), 0);
+    lv_obj_set_style_bg_color(s_marks[i], lv_color_hex(edge), 0);
 }
 
-static demo_nav_input_t navigation_input(bsp_btn_t btn, bsp_btn_ev_t event) {
-    if (event == BSP_BTN_LONG && btn == BSP_BTN_OK) return DEMO_NAV_INPUT_OK_LONG;
-    if (event != BSP_BTN_CLICK) return DEMO_NAV_INPUT_OTHER;
-    if (btn == BSP_BTN_UP) return DEMO_NAV_INPUT_UP_CLICK;
-    if (btn == BSP_BTN_DOWN) return DEMO_NAV_INPUT_DOWN_CLICK;
-    if (btn == BSP_BTN_OK) return DEMO_NAV_INPUT_OK_CLICK;
-    return DEMO_NAV_INPUT_OTHER;
-}
-
-static void process_input(const input_event_t *input) {
-    demo_nav_input_t nav_input = navigation_input(input->btn, input->event);
-
-    if (s_navigation.active >= 0) {
-        demo_nav_result_t result = demo_navigation_handle(&s_navigation, nav_input, true);
-        const demo_entry_t *demo = &DEMOS[result.index];
-        if (result.action == DEMO_NAV_ACTION_EXIT) {
-            esp_err_t e = demo->stop ? demo->stop() : ESP_OK;
-            if (e != ESP_OK) {
-                ESP_LOGE(TAG, "%s 页面停止失败: %s", demo->name, esp_err_to_name(e));
-                return;
-            }
-            if (!bsp_lvgl_lock(500)) return;
-            demo->exit();
-            demo_navigation_complete_exit(&s_navigation);
-            enter_menu();
-            bsp_lvgl_unlock();
-        } else if (result.action == DEMO_NAV_ACTION_FORWARD) {
-            demo->key(input->btn, input->event);
+static void draw_scene(void)
+{
+    for (int i = 0; i < KIN_MAX_BODIES; ++i) {
+        const kin_body_t *b = &s_game.bodies[i];
+        if (!b->alive) {
+            lv_obj_add_flag(s_bodies[i], LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(s_marks[i], LV_OBJ_FLAG_HIDDEN);
+            continue;
         }
+        update_ball_style(i, b->kind);
+        int d = (int)(2.0f * b->radius + 0.5f);
+        lv_obj_set_size(s_bodies[i], d, d);
+        lv_obj_set_pos(s_bodies[i], (int)(b->x - b->radius),
+                      (int)(b->y - b->radius));
+        lv_obj_remove_flag(s_bodies[i], LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_pos(s_marks[i],
+                       (int)(b->x + cosf(b->angle) * b->radius * 0.52f - 1.5f),
+                       (int)(b->y + sinf(b->angle) * b->radius * 0.52f - 1.5f));
+        lv_obj_remove_flag(s_marks[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (s_game.phase == KIN_PLAY && !s_game.paused) {
+        float rad = (float)s_game.aim_deg * 0.01745329252f;
+        for (int i = 0; i < AIM_DOTS; ++i) {
+            float t = (float)(i + 1) * 6.0f;
+            lv_obj_set_pos(s_aim[i],
+                (int)(25.0f + cosf(rad) * t),
+                (int)(243.0f - sinf(rad) * t));
+            lv_obj_remove_flag(s_aim[i], LV_OBJ_FLAG_HIDDEN);
+        }
+    } else {
+        for (int i = 0; i < AIM_DOTS; ++i)
+            lv_obj_add_flag(s_aim[i], LV_OBJ_FLAG_HIDDEN);
+    }
+
+    if (s_game.flash) {
+        int radius = 9 + (12 - s_game.flash) * 3;
+        lv_obj_set_pos(s_flash, (int)s_game.flash_x - radius,
+                       (int)s_game.flash_y - radius);
+        lv_obj_set_size(s_flash, radius * 2, radius * 2);
+        lv_obj_remove_flag(s_flash, LV_OBJ_FLAG_HIDDEN);
+    } else lv_obj_add_flag(s_flash, LV_OBJ_FLAG_HIDDEN);
+
+    if (s_game.paused) {
+        lv_label_set_text(s_status, "       PAUSED");
+        lv_obj_remove_flag(s_status, LV_OBJ_FLAG_HIDDEN);
+    } else if (s_game.phase == KIN_WON) {
+        lv_label_set_text(s_status, "CLEAR!  OK NEXT");
+        lv_obj_remove_flag(s_status, LV_OBJ_FLAG_HIDDEN);
+    } else if (s_game.phase == KIN_LOST) {
+        lv_label_set_text(s_status, "GAME OVER  OK RETRY");
+        lv_obj_remove_flag(s_status, LV_OBJ_FLAG_HIDDEN);
+    } else lv_obj_add_flag(s_status, LV_OBJ_FLAG_HIDDEN);
+
+    if ((++s_frames % 5u) == 0u) {
+        lv_label_set_text_fmt(s_score, "S%02u %06lu  T%02u",
+            (unsigned)s_game.stage, (unsigned long)s_game.score,
+            (unsigned)s_game.targets);
+        lv_label_set_text_fmt(s_power, "AIM %02u   PWR %u   SHOTS %u",
+            (unsigned)s_game.aim_deg, (unsigned)(s_game.power + 1),
+            (unsigned)s_game.shots);
+        if (s_battery_ok && (s_frames % 150u) == 0u) {
+            int soc = bsp_battery_soc();
+            if (soc >= 0 && soc <= 100)
+                lv_label_set_text_fmt(s_battery, "%d%%", soc);
+            else lv_label_set_text(s_battery, "");
+        }
+    }
+}
+
+static void handle_input(game_event_t event)
+{
+    if (event.event == BSP_BTN_LONG) {
+        if (event.key == BSP_BTN_UP) kin_power_next(&s_game);
+        if (event.key == BSP_BTN_DOWN) kin_new_game(&s_game, esp_random());
+        if (event.key == BSP_BTN_OK && s_game.phase == KIN_PLAY)
+            s_game.paused = !s_game.paused;
         return;
     }
-
-    if (nav_input == DEMO_NAV_INPUT_OTHER || nav_input == DEMO_NAV_INPUT_OK_LONG) return;
-    if (!bsp_lvgl_lock(500)) return;
-    demo_nav_result_t result = demo_navigation_handle(
-        &s_navigation, nav_input, s_ok[s_navigation.selected]);
-    if (result.action == DEMO_NAV_ACTION_REFRESH) {
-        menu_refresh();
-        ui_pixel_mascot_jump(s_mascot);
-    } else if (result.action == DEMO_NAV_ACTION_ENTER) {
-        const demo_entry_t *demo = &DEMOS[result.index];
-        ui_pixel_mascot_jump(s_mascot);
-        lv_obj_delete(s_menu_scr);
-        s_menu_scr = NULL;
-        s_mascot = NULL;
-        demo->enter();
-        bsp_lvgl_unlock();
-
-        esp_err_t e = demo->start ? demo->start() : ESP_OK;
-        if (e != ESP_OK) {
-            ESP_LOGE(TAG, "%s 页面启动失败: %s", demo->name, esp_err_to_name(e));
-        }
-        return;
-    }
-    bsp_lvgl_unlock();
-}
-
-static void input_task(void *arg) {
-    (void)arg;
-    input_event_t input;
-    for (;;) {
-        if (xQueueReceive(s_input_queue, &input, portMAX_DELAY) == pdTRUE) {
-            process_input(&input);
-        }
+    if (event.event != BSP_BTN_CLICK) return;
+    if (event.key == BSP_BTN_UP) kin_aim(&s_game, 5);
+    else if (event.key == BSP_BTN_DOWN) kin_aim(&s_game, -5);
+    else if (event.key == BSP_BTN_OK) {
+        if (s_game.phase == KIN_WON) kin_next_stage(&s_game);
+        else if (s_game.phase == KIN_LOST)
+            kin_new_game(&s_game, esp_random());
+        else if (s_game.paused) s_game.paused = 0;
+        else (void)kin_fire(&s_game);
     }
 }
 
-static esp_err_t input_dispatch_init(void) {
-    s_input_queue = xQueueCreate(INPUT_QUEUE_DEPTH, sizeof(input_event_t));
-    if (!s_input_queue) return ESP_ERR_NO_MEM;
-    if (xTaskCreate(input_task, "demo_input", 4096, NULL, 5, &s_input_task) != pdPASS) {
-        vQueueDelete(s_input_queue);
-        s_input_queue = NULL;
-        return ESP_ERR_NO_MEM;
-    }
-    return ESP_OK;
+static void on_button(bsp_btn_t btn, bsp_btn_ev_t ev, void *ctx)
+{
+    (void)ctx;
+    if (!s_events || (ev != BSP_BTN_CLICK && ev != BSP_BTN_LONG)) return;
+    const game_event_t item = { .key = btn, .event = ev };
+    (void)xQueueSend(s_events, &item, 0);
 }
 
-static void input_dispatch_deinit(void) {
-    s_input_ready = false;
-    if (s_input_task) {
-        vTaskDelete(s_input_task);
-        s_input_task = NULL;
+static void frame_cb(lv_timer_t *timer)
+{
+    (void)timer;
+    game_event_t ev;
+    int read = 0;
+    while (read++ < INPUT_QUEUE_SIZE &&
+           xQueueReceive(s_events, &ev, 0) == pdTRUE)
+        handle_input(ev);
+
+    uint64_t now = (uint64_t)esp_timer_get_time();
+    uint64_t delta = now - s_last_us;
+    s_last_us = now;
+    if (delta > 100000ull) delta = 100000ull;
+    if (s_game.paused) s_lag_us = 0;
+    else s_lag_us += delta;
+    int steps = 0;
+    while (s_lag_us >= SIM_STEP_US && steps < 5) {
+        kin_step(&s_game);
+        s_lag_us -= SIM_STEP_US;
+        ++steps;
     }
-    if (s_input_queue) {
-        vQueueDelete(s_input_queue);
-        s_input_queue = NULL;
-    }
+    /* A slow screen must not cause an unbounded spiral of catch-up work. */
+    if (s_lag_us > 4 * SIM_STEP_US) s_lag_us = 4 * SIM_STEP_US;
+    draw_scene();
 }
 
-// button callbacks run on the shared esp_timer task; enqueue only and return immediately.
-static void on_key(bsp_btn_t btn, bsp_btn_ev_t ev, void *user) {
-    (void)user;
-    if (!s_input_ready || !s_input_queue) return;
-    const input_event_t input = { .btn = btn, .event = ev };
-    (void)xQueueSend(s_input_queue, &input, 0);
-}
-
-void app_main(void) {
-    ESP_LOGI(TAG, "FoloToy AI Passport BSP demo 启动");
-    esp_sleep_wakeup_cause_t wakeup = esp_sleep_get_wakeup_cause();
-    if (wakeup != ESP_SLEEP_WAKEUP_UNDEFINED) {
-        ESP_LOGI(TAG, "休眠唤醒原因: %d", wakeup);
-    }
-
-    bsp_i2c_init();
-    bsp_i2c_scan();
-
-    // 屏幕是本 demo 的 UI 载体,失败就没有菜单可言 —— 打清楚日志后退出,
-    // 不做"串口菜单"降级(那会让本文件复杂一倍,违背参考示例的初衷)。
+void app_main(void)
+{
+    ESP_LOGI(TAG, "Gravity Siege standalone arcade boot");
+    (void)bsp_i2c_init();
     if (bsp_display_init() != ESP_OK || !bsp_lvgl_init()) {
-        ESP_LOGE(TAG, "显示/LVGL 初始化失败,demo 无法继续。"
-                      "检查 SPI 接线(MOSI=%d SCLK=%d CS=%d DC=%d BL=%d)",
-                 BSP_LCD_MOSI, BSP_LCD_SCLK, BSP_LCD_CS, BSP_LCD_DC, BSP_LCD_BL);
+        ESP_LOGE(TAG, "Display unavailable (SPI pins %d/%d)",
+                 BSP_LCD_MOSI, BSP_LCD_SCLK);
         return;
     }
-    bsp_display_backlight(100);
-
-    demo_navigation_init(&s_navigation, DEMO_COUNT);
-
-    // 其余外设单项失败不阻塞:菜单里标 [FAIL],其他项照常可测。
-    s_ok[0] = true;                                   // Display 已确认可用
-    esp_err_t input_err = input_dispatch_init();
-    esp_err_t button_err = input_err == ESP_OK
-                         ? bsp_button_init(on_key, NULL)
-                         : ESP_ERR_INVALID_STATE;
-    s_ok[1] = input_err == ESP_OK && button_err == ESP_OK;
-    if (input_err != ESP_OK) {
-        ESP_LOGE(TAG, "按键事件任务创建失败: %s", esp_err_to_name(input_err));
-    } else if (button_err != ESP_OK) {
-        ESP_LOGE(TAG, "按键初始化失败: %s", esp_err_to_name(button_err));
-        input_dispatch_deinit();
+    bsp_display_backlight(88);
+    s_battery_ok = bsp_battery_init() == ESP_OK;
+    s_events = xQueueCreate(INPUT_QUEUE_SIZE, sizeof(game_event_t));
+    if (!s_events) {
+        ESP_LOGE(TAG, "Input event queue allocation failed");
+        return;
     }
-    s_ok[2] = (bsp_audio_init() == ESP_OK);
-    s_ok[3] = (bsp_battery_init() == ESP_OK);
-    s_ok[4] = true;                                    // 页面内按需初始化并显示错误
-    s_ok[5] = true;
-    s_ok[6] = true;
-
-    if (bsp_lvgl_lock(1000)) {
-        enter_menu();
-        bsp_lvgl_unlock();
-        s_input_ready = true;
+    kin_new_game(&s_game, esp_random());
+    if (bsp_button_init(on_button, NULL) != ESP_OK) {
+        ESP_LOGE(TAG, "Buttons unavailable, game remains view-only");
     }
-
-    ESP_LOGI(TAG, "就绪:Display=%d Button=%d Audio=%d Battery=%d",
-             s_ok[0], s_ok[1], s_ok[2], s_ok[3]);
+    if (!bsp_lvgl_lock(1000)) {
+        ESP_LOGE(TAG, "LVGL lock unavailable");
+        return;
+    }
+    create_game_ui();
+    s_last_us = (uint64_t)esp_timer_get_time();
+    (void)lv_timer_create(frame_cb, 33, NULL); /* 30 FPS visual target */
+    draw_scene();
+    bsp_lvgl_unlock();
 }
