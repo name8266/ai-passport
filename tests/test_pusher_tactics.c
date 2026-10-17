@@ -82,7 +82,7 @@ static void dense_reward_capacity(void){
  assert(cp_coin_count(&g)<=CP_MAX_COINS&&g.overflow_steps==0&&cp_valid(&g));
  /* Isolate capacity gates from the cabinet's local clearance checks. */
  cp_init(&g,6002,40,0,1);cp_rogue_start(&g,0);g.rogue.pending=0;cp_rogue_view(&g,CP_VIEW_PLAY);
- memset(g.coins,0,sizeof(g.coins));g.features=false;
+ memset(g.coins,0,sizeof(g.coins));g.features=true;
  for(unsigned i=0;i<CP_INITIAL_COINS-1;++i){
   cp_coin_t *b=cp_spawn(&g,CP_COIN_GOLD,cp_v(400+(i%12)*20,400+(i/12)*20,1.3f),(cp_q4){1,0,0,0});assert(b);
  }

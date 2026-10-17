@@ -79,9 +79,25 @@ static inline __attribute__((always_inline)) int32_t gextent(const geometry_t *g
 static CP_HOT gv3 gsupport(const geometry_t *g,gv3 n){
     int32_t x=gdot(n,gload(g->axis[0])),y=gdot(n,gload(g->axis[1])),z=gdot(n,gload(g->axis[2]));
     if(g->n==3)return ga(g->p,gtransform(g,x>=0?g->half.x:-g->half.x,y>=0?g->half.y:-g->half.y,z>=0?g->half.z:-g->half.z));
-    unsigned best=0;int32_t value=INT32_MIN;gv3 winner=gv(0,0,0);
-    for(unsigned k=0;k<8;++k){gv3 ring=geometry_ring(g,k);int32_t v=gdot(n,ring);if(v>value){value=v;best=k;winner=ring;}}
-    (void)best;return ga(g->p,ga(winner,gm(gload(g->axis[2]),z>=0?g->half.z:-g->half.z)));
+    /* Work in the body's already-computed local normal coordinates.
+     * Eight cheap 2D products replace eight costly 3D transforms.  Integer
+     * quantization can change a decision only very close to an octant edge;
+     * in that case perform the original full world-space comparison. */
+    static const int16_t rx[8]={4096,2896,0,-2896,-4096,-2896,0,2896};
+    static const int16_t ry[8]={0,2896,4096,2896,0,-2896,-4096,-2896};
+    unsigned best=0;int32_t high=INT32_MIN,second=INT32_MIN;
+    for(unsigned k=0;k<8;++k){
+        int32_t lx=(g->half.x*rx[k])>>12,ly=(g->half.y*ry[k])>>12;
+        int32_t value=(x*lx+y*ly)>>12;
+        if(value>high){second=high;high=value;best=k;}
+        else if(value>second)second=value;
+    }
+    gv3 winner;
+    if(high-second<=16){
+        int32_t value=INT32_MIN;winner=gv(0,0,0);
+        for(unsigned k=0;k<8;++k){gv3 ring=geometry_ring(g,k);int32_t v=gdot(n,ring);if(v>value){value=v;best=k;winner=ring;}}
+    }else winner=geometry_ring(g,best);
+    return ga(g->p,ga(winner,gm(gload(g->axis[2]),z>=0?g->half.z:-g->half.z)));
 }
 static union {contact_t contacts[CP_MAX_CONTACTS];unsigned char bytes[sizeof(contact_t)*CP_MAX_CONTACTS];} s_workspace;
 #define s_contacts s_workspace.contacts
