@@ -1,0 +1,7 @@
+.section .rodata.pusher_background,"a",@progbits
+.balign 4
+.global _binary_pusher_background_bin_start
+.global _binary_pusher_background_bin_end
+_binary_pusher_background_bin_start:
+.incbin "@CMAKE_CURRENT_SOURCE_DIR@/pusher_background.bin"
+_binary_pusher_background_bin_end:

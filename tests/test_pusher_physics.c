@@ -1,180 +1,178 @@
 #include "pusher_physics.h"
 #include "coin_save.h"
 #include <assert.h>
-#include <math.h>
 #include <stdio.h>
-
-static void progress(cp_game_t *g, unsigned frames)
-{
-    for (unsigned i = 0; i < frames; ++i) cp_step(g, 1.0f / 30.0f);
+#include <string.h>
+static cp_game_t g,restored;
+static cp_save_t save;
+static void resign(cp_save_t *s){const uint8_t *p=(const uint8_t *)s;uint32_t h=2166136261u;for(unsigned i=sizeof(s->checksum);i<sizeof(*s);++i)h=(h^p[i])*16777619u;s->checksum=h;}
+static void mechanics_init(cp_game_t *game,uint32_t seed,uint32_t bank,uint32_t best,uint32_t round){
+    cp_init(game,seed,bank,best,round);game->features=false;
 }
-
+static void run(float seconds) {for(unsigned i=0;i<(unsigned)(seconds*CP_HZ);++i)cp_step(&g,CP_DT);}
+static void empty(void) {mechanics_init(&g,123,200,0,1);memset(g.coins,0,sizeof(g.coins));}
 int main(void)
 {
-    cp_game_t g, other;
-    cp_init(&g, 123456u, 120u, 50u, 70u);
-    cp_init(&other, 123456u, 120u, 50u, 70u);
-    assert(CP_MAX_COINS == 192);
-    assert(cp_coin_count(&g) == 54);
-    assert(g.best == 50 && g.jackpot_pool == 70);
-    cp_aim(&g, 1000);
-    assert(g.drop_x == 196);
-    cp_aim(&g, -1000);
-    assert(g.drop_x == 12);
-    cp_init(&g, 1u, 120u, 0u, 70u);
-    cp_init(&other, 1u, 120u, 0u, 70u);
-    assert(cp_drop(&g) && cp_drop(&other));
-    assert(g.bank == 119 && g.jackpot_pool == 71);
-    progress(&g, 120);
-    progress(&other, 120);
-    assert(g.rng == other.rng);
-    assert(g.bank == other.bank && g.collected == other.collected);
-    for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
-        cp_coin_t *c = &g.coins[i];
-        cp_coin_t *d = &other.coins[i];
-        assert(c->active == d->active);
-        if (!c->active) continue;
-        assert(isfinite(c->x) && isfinite(c->y) && isfinite(c->z));
-        assert(fabsf(c->x - d->x) < 0.0001f);
-        if (!c->falling) {
-            assert(c->x >= c->radius - 0.001f);
-            assert(c->x <= CP_BOARD_WIDTH - c->radius + 0.001f);
-            assert(c->z >= 0);
+    const int32_t numbers[]={0,1,-1,32768,-32768,65535,16777217,2147483647,(-2147483647-1)};
+    for(unsigned i=0;i<sizeof(numbers)/sizeof(numbers[0]);++i)for(unsigned fraction=0;fraction<=16;fraction+=4){float expected=(float)numbers[i]/(float)(1u<<fraction),actual=cp_fixed_float(numbers[i],fraction);assert(memcmp(&expected,&actual,sizeof(actual))==0);}
+    /* No input or pressure: two supported towers must remain constructed. */
+    mechanics_init(&g,123,200,0,1);unsigned towers=cp_tower_count(&g);
+    assert(towers==18);run(30);assert(cp_tower_count(&g)==towers&&g.prizes==0&&g.lost==0&&g.collected==0);
+    assert(g.overflow_steps==0&&cp_valid(&g));
+    /* Impact on the lowest layer wakes the supported rigid bodies above it. */
+    cp_coin_t *hit=cp_spawn(&g,CP_COIN_COPPER,cp_v(63,103,7),(cp_q4){.98f,.15f,0,0});
+    assert(hit);hit->v=cp_v(0,140,0);
+    unsigned tilted=0;
+    for(unsigned step=0;step<5*CP_HZ;++step){
+        cp_step(&g,CP_DT);unsigned n=0;
+        for(unsigned i=0;i<CP_MAX_COINS;++i)if(g.coins[i].active&&fabsf(cp_body_axis(&g.coins[i],2).z)<.9f)++n;
+        if(n>tilted)tilted=n;
+    }
+    assert(cp_tower_count(&g)<towers&&tilted>2&&cp_valid(&g));
+    /* A partially overhanging disk with its center inside stays supported. */
+    empty();cp_coin_t *edge_coin=cp_spawn(&g,CP_COIN_COPPER,cp_v(104,CP_FRONT_EDGE-1,1.3f),(cp_q4){1,0,0,0});run(6);assert(edge_coin->active&&g.collected==0&&edge_coin->p.z>.8f);
+    /* Gravity, finite ledge support and angular tipping, not a centerline deletion. */
+    empty();cp_coin_t *c=cp_spawn(&g,CP_COIN_COPPER,cp_v(104,CP_FRONT_EDGE+4,1.3f),(cp_q4){1,0,0,0});
+    assert(c);run(.5f);assert(fabsf(c->q.x)>.02f||fabsf(c->q.y)>.02f);run(3);
+    assert(g.collected==1&&g.bank==201&&!c->active);
+    empty();cp_spawn(&g,CP_COIN_COPPER,cp_v(15,CP_SIDE_EDGE+20,1.3f),(cp_q4){1,0,0,0});run(4);
+    assert(g.lost==1&&g.collected==0);
+    empty();cp_spawn(&g,CP_PRIZE_RED,cp_v(104,CP_FRONT_EDGE+17,12),(cp_q4){1,0,0,0});run(2);
+    assert(g.prizes==1&&g.score==40&&g.bank==240);
+    /* Tilted landing becomes a supported disk with a normalized orientation. */
+    empty();c=cp_spawn(&g,CP_COIN_COPPER,cp_v(104,130,35),(cp_q4){.70710678f,.70710678f,0,0});
+    c->w=cp_v(2,1,0);run(6);assert(c->active&&c->p.z<10&&c->p.z>0&&cp_valid(&g));
+    /* Swept thin caps: flat coins cannot tunnel through a disk or the floor. */
+    empty();cp_coin_t *base=cp_spawn(&g,CP_COIN_COPPER,cp_v(104,130,1.3f),(cp_q4){1,0,0,0});
+    c=cp_spawn(&g,CP_COIN_COPPER,cp_v(104,130,35),(cp_q4){1,0,0,0});run(6);
+    assert(base->active&&c->active&&c->p.z-base->p.z>2.4f&&g.lost==0);
+    empty();c=cp_spawn(&g,CP_COIN_COPPER,cp_v(104,130,35),(cp_q4){1,0,0,0});c->v.z=-200;run(3);
+    assert(c->active&&c->p.z>.8f&&g.lost==0);
+    /* The moving pusher must translate a three-layer lower bed, including
+     * its bottom row, rather than only making a taller heap. */
+    empty();
+    for(unsigned layer=0;layer<3;++layer)for(unsigned row=0;row<4;++row)
+        cp_spawn(&g,CP_COIN_COPPER,cp_v(104,90+16*row,1.3f+layer*2.6f),(cp_q4){1,0,0,0});
+    run(1.4f);
+    for(unsigned layer=0;layer<3;++layer)for(unsigned row=0;row<3;++row){
+        c=&g.coins[layer*4+row];assert(c->active&&c->p.y>94+16*row);
+        assert(c->p.z>.7f+layer*2.3f&&c->p.z<2+layer*3.0f);
+    }
+    assert(cp_valid(&g)&&g.overflow_steps==0);
+    /* Every insertion has the same inlet. Swing phase, then actual capsule
+     * contacts, must distribute single coins without an assigned exit lane. */
+    float xmin=1000,xmax=-1000;unsigned peg_total=0;
+    for(unsigned phase=0;phase<16;++phase){
+        empty();g.game_time=phase*.15f;assert(cp_drop(&g));c=&g.coins[0];
+        assert(c->feeder==1&&c->p.x==CP_ENTRY_X&&c->p.y==CP_ENTRY_Y&&c->p.z==CP_ENTRY_Z);
+        float exit_x=0;unsigned exit_step=0;
+        for(unsigned step=1;step<=8*CP_HZ;++step){cp_step(&g,CP_DT);
+            if(g.feeder_exits&&!exit_step){exit_x=c->p.x;exit_step=step;}}
+        assert(exit_step>0&&g.feeder_exits==1&&c->feeder==0&&g.rod_hits>=1);
+        peg_total+=g.peg_hits;
+        if(exit_x<xmin)xmin=exit_x;if(exit_x>xmax)xmax=exit_x;
+        assert(cp_valid(&g)&&g.overflow_steps==0);
+    }
+    assert(xmax-xmin>50&&peg_total>=8);
+    /* Casual insertion at three swing phases, 20 paid coins total, keeping
+     * the existing requirement for visible returns and no capacity jam. */
+    for(unsigned timing=0;timing<3;++timing)for(unsigned seed=1;seed<=4;++seed){
+        mechanics_init(&g,seed,120,0,1);run(timing*.4f);unsigned first=0,full=0;
+        for(unsigned t=0;t<45*CP_HZ;++t){
+            if(t%39==0&&g.drops<20)(void)cp_drop(&g);
+            cp_step(&g,CP_DT);if(g.collected&&!first)first=t;
+            if(cp_coin_count(&g)==CP_MAX_COINS)++full;
+            assert(cp_valid(&g)&&g.overflow_steps==0);
         }
+        printf("casual phase%u seed%u paid%u return%u prizes%u exits%u first%.1f\n",timing,seed,g.drops,g.collected,g.prizes,g.feeder_exits,first/(float)CP_HZ);
+        assert(g.drops==20&&g.collected>=8&&first>0&&first<14*CP_HZ&&full==0);
+        assert(g.feeder_exits==20&&g.rod_hits>0&&g.peg_hits>0);
     }
-    uint32_t bank = g.bank;
-    g.paused = true;
-    cp_step(&g, 1.0f);
-    assert(!cp_drop(&g));
-    assert(!cp_buy_chaos(&g));
-    assert(g.bank == bank);
-    g.paused = false;
-    assert(cp_buy_chaos(&g));
-    assert(g.bank == bank - 6);
-    assert(g.event != CP_EVENT_NONE);
-    /* Payout is determined by physically crossing the lip and falling. */
-    cp_init(&g, 77u, 90u, 0u, 0u);
-    for (unsigned i = 1; i < CP_MAX_COINS; ++i) g.coins[i].active = false;
-    g.coins[0].x = 104.0f;
-    g.coins[0].y = CP_FRONT_EDGE + 1.0f;
-    g.coins[0].z = 0.0f;
-    g.coins[0].falling = true;
-    g.coins[0].kind = CP_COIN_GOLD;
-    progress(&g, 30);
-    assert(g.collected == 1 && g.bank == 93);
-    assert(!g.coins[0].active);
-    cp_init(&g, 78u, 90u, 0u, 0u);
-    for (unsigned i = 1; i < CP_MAX_COINS; ++i) g.coins[i].active = false;
-    g.coins[0].x = 8.5f;
-    g.coins[0].y = CP_FRONT_EDGE + 1.0f;
-    g.coins[0].falling = true;
-    progress(&g, 30);
-    assert(g.lost == 1 && g.collected == 0 && g.bank == 90);
-    /* Grounded coins must transmit pressure sideways, not jump into piles. */
-    cp_init(&g, 80u, 90u, 0u, 0u);
-    for (unsigned i = 2; i < CP_MAX_COINS; ++i) g.coins[i].active = false;
-    g.coins[0].x = 98.0f; g.coins[0].y = 105.0f;
-    g.coins[1].x = 111.0f; g.coins[1].y = 105.0f;
-    g.coins[0].z = g.coins[1].z = 0.0f;
-    cp_step(&g, 1.0f / 60.0f);
-    assert(g.coins[0].x < 98.0f);
-    assert(g.coins[1].x > 111.0f);
-    assert(g.coins[0].z < 0.001f && g.coins[1].z < 0.001f);
-    /* Reaching capacity must never deduct credits or soft-lock simulation. */
-    cp_init(&g, 77u, 300u, 0u, 0u);
-    for (unsigned i = 0; i < CP_MAX_COINS; ++i) {
-        g.coins[i].active = true;
-        g.coins[i].x = 20.0f + (float)(i % 9u) * 21.0f;
-        g.coins[i].y = 28.0f + (float)(i / 9u) * 6.0f;
-        g.coins[i].z = 0.0f;
-        g.coins[i].radius = 8.2f;
-        g.coins[i].height = 2.9f;
-        g.coins[i].mass = 1.0f;
-        g.coins[i].vx = g.coins[i].vy = g.coins[i].vz = 0.0f;
-        g.coins[i].kind = CP_COIN_COPPER;
-        g.coins[i].falling = false;
+    /* Rendering at 12.5 Hz must still advance 30 physics steps per real second. */
+    mechanics_init(&g,1,120,0,1);for(unsigned i=0;i<125;++i)cp_step(&g,.08f);
+    assert(g.steps==10*CP_HZ&&fabsf(g.game_time-10)<.002f);
+    /* Full capacity never consumes a paid credit or removes another body. */
+    while(cp_spawn(&g,CP_COIN_COPPER,cp_v(104,130,30),(cp_q4){1,0,0,0})) {}
+    uint32_t bank=g.bank;assert(!cp_drop(&g)&&g.bank==bank);
+    g.paused=true;float t=g.game_time;cp_step(&g,.1f);assert(t==g.game_time);
+    /* Persist rotations and angular velocities; reject malformed snapshots. */
+    mechanics_init(&g,99,120,7,2);assert(cp_drop(&g));run(1);
+    cp_save_encode(&save,&g);assert(cp_save_decode(&restored,&save));
+    assert(restored.bank==g.bank&&cp_coin_count(&restored)==cp_coin_count(&g));
+    assert(restored.rod_hits==g.rod_hits&&restored.peg_hits==g.peg_hits);
+    for(unsigned i=0;i<CP_MAX_COINS;++i)if(g.coins[i].active){
+        assert(g.coins[i].feeder==restored.coins[i].feeder&&g.coins[i].feeder_mask==restored.coins[i].feeder_mask);
+        assert(fabsf(g.coins[i].p.z-restored.coins[i].p.z)<.04f);
+        assert(fabsf(g.coins[i].q.w-restored.coins[i].q.w)<.001f);
     }
-    uint32_t full_bank = g.bank;
-    assert(!cp_drop(&g));
-    assert(g.bank == full_bank);
-    assert(cp_pulse(&g));
-    assert(g.boost_left > 0.0f && !cp_pulse(&g));
-    progress(&g, 10);
-    assert(isfinite(g.pusher_y));
-    progress(&g,900);
-    assert(cp_coin_count(&g)<CP_MAX_COINS && g.collected+g.lost>0);
-    cp_init(&g, 500u, 100u, 0u, 0u);
-    assert(cp_pulse(&g));
-    assert(!cp_pulse(&g));
-    progress(&g, 240);
-    assert(g.boost_left == 0.0f && g.pulse_cooldown == 0.0f);
-    assert(cp_pulse(&g));
-    cp_init(&g, 77u, 0u, 0u, 0u);
-    assert(!cp_drop(&g));
-    assert(cp_event_name(CP_EVENT_PORTAL) != NULL);
-    /* Injection is physical: charge once, collide with pins, land in a slot. */
-    cp_init(&g,1234,100,0,70);
-    assert(cp_drop(&g));
-    assert(cp_ball_count(&g)==1 && cp_coin_count(&g)==54);
-    progress(&g,900);
-    assert(cp_ball_count(&g)==0);
-    unsigned slots=0;
-    for (unsigned i=0;i<5;++i) slots+=g.slot_hits[i];
-    assert(slots>=1 && g.peg_hits>0);
-    /* Every exit band routes the intended physical reward. */
-    for (unsigned slot=0;slot<5;++slot) {
-        cp_init(&g,20,100,0,70);
-        g.balls[0]=(cp_ball_t){.x=(slot+0.5f)*(CP_BOARD_WIDTH/5),
-            .y=CP_PIN_HEIGHT-0.1f,.vy=40,.kind=CP_COIN_COPPER,.active=true};
-        cp_step(&g,1.0f/60);
-        assert(g.slot_hits[slot]==1 && !g.balls[0].active);
-        assert(cp_coin_count(&g)>=55);
-        if (slot==1 || slot==3) assert(g.coins[54].kind==CP_COIN_GOLD);
-        if (slot==2) assert(g.coins[54].kind==CP_COIN_RUBY);
-        if (slot==0 || slot==4) assert(g.boost_left>0);
-    }
-    /* Free rapid fire is bounded by the shared reserved coin capacity. */
-    cp_init(&g,55,100,0,70);
-    g.event=CP_EVENT_RAPID_FIRE; g.event_left=5.5f;
-    progress(&g,30);
-    assert(cp_ball_count(&g)>0 && g.bank==100);
-    /* Dense long sessions: no NaNs, overflow, permanent pin stalls, or charges
-       when no injection slot is available. Host speed is not device FPS. */
-    for (unsigned seed=1;seed<=12;++seed) {
-        cp_init(&g,seed,100000,0,70);
-        for (unsigned frame=0;frame<3600;++frame) {
-            if (frame%5==0) {
-                cp_aim(&g,frame%10==0?21:-17);
-                uint32_t before=g.bank;
-                if (!cp_drop(&g)) assert(g.bank==before);
-            }
-            if (frame%151==0) (void)cp_buy_chaos(&g);
-            cp_step(&g,1.0f/30);
-            assert(cp_coin_count(&g)+cp_ball_count(&g)<=CP_MAX_COINS);
-            for (unsigned i=0;i<CP_MAX_COINS;++i) {
-                const cp_coin_t *c=&g.coins[i];
-                if (c->active) assert(isfinite(c->x)&&isfinite(c->y)&&isfinite(c->z));
-            }
-            for (unsigned i=0;i<CP_MAX_BALLS;++i) {
-                const cp_ball_t *b=&g.balls[i];
-                if (b->active) assert(isfinite(b->x)&&isfinite(b->y));
-            }
+    save.coins[3].q[0]^=1;assert(!cp_save_decode(&restored,&save));
+    cp_save_encode(&save,&g);cp_game_t unchanged=restored;
+    save.coins[3].active=2;resign(&save);assert(!cp_save_decode(&restored,&save));assert(memcmp(&unchanged,&restored,sizeof(restored))==0);
+    cp_save_encode(&save,&g);memset(save.coins[3].q,0,sizeof(save.coins[3].q));resign(&save);assert(!cp_save_decode(&restored,&save));assert(memcmp(&unchanged,&restored,sizeof(restored))==0);
+
+    /* Long dense piles, repeated injection, fixed inlet and tower collapses. */
+    for(unsigned seed=1;seed<=4;++seed) {
+        mechanics_init(&g,seed,240,0,1);
+        for(unsigned frame=0;frame<60*CP_HZ;++frame) {
+            if(frame%(CP_HZ*3/5)==0){(void)cp_drop(&g);}
+            cp_step(&g,CP_DT);assert(cp_valid(&g));assert(g.overflow_steps==0);
         }
-        unsigned hits=0; for(unsigned i=0;i<5;++i) hits+=g.slot_hits[i];
-        assert(hits>20 && g.peg_hits>20);
+        assert(cp_coin_count(&g)<=CP_MAX_COINS);assert(g.prizes>=1&&g.collected>10);
+        printf("seed %u: paid %lu payout %lu lost %lu prizes %lu contacts %u\n",seed,
+            (unsigned long)g.drops,(unsigned long)g.collected,(unsigned long)g.lost,(unsigned long)g.prizes,g.peak_contacts);
     }
-    cp_save_t snapshot;
-    cp_save_encode(&snapshot,&g);
-    assert(sizeof(snapshot)<4000);
-    assert(cp_save_decode(&other,&snapshot));
-    assert(other.bank==g.bank && other.score==g.score);
-    assert(cp_coin_count(&other)==cp_coin_count(&g));
-    assert(cp_ball_count(&other)==cp_ball_count(&g));
-    for (unsigned i=0;i<CP_MAX_COINS;++i) {
-        if(g.coins[i].active) assert(fabsf(other.coins[i].x-g.coins[i].x)<=0.032f);
+    cp_save_encode(&save,&g);unchanged=restored;save.coins[3].active=13;resign(&save);
+    assert(!cp_save_decode(&restored,&save)&&memcmp(&unchanged,&restored,sizeof(restored))==0);
+    mechanics_init(&g,9,0,5,1);assert(!cp_next_round(&g));
+    for(unsigned i=0;i<CP_MAX_COINS;++i)if(g.coins[i].kind>=CP_PRIZE_RED)g.coins[i].active=false;
+    g.score=5;assert(cp_next_round(&g)&&g.bank==30&&g.score==5&&g.round==2&&cp_prize_count(&g)==3);
+    /* Gameplay is tested independently from the unmodified mechanical fixtures. */
+    cp_init(&g,8266,120,0,1);
+    for(unsigned i=0;i<CP_MAX_COINS;++i)if(g.coins[i].active&&g.coins[i].kind<CP_PRIZE_RED)assert(g.coins[i].kind==CP_COIN_GOLD);
+    memset(g.coins,0,sizeof(g.coins));g.bank=0;cp_reward_event(&g,CP_EVENT_RAIN);run(14);
+    assert(g.drops==0&&g.bonus_drops>=8);
+    assert(g.feeder_exits>=4&&cp_valid(&g));
+    /* Special prize effects are activated by real front collection. */
+    for(unsigned kind=0;kind<3;++kind){
+        cp_init(&g,100+kind,120,0,1);memset(g.coins,0,sizeof(g.coins));
+        cp_spawn(&g,(cp_coin_kind_t)(CP_PRIZE_RED+kind),cp_v(104,CP_FRONT_EDGE+17,12),(cp_q4){1,0,0,0});run(2);
+        assert(g.prizes==1&&g.event_kind==1+kind);
+        if(kind==0)assert(g.rush_ticks>0);
+        if(kind==1)assert(g.bonus_drops>0||g.bonus_queue>0);
+        if(kind==2)assert(g.guard_ticks>0);
+        run(8);assert(cp_prize_count(&g)>0&&g.restocks>=3&&cp_valid(&g));
     }
-    snapshot.coins[0].x^=1;
-    assert(!cp_save_decode(&other,&snapshot));
-    puts("coin pusher physics: PASS");
-    return 0;
+    /* Guard covers retain a side coin, and expiry removes its support. */
+    cp_init(&g,99,120,0,1);memset(g.coins,0,sizeof(g.coins));cp_reward_event(&g,CP_EVENT_SAVE);
+    c=cp_spawn(&g,CP_COIN_GOLD,cp_v(15,CP_SIDE_EDGE+20,1.3f),(cp_q4){1,0,0,0});run(4);
+    assert(c->active&&g.lost==0);g.guard_ticks=1;run(CP_DT);assert(g.guard_ticks==0);
+    c->p=cp_v(15,CP_SIDE_EDGE+20,1.3f);c->v=cp_v(0,0,0);c->sleeping=false;run(4);
+    assert(g.lost>=1&&(!c->active||c->kind!=CP_COIN_GOLD));
+    /* Arcade draws depend on a lit physical exit, never a credit threshold. */
+    cp_init(&g,5566,120,0,1);cp_arcade_gate(&g,g.arcade.lane);assert(g.arcade.spin_ticks==45&&g.drops==0);
+    run(2);assert(g.arcade.spins==1&&g.events>0&&g.drops==0);
+    cp_reward_event(&g,CP_EVENT_JACKPOT);
+    cp_save_encode(&save,&g);assert(cp_save_decode(&restored,&save));
+    assert(restored.bonus_queue==g.bonus_queue&&restored.rush_ticks==g.rush_ticks&&restored.guard_ticks==g.guard_ticks&&restored.jackpots==g.jackpots);
+    unchanged=restored;save.bonus_queue=65535;resign(&save);assert(!cp_save_decode(&restored,&save)&&memcmp(&unchanged,&restored,sizeof(restored))==0);
+    /* A simultaneous secondary award must not erase the jackpot celebration. */
+    cp_init(&g,8266,120,0,1);cp_reward_event(&g,CP_EVENT_JACKPOT);
+    g.event_ticks=3*CP_HZ;cp_reward_event(&g,CP_EVENT_RAIN);
+    assert(g.event_kind==CP_EVENT_JACKPOT&&g.event_ticks==3*CP_HZ&&g.bonus_queue==20);
+    cp_reward_event(&g,CP_EVENT_SAVE);assert(g.event_kind==CP_EVENT_JACKPOT&&g.guard_ticks==15*CP_HZ);
+    g.event_ticks=0;cp_reward_event(&g,CP_EVENT_RUSH);assert(g.event_kind==CP_EVENT_RUSH&&g.event_ticks==4*CP_HZ);
+    /* Refills and bonus queues must remain bounded through several prize cycles. */
+    for(unsigned seed=1;seed<=4;++seed){cp_init(&g,seed,240,0,1);g.autoplay=true;
+        run(120);assert(cp_valid(&g)&&!g.overflow_steps&&g.events>0&&g.restocks>0&&g.bonus_drops>0&&g.capacity_waits==0&&g.circulation_cycles>0);
+        for(unsigned i=0;i<CP_MAX_COINS;++i)if(g.coins[i].active&&g.coins[i].kind<CP_PRIZE_RED)assert(g.coins[i].kind==CP_COIN_GOLD);
+        printf("arcade seed%u paid%u bonus%u prizes%u restock%u jackpot%u contacts%u\n",seed,g.drops,g.bonus_drops,g.prizes,g.restocks,g.jackpots,g.peak_contacts);
+        printf("flow seed%u cycles%u capacity_waits%u bodies%u\n",seed,g.circulation_cycles,g.capacity_waits,cp_coin_count(&g));
+    }
+    /* Reproduce a large rain backlog without deleting bodies or waiting for
+     * the physical pool: circulation must outpace sustained incoming coins. */
+    cp_init(&g,8266,120,0,1);g.bonus_queue=128;
+    run(300);
+    assert(cp_valid(&g)&&!g.overflow_steps&&g.capacity_waits==0&&g.bonus_drops>=128&&g.feeder_exits>=120&&g.circulation_cycles>0);
+    printf("rain128 bonus%u exits%u circulation%u capacity_waits%u contacts%u\n",g.bonus_drops,g.feeder_exits,g.circulation_cycles,g.capacity_waits,g.peak_contacts);
+    puts("coin pusher 3D: PASS (tower support/impact, tipping, side loss, prizes, time, save, dense stress)");
 }

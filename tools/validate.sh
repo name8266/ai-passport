@@ -11,6 +11,8 @@ usage() {
 run_static_checks() {
     local actionlint_bin
     local test_dir
+    local gc_flag="-Wl,--gc-sections"
+    if [[ "$(uname -s)" == "Darwin" ]]; then gc_flag="-Wl,-dead_strip"; fi
 
     python3 tools/check_repo.py
 
@@ -28,10 +30,37 @@ run_static_checks() {
         tests/test_ui_pixel_math.c main/ui_pixel_math.c \
         -o "${test_dir}/test_ui_pixel_math"
     "${test_dir}/test_ui_pixel_math"
-    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
-        tests/test_pusher_physics.c main/pusher_physics.c main/coin_save.c -lm \
+    "${CC:-cc}" -O2 -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_pusher_physics.c main/pusher_physics.c main/pusher_rogue.c main/pusher_tactics.c main/pusher_records.c main/coin_save.c -lm \
         -o "${test_dir}/test_pusher_physics"
     "${test_dir}/test_pusher_physics"
+    "${CC:-cc}" -O2 -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_pusher_arcade.c main/pusher_physics.c main/pusher_rogue.c main/pusher_tactics.c main/pusher_records.c main/coin_save.c -lm -o "${test_dir}/test_pusher_arcade"
+    "${test_dir}/test_pusher_arcade"
+    "${CC:-cc}" -O2 -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_pusher_rogue.c main/pusher_physics.c main/pusher_rogue.c main/pusher_tactics.c main/pusher_records.c -lm -o "${test_dir}/test_pusher_rogue"
+    "${test_dir}/test_pusher_rogue"
+    "${CC:-cc}" -O2 -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_pusher_tactics.c main/pusher_physics.c main/pusher_rogue.c main/pusher_tactics.c main/pusher_records.c -lm -o "${test_dir}/test_pusher_tactics"
+    "${test_dir}/test_pusher_tactics"
+    "${CC:-cc}" -O2 -std=c11 -Wall -Wextra -Werror -Itests/pusher_store_stubs -Imain \
+        tests/test_pusher_store.c main/pusher_store.c main/pusher_records.c -o "${test_dir}/test_pusher_store"
+    "${test_dir}/test_pusher_store"
+    "${CC:-cc}" -O2 -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_pusher_collision.c main/pusher_rogue.c main/pusher_tactics.c main/pusher_records.c -lm -o "${test_dir}/test_pusher_collision"
+    "${test_dir}/test_pusher_collision"
+    "${CC:-cc}" -O2 -std=c11 -Wall -Wextra -Werror -DCP_RENDER_HOST -Imain \
+        tests/test_pusher_render.c main/pusher_render.c main/pusher_physics.c main/pusher_rogue.c main/pusher_tactics.c main/pusher_records.c main/pusher_photo.c -lm \
+        -o "${test_dir}/test_pusher_render"
+    "${test_dir}/test_pusher_render" "${test_dir}/pusher-full.ppm"
+    "${CC:-cc}" -O2 -std=c11 -Wall -Wextra -Werror -DCP_RENDER_HOST -DCP_RENDER_COMPACT -Imain \
+        tests/test_pusher_render.c main/pusher_render.c main/pusher_physics.c main/pusher_rogue.c main/pusher_tactics.c main/pusher_records.c main/pusher_photo.c -lm \
+        -o "${test_dir}/test_pusher_compact"
+    "${test_dir}/test_pusher_compact" "${test_dir}/pusher-compact.ppm"
+    cmp "${test_dir}/pusher-full.ppm" "${test_dir}/pusher-compact.ppm"
+    "${CC:-cc}" -O2 -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_pusher_photo.c main/pusher_photo.c -o "${test_dir}/test_pusher_photo"
+    "${test_dir}/test_pusher_photo"
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
         tests/test_demo_navigation.c main/demo_navigation.c \
         -o "${test_dir}/test_demo_navigation"
@@ -61,7 +90,7 @@ run_static_checks() {
     for demo in audio low_power ble wifi; do
         "${CC:-cc}" -std=c11 -Wall -Wextra -Werror \
             -ffunction-sections -fdata-sections -Itests/demo_stubs -Imain \
-            "tests/test_demo_${demo}_runtime.c" -Wl,--gc-sections \
+            "tests/test_demo_${demo}_runtime.c" "${gc_flag}" \
             -o "${test_dir}/test_demo_${demo}_runtime"
         "${test_dir}/test_demo_${demo}_runtime"
     done

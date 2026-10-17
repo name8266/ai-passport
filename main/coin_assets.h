@@ -1,5 +1,7 @@
 #pragma once
-#include "lvgl.h"
+#include <stdint.h>
+#include "src/misc/lv_color.h"
+#include "src/draw/lv_image_dsc.h"
 extern const lv_image_dsc_t cp_asset_background;
 extern const lv_image_dsc_t cp_asset_copper;
 extern const lv_image_dsc_t cp_asset_gold;
