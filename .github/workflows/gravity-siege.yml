@@ -1,0 +1,43 @@
+name: Gravity Siege physics and firmware
+
+on:
+  push:
+    branches:
+      - feature/gravity-siege
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gravity-siege-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  physics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Host physics simulation (48 seeds x 850 ticks)
+        run: |
+          cc -std=c11 -O2 -Wall -Wextra -Werror -Imain \
+            tests/test_kinetic_core.c main/kinetic_core.c -lm \
+            -o /tmp/gravity-siege-host
+          /tmp/gravity-siege-host
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Compile ESP32-C3 image and verify layout
+        uses: espressif/esp-idf-ci-action@9d38657f3d789ca759b2b37aaf5ceffbc42c4f0d # v1
+        with:
+          esp_idf_version: v5.5.3
+          target: esp32c3
+          command: ./tools/validate.sh --firmware
+      - name: Upload merged firmware
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: gravity-siege-firmware
+          path: build/FoloToy-AI-Passport-full.bin
+          if-no-files-found: error
+          retention-days: 7
