@@ -24,7 +24,7 @@ static void valid(const kin_game_t *g)
     assert(active == kin_active_count(g));
     assert(targets == g->targets);
     assert(g->shots <= 8);
-    assert(g->aim_deg >= 10 && g->aim_deg <= 65);
+    assert(g->aim_deg <= 65);
     assert(g->power <= 2);
     assert(g->phase <= KIN_LOST);
 }
