@@ -73,7 +73,7 @@ void kin_new_game(kin_game_t *g, uint32_t seed)
     memset(g, 0, sizeof(*g));
     g->rng = seed ? seed : 0xa47b9b2du;
     g->stage = 1;
-    g->aim_deg = 25;
+    g->aim_deg = 15;
     g->power = 1;
     stage_setup(g);
 }
