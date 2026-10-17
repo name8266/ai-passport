@@ -38,6 +38,9 @@ static volatile bool s_usb_capture;
 static unsigned s_play_frames,s_play_slow,s_play_interval_peak;static int64_t s_play_elapsed;
 static unsigned s_dense_frames,s_dense_interval_peak;static int64_t s_dense_elapsed;
 static unsigned s_frames,s_frame_peak,s_physics_peak,s_flush_peak,s_draw_peak,s_prepare_peak,s_raster_peak,s_swap_peak,s_dma_peak;
+/* Rolling costs distinguish one physics tick from a multi-step catch-up batch. */
+static uint64_t s_physics_sum,s_draw_sum,s_dense_physics_sum,s_dense_draw_sum;
+static unsigned s_physics_ticks,s_draw_calls,s_dense_physics_ticks,s_dense_draw_calls;
 static float s_test_left,s_burst_clock;
 static unsigned s_burst;
 static bool s_autorun;static unsigned s_run_left;static float s_run_pause;
@@ -101,9 +104,9 @@ static void status(void)
     ESP_LOGI(TAG,"FEED rod=%lu pegs=%lu exits=%lu bins=%lu/%lu/%lu",
         (unsigned long)s_game.rod_hits,(unsigned long)s_game.peg_hits,(unsigned long)s_game.feeder_exits,
         (unsigned long)s_game.exit_bins[0],(unsigned long)s_game.exit_bins[1],(unsigned long)s_game.exit_bins[2]);
-    ESP_LOGI(TAG,"STAGE us prep=%lu contacts=%lu solve=%lu finish=%lu ground=%lu pairs=%lu factory=%lu stack=%u sat=%u cached=%u",
+    ESP_LOGI(TAG,"STAGE us prep=%lu contacts=%lu solve=%lu finish=%lu ground=%lu pairs=%lu factory=%lu stack=%u sat=%u cached=%u vertical_culls=%u",
         (unsigned long)s_game.prep_us,(unsigned long)s_game.contact_us,(unsigned long)s_game.solve_us,
-        (unsigned long)s_game.finish_us,(unsigned long)s_game.ground_us,(unsigned long)s_game.pairs_us,(unsigned long)s_game.factory_us,(unsigned)uxTaskGetStackHighWaterMark(NULL),s_game.sat_calls,s_game.cache_hits);
+        (unsigned long)s_game.finish_us,(unsigned long)s_game.ground_us,(unsigned long)s_game.pairs_us,(unsigned long)s_game.factory_us,(unsigned)uxTaskGetStackHighWaterMark(NULL),s_game.sat_calls,s_game.cache_hits,s_game.vertical_culls);
 }
 static void cast(unsigned kind){bool ok=cp_tactics_cast(&s_game,kind);if(ok)s_dirty=true;ESP_LOGI(TAG,"SPECIAL kind=%u accepted=%d",kind,ok);}
 static void launch(void)
@@ -267,8 +270,13 @@ static void game_task(void *ctx)
             if(s_burst_clock<=0) {if(cp_drop(&s_game)){--s_burst;s_dirty=true;}s_burst_clock=.35f;}
         }
         if(s_autorun&&!s_game.rogue.finished&&s_game.bank<=3)(void)cp_rogue_buy(&s_game);
+        unsigned prior_steps=s_game.steps;
         int64_t phy=esp_timer_get_time();cp_step(&s_game,elapsed);
         unsigned phy_us=(unsigned)(esp_timer_get_time()-phy);
+        unsigned advanced=s_game.steps-prior_steps;
+        bool dense_now=!s_game.paused&&cp_coin_count(&s_game)>=150;
+        s_physics_sum+=phy_us;s_physics_ticks+=advanced;
+        if(dense_now){s_dense_physics_sum+=phy_us;s_dense_physics_ticks+=advanced;}
     if(phy_us>s_physics_peak)s_physics_peak=phy_us;
         if(!cp_valid(&s_game)){ESP_LOGE(TAG,"Invalid rigid-body state; simulation stopped");s_game.paused=true;status();}
         if(s_game.collected!=payout||s_game.prizes!=prizes) {
@@ -301,11 +309,14 @@ static void game_task(void *ctx)
             if(s_run_left>1){--s_run_left;new_game();s_game.rogue.practice=true;s_game.autoplay=true;s_run_pause=0;}
             else{s_autorun=false;s_run_left=0;ESP_LOGI(TAG,"AUTORUN complete");}
         }}
-        previous_active=!s_game.paused;previous_dense=previous_active&&cp_coin_count(&s_game)>=250;
+        previous_active=!s_game.paused;previous_dense=previous_active&&cp_coin_count(&s_game)>=150;
         bool shot=s_shot;
         int64_t draw_start=esp_timer_get_time();
         if(!draw()){vTaskDelete(NULL);return;}
-        unsigned draw_us=(unsigned)(esp_timer_get_time()-draw_start);if(!shot&&draw_us>s_draw_peak)s_draw_peak=draw_us;
+        unsigned draw_us=(unsigned)(esp_timer_get_time()-draw_start);
+        if(!shot){s_draw_sum+=draw_us;++s_draw_calls;
+            if(dense_now){s_dense_draw_sum+=draw_us;++s_dense_draw_calls;}
+            if(draw_us>s_draw_peak)s_draw_peak=draw_us;}
         if(shot){int64_t captured=esp_timer_get_time();s_metrics_start+=captured-start;previous=captured;} /* Exclude deliberate capture pause from frame rate. */
 
         int64_t now=esp_timer_get_time();
@@ -317,6 +328,13 @@ static void game_task(void *ctx)
                 (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL));
             if(s_play_elapsed>1000000)ESP_LOGI(TAG,"PLAY_FRAME %.1f Hz active_s=%.2f intervals_over40ms=%u interval_max_us=%u",(double)s_play_frames*1000000/(double)s_play_elapsed,(double)s_play_elapsed/1000000,s_play_slow,s_play_interval_peak);
             if(s_dense_elapsed>0)ESP_LOGI(TAG,"DENSE_FRAME %.1f Hz bodies>=150 active_s=%.3f presented=%u interval_max_us=%u",(double)s_dense_frames*1000000/(double)s_dense_elapsed,(double)s_dense_elapsed/1000000,s_dense_frames,s_dense_interval_peak);
+            ESP_LOGI(TAG,"PERF_MEAN physics_steps=%u physics_us_per_tick=%lu draw_calls=%u draw_us_per_call=%lu dense_physics_steps=%u dense_physics_us_per_tick=%lu dense_draw_calls=%u dense_draw_us_per_call=%lu",
+                s_physics_ticks,(unsigned long)(s_physics_ticks?s_physics_sum/s_physics_ticks:0),
+                s_draw_calls,(unsigned long)(s_draw_calls?s_draw_sum/s_draw_calls:0),
+                s_dense_physics_ticks,(unsigned long)(s_dense_physics_ticks?s_dense_physics_sum/s_dense_physics_ticks:0),
+                s_dense_draw_calls,(unsigned long)(s_dense_draw_calls?s_dense_draw_sum/s_dense_draw_calls:0));
+            s_physics_sum=s_draw_sum=s_dense_physics_sum=s_dense_draw_sum=0;
+            s_physics_ticks=s_draw_calls=s_dense_physics_ticks=s_dense_draw_calls=0;
             s_dense_frames=s_dense_interval_peak=0;s_dense_elapsed=0;
             s_play_frames=s_play_slow=s_play_interval_peak=0;s_play_elapsed=0;
             cp_render_profile_t rp=cp_render_profile();

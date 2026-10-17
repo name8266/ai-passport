@@ -64,7 +64,7 @@ typedef struct cp_game {
     uint32_t rod_hits,peg_hits,feeder_exits,exit_bins[3];
     unsigned contacts,peak_contacts;
     float max_penetration;
-    unsigned cache_hits,sat_calls;
+    unsigned cache_hits,sat_calls,vertical_culls;
     uint32_t prep_us,contact_us,solve_us,finish_us,ground_us,pairs_us,factory_us;
     uint32_t events,jackpots,bonus_drops,restocks,capacity_waits,circulation_cycles;
     uint16_t rush_ticks,guard_ticks,event_ticks,bonus_clock,restock_ticks[3],bonus_queue;

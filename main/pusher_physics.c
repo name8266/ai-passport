@@ -917,6 +917,18 @@ static CP_HOT void pairs(cp_game_t *g){
             cp_coin_t *b=&g->coins[j];if(!b->active||(a->sleeping&&b->sleeping))continue;geometry_t *bg=&s_geometry[j];
             gv3 n;int32_t depth;bool speculative=false;
             if(giabs(ag->p.x-bg->p.x)>=ag->bound.x+bg->bound.x+24||giabs(ag->p.y-bg->p.y)>=ag->bound.y+bg->bound.y+24)continue;
+            /* Same exact overlap envelope as SAT, with conservative 30-Hz
+             * vertical swept-coin allowance. Far-separated stacked layers
+             * never need a SAT call, a pair-cache lookup or a support point. */
+            int32_t vertical=giabs(ag->p.z-bg->p.z);
+            int32_t envelope=ag->bound.z+bg->bound.z+24;
+            if(vertical>envelope){
+                int32_t relative_v=giabs(s_fixed[i].sv.z-s_fixed[j].sv.z);
+                if(vertical-envelope>relative_v/CP_HZ){
+                    ++g->vertical_culls;
+                    continue;
+                }
+            }
             if(!pair_overlap(g,i,j,&n,&depth)){
                 /* A thin, almost horizontal disk can cross an entire coin cap
                  * in one 30-Hz step. Test the swept cap interval and footprint. */
@@ -1070,7 +1082,7 @@ static void tick(cp_game_t *g)
 {
     uint32_t t0=clock_now(),t1,t2,t3;
     cp_game_rod(g,g->game_time+CP_DT,&s_rod);
-    s_count=0;s_surface_count=0;s_penetration=0;s_factory_cycles=0;g->cache_hits=g->sat_calls=0;g->max_penetration=0;int32_t old_front=44*256+(int32_t)(g->pusher_y*256);
+    s_count=0;s_surface_count=0;s_penetration=0;s_factory_cycles=0;g->cache_hits=g->sat_calls=g->vertical_culls=0;g->max_penetration=0;int32_t old_front=44*256+(int32_t)(g->pusher_y*256);
     /* Sleeping is conditional on the contact support graph. A moving/removed
      * support wakes the full stack, including coins no longer touching it. */
     for(unsigned pass=0;pass<3;++pass) for(unsigned i=0;i<CP_MAX_COINS;++i) {
