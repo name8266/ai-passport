@@ -64,10 +64,37 @@ static void stages(void){
  start(45);g.tactics.stage_ticks=180*CP_HZ-1;tick(1);assert(g.rogue.finished&&g.tactics.end_reason==2&&!g.tactics.won);
  start(46);g.tactics.stage=CP_ACT_COUNT-1;g.tactics.crown_spawned=true;cp_coin_t *crown=cp_spawn(&g,CP_PRIZE_RED,cp_v(5,150,-27),(cp_q4){1,0,0,0});crown->trait=CP_TRAIT_CROWN;tick(1);assert(!g.tactics.crown_spawned&&!g.tactics.crown_collected&&g.tactics.crown_retry>g.steps);
  start(47);g.features=true;g.tactics.stage=CP_ACT_COUNT-1;g.arcade.tower_queue=2;tick(1);unsigned n=0;for(unsigned i=0;i<CP_MAX_COINS;++i)n+=g.coins[i].active&&(g.coins[i].trait&CP_TRAIT_CROWN);assert(n==1&&g.tactics.crown_spawned);
- cp_init(&g,48,40,0,1);cp_rogue_start(&g,0);assert(cp_coin_count(&g)==256);
+ cp_init(&g,48,40,0,1);cp_rogue_start(&g,0);assert(cp_coin_count(&g)==CP_INITIAL_COINS);
  /* Dense stock must stay on its supports before the player inserts a coin. */
  g.rogue.pending=0;cp_rogue_view(&g,CP_VIEW_PLAY);
  for(unsigned k=0;k<30*CP_HZ;++k){cp_step(&g,CP_DT);assert(cp_valid(&g)&&!g.overflow_steps);}
- assert(cp_coin_count(&g)==256&&g.collected==0&&g.lost==0&&g.prizes==0);
+ assert(cp_coin_count(&g)==CP_INITIAL_COINS&&g.collected==0&&g.lost==0&&g.prizes==0);
 }
-int main(void){stock_and_controls();fair_autoplay();contact_links();far_fields();stages();puts("FIFO special queue / busy refund / no manual casting / five acts / dense cabinet / physical links: PASS");}
+/* Dense-field capacity regressions: crown, clone, deferred prizes and
+ * paid-credit reservation must work before the cabinet is almost empty. */
+static void dense_reward_capacity(void){
+ cp_init(&g,6001,40,0,1);cp_rogue_start(&g,0);
+ assert(cp_coin_count(&g)==CP_INITIAL_COINS);
+ g.rogue.pending=0;cp_rogue_view(&g,CP_VIEW_PLAY);
+ g.tactics.stage=CP_ACT_COUNT-1;g.arcade.tower_queue=1;g.arcade.tower_clock=0;
+ cp_step(&g,CP_DT);
+ assert(g.tactics.crown_spawned&&g.arcade.towers>=1);
+ assert(cp_coin_count(&g)<=CP_MAX_COINS&&g.overflow_steps==0&&cp_valid(&g));
+ /* Isolate capacity gates from the cabinet's local clearance checks. */
+ cp_init(&g,6002,40,0,1);cp_rogue_start(&g,0);g.rogue.pending=0;cp_rogue_view(&g,CP_VIEW_PLAY);
+ memset(g.coins,0,sizeof(g.coins));g.features=false;
+ for(unsigned i=0;i<CP_INITIAL_COINS-1;++i){
+  cp_coin_t *b=cp_spawn(&g,CP_COIN_GOLD,cp_v(400+(i%12)*20,400+(i/12)*20,1.3f),(cp_q4){1,0,0,0});assert(b);
+ }
+ cp_coin_t *marked=cp_spawn(&g,CP_COIN_GOLD,cp_v(104,115,4),(cp_q4){1,0,0,0});
+ assert(marked);marked->feeder_mask|=CP_BODY_CLONE;
+ g.rogue.chip_queue=1;g.rogue.spawn_clock=0;g.arcade.clone_clock=0;
+ cp_step(&g,CP_DT);
+ assert(g.arcade.clones>=1&&g.rogue.chip_queue==0);
+ assert(cp_coin_count(&g)<=CP_MAX_COINS&&g.overflow_steps==0&&cp_valid(&g));
+ cp_init(&g,6003,40,0,1);cp_rogue_start(&g,0);g.rogue.pending=0;cp_rogue_view(&g,CP_VIEW_PLAY);
+ while(cp_coin_count(&g)<CP_MAX_COINS-CP_EVENT_RESERVE)
+  assert(cp_spawn(&g,CP_COIN_GOLD,cp_v(500+(int)cp_coin_count(&g),500,2),(cp_q4){1,0,0,0}));
+ unsigned before=g.bank;assert(!cp_drop(&g)&&g.bank==before);
+}
+int main(void){stock_and_controls();fair_autoplay();contact_links();far_fields();stages();dense_reward_capacity();puts("FIFO special queue / busy refund / no manual casting / five acts / dense cabinet / physical links: PASS");}

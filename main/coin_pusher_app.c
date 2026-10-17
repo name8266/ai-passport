@@ -116,7 +116,7 @@ static void new_game_seed(uint32_t seed)
 {
     cp_fx_notify(CP_FX_RESET);
     uint32_t best=s_game.best;cp_init(&s_game,seed,CP_RUN_COINS,best,1);cp_rogue_start(&s_game,s_records.discovered);s_game.rogue.muted=cp_fx_muted();
-    s_test_left=0;s_draft_clock=0;s_burst=0;s_burst_clock=0;s_dirty=true;ESP_LOGI(TAG,"Fresh physical cabinet: 256-body cabinet, 32 inlet/event reserves, 2 towers, 3 prizes; paid coin chute ready");
+    s_test_left=0;s_draft_clock=0;s_burst=0;s_burst_clock=0;s_dirty=true;ESP_LOGI(TAG,"Fresh physical cabinet: 156-body cabinet, 180 maximum, 16 event reserves, 2 towers, 3 prizes; paid coin chute ready");
 }
 static void new_game(void){new_game_seed(esp_random());}
 static void inputs(void)
@@ -354,5 +354,5 @@ void coin_pusher_start(void)
     cp_fx_start();
     if(xTaskCreate(serial_task,"coin3d_usb",3072,NULL,3,NULL)!=pdPASS||
        xTaskCreate(game_task,"coin3d",4608,NULL,5,NULL)!=pdPASS){ESP_LOGE(TAG,"Task creation failed");return;}
-    ESP_LOGI(TAG,"TACTICAL PUSHER: 8 physical special coins / 5 acts / automatic special queue / dense cabinet / crown finale; 28 stackable relics, 40 initial coins, chips, local top10; 30 Hz physics, 256 initial bodies / 288 capacity, native 240x320 scene and HUD, 2 decks, 2 towers, refilling physical prizes; lit-lane reels / side towers / black hole / cloning / Chinese UI; fixed entry / swing rod / 13 pegs / front camera; commands status/drop/pause/auto/test N/shot/reset/event NAME");
+    ESP_LOGI(TAG,"TACTICAL PUSHER: 8 physical special coins / 5 acts / automatic special queue / dense cabinet / crown finale; 28 stackable relics, 40 initial coins, chips, local top10; 30 Hz physics, 156 initial bodies / 180 capacity, native 240x320 scene and HUD, 2 decks, 2 towers, refilling physical prizes; lit-lane reels / side towers / black hole / cloning / Chinese UI; fixed entry / swing rod / 13 pegs / front camera; commands status/drop/pause/auto/test N/shot/reset/event NAME");
 }

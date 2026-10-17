@@ -1,3 +1,5 @@
+> **2026-10-17 revision:** 180 maximum physical bodies, 156 at start; the 256-body V3 description below is historical. See [180-body review](./180实体优化验证.md). Host/firmware CI and device acceptance are tracked separately.
+
 <p align="right"><a href="README.zh_CN.md">简体中文</a> · <strong>English</strong></p>
 
 # 3D Coin Pusher — Dense Cabinet Candidate

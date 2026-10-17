@@ -6,8 +6,13 @@
 #include <math.h>
 #include "pusher_rogue.h"
 #include "pusher_tactics.h"
-#define CP_MAX_COINS 288
-#define CP_MAX_CONTACTS 2304
+/* 180 hard slots: 156 initial, 16 reserved for effects and crown. */
+#define CP_MAX_COINS 180
+#define CP_INITIAL_COINS 156
+#define CP_EVENT_RESERVE 16
+#define CP_HOPPER_TARGET 120
+#define CP_TOWER_BODIES 12
+#define CP_MAX_CONTACTS 2048
 #define CP_BOARD_WIDTH 208.0f
 #define CP_FRONT_EDGE 145.0f
 #define CP_SIDE_EDGE 120

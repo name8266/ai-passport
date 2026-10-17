@@ -36,7 +36,7 @@ bool cp_save_decode(cp_game_t *g,const cp_save_t *s) {
     if(!cp_arcade_valid(&s->arcade))return false;
     for(unsigned k=0;k<3;++k)if(s->restock_ticks[k]>6*CP_HZ)return false;
     for(unsigned i=0;i<CP_MAX_COINS;++i){const cp_saved_coin_t *c=&s->coins[i];if(!c->active)continue;
-        if(((c->active&~15u)||!(c->active&1u)||(c->active>>2)>2)||c->kind>CP_PRIZE_GREEN)return false;
+        if(((c->active&~15u)||!(c->active&1u)||(c->active>>2)>2)||c->kind>CP_CHIP)return false;
         for(unsigned k=0;k<3;++k)if(c->p[k]<-16000||c->p[k]>16000)return false;
         int64_t norm=0;for(unsigned k=0;k<4;++k)norm+=(int64_t)c->q[k]*c->q[k];
         if(norm<966308660||norm>1181043918)return false;

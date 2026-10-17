@@ -136,7 +136,7 @@ bool cp_rogue_lane(const cp_game_t *g,unsigned lane){if(lane>2)return false;if(l
  return n>=3||(lane==(g->arcade.lane+1)%3&&(n>=2||(n==1&&(g->steps/30)%2==0)));
 }
 static COLD void dispense(cp_game_t *g){
- cp_rogue_t *r=&g->rogue;if(r->spawn_clock){--r->spawn_clock;return;}if((!r->chip_queue&&!r->prize_queue)||cp_coin_count(g)>82)return;
+ cp_rogue_t *r=&g->rogue;if(r->spawn_clock){--r->spawn_clock;return;}if((!r->chip_queue&&!r->prize_queue)||cp_coin_count(g)>=CP_MAX_COINS-CP_EVENT_RESERVE)return;
  /* Each deferred spawn checks a real empty volume. Never insert mid-solver. */
  int x=60+(int)(g->steps%3)*44,y=100,z=68;bool clear=true;
  for(unsigned i=0;i<CP_MAX_COINS;++i){const cp_coin_t *b=&g->coins[i];if(b->active&&fabsf(b->p.x-x)<24&&fabsf(b->p.y-y)<24&&fabsf(b->p.z-z)<20){clear=false;break;}}

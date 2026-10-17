@@ -41,7 +41,7 @@ void cp_cabinet_load(cp_game_t *g){
  }
  for(unsigned pass=0;pass<2;++pass)for(unsigned layer=0;layer<(pass?16u:1u);++layer)
   for(unsigned row=0;row<(pass?3u:1u);++row)for(unsigned col=0;col<(pass?10u:4u);++col){
-   if(cp_coin_count(g)>=256)return;
+   if(cp_coin_count(g)>=CP_INITIAL_COINS)return;
    float x=pass?22+col*18+(row&1?8:0):31+col*48;
    float y=pass?100+row*16.5f:26+row*18,z=pass?1.3f+layer*2.6f:19.3f;
    if(x>188)continue;
@@ -165,7 +165,7 @@ COLD void cp_tactics_tick(cp_game_t *g){
  /* Stock is consumed only by the next ordinary input, never a separate timer. */
  t->autocast_ticks=0;
  if(t->hopper_clock)--t->hopper_clock;
- if(g->features&&g->arcade.play_ticks&&(g->bank||t->queue_count)&&cp_coin_count(g)<200&&!t->hopper_clock){
+ if(g->features&&g->arcade.play_ticks&&(g->bank||t->queue_count)&&cp_coin_count(g)<CP_HOPPER_TARGET&&!t->hopper_clock){
   for(unsigned k=0;k<10;++k){int x=24+(int)((g->steps+k*3)%10)*18;if(cp_house_coin(g,x,30)){++t->house_coins;break;}}
   t->hopper_clock=36;
  }

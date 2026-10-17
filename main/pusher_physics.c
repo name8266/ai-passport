@@ -355,14 +355,14 @@ void cp_init(cp_game_t *g,uint32_t seed,uint32_t bank,uint32_t best,uint32_t rou
     }
 }
 bool cp_house_coin(cp_game_t *g,int x,int y){
- if(cp_coin_count(g)>=CP_MAX_COINS-12)return false;
+ if(cp_coin_count(g)>=CP_HOPPER_TARGET)return false;
  for(unsigned i=0;i<CP_MAX_COINS;++i){const cp_coin_t *b=&g->coins[i];if(b->active&&fabsf(b->p.x-x)<b->bound.x+8&&fabsf(b->p.y-y)<b->bound.y+8&&fabsf(b->p.z-19.3f)<b->bound.z+1.3f)return false;}
  return cp_spawn(g,CP_COIN_GOLD,cp_v(x,y,19.3f),(cp_q4){1,0,0,0})!=NULL;
 }
 static bool inlet_drop(cp_game_t *g,bool paid)
 {
     if(g->paused||(paid&&!g->bank)) return false;
-    unsigned prizes=cp_prize_count(g),reserve=g->features&&prizes<3?3-prizes:0;
+    unsigned reserve=g->rogue.active?CP_EVENT_RESERVE:0;
     if(cp_coin_count(g)>=CP_MAX_COINS-reserve){++g->capacity_waits;return false;}
     /* Avoid a second coin intersecting one still in the physical coin chute. */
     for(unsigned i=0;i<CP_MAX_COINS;++i) {
@@ -456,7 +456,8 @@ static void tower_tick(cp_game_t *g,bool playing){
     if(a->tower_ticks){--a->tower_ticks;return;}
     if(a->tower_clock&&playing)--a->tower_clock;
     if(!a->tower_clock&&playing&&!a->tower_queue){a->tower_queue=1;a->tower_clock=24*CP_HZ;}
-    if(!a->tower_queue||a->hole_ticks||cp_coin_count(g)>64)return;
+    unsigned need=CP_TOWER_BODIES+(g->tactics.active&&g->tactics.stage==CP_ACT_COUNT-1&&!g->tactics.crown_spawned?1u:0u);
+    if(!a->tower_queue||a->hole_ticks||cp_coin_count(g)>CP_MAX_COINS-need)return;
     unsigned side=a->next_side;int x=side?208:0;
     for(unsigned i=0;i<CP_MAX_COINS;++i){const cp_coin_t *b=&g->coins[i];
         if(b->active&&fabsf(b->p.x-x)<18&&b->p.y>80&&b->p.y<130&&b->p.z<24)return;}
@@ -474,7 +475,7 @@ static void tower_tick(cp_game_t *g,bool playing){
 static void clone_tick(cp_game_t *g){
     cp_arcade_t *a=&g->arcade;
     if(a->clone_clock){--a->clone_clock;return;}
-    if(cp_coin_count(g)>82)return;
+    if(cp_coin_count(g)>=CP_MAX_COINS-CP_EVENT_RESERVE)return;
     for(unsigned i=0;i<CP_MAX_COINS;++i){cp_coin_t *b=&g->coins[i];
         if(!b->active||!(b->feeder_mask&CP_BODY_CLONE))continue;
         cp_v3 p=cp_add(b->p,cp_v(0,0,24));bool clear=true;
@@ -505,10 +506,10 @@ static __attribute__((noinline)) void gameplay_tick(cp_game_t *g){
     if(!g->features)return;
     arcade_tick(g);
     unsigned count=cp_coin_count(g);
-    if(!g->circulation&&count>=(g->rogue.active?264u:68u)){g->circulation=true;++g->circulation_cycles;
+    if(!g->circulation&&count>=(g->rogue.active?160u:68u)){g->circulation=true;++g->circulation_cycles;
         for(unsigned i=0;i<CP_MAX_COINS;++i){cp_coin_t *b=&g->coins[i];
             if(b->active&&!b->feeder&&b->p.y>90){b->sleeping=false;b->quiet=0;}}
-    }else if(g->circulation&&count<=(g->rogue.active?224u:52u))g->circulation=false;
+    }else if(g->circulation&&count<=(g->rogue.active?136u:52u))g->circulation=false;
     if(g->rush_ticks)--g->rush_ticks;
     if(g->guard_ticks){--g->guard_ticks;
         if(!g->guard_ticks)for(unsigned i=0;i<CP_MAX_COINS;++i){cp_coin_t *b=&g->coins[i];

@@ -1,3 +1,5 @@
+> **2026-10-17 最新调整：** 物理实体硬上限180、初始目标156。以下256体V3内容为历史候选说明；请以[180实体优化与验证](./180实体优化验证.md)为准，实机性能仍待测。
+
 Warning: truncated output (original token count: 12931)
 Total output lines: 680
 

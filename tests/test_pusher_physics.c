@@ -105,6 +105,14 @@ int main(void)
         assert(fabsf(g.coins[i].p.z-restored.coins[i].p.z)<.04f);
         assert(fabsf(g.coins[i].q.w-restored.coins[i].q.w)<.001f);
     }
+    /* CP_CHIP is a valid body kind in legacy snapshot fixtures. */
+    unsigned chip_index=3;assert(g.coins[chip_index].active);
+    uint8_t old_kind=g.coins[chip_index].kind;
+    g.coins[chip_index].kind=CP_CHIP;cp_body_refresh(&g.coins[chip_index]);
+    cp_save_encode(&save,&g);assert(cp_save_decode(&restored,&save));
+    assert(restored.coins[chip_index].kind==CP_CHIP);
+    g.coins[chip_index].kind=old_kind;cp_body_refresh(&g.coins[chip_index]);
+    cp_save_encode(&save,&g);
     save.coins[3].q[0]^=1;assert(!cp_save_decode(&restored,&save));
     cp_save_encode(&save,&g);cp_game_t unchanged=restored;
     save.coins[3].active=2;resign(&save);assert(!cp_save_decode(&restored,&save));assert(memcmp(&unchanged,&restored,sizeof(restored))==0);
