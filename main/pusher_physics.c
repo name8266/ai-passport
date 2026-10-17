@@ -1082,7 +1082,7 @@ static void tick(cp_game_t *g)
 {
     uint32_t t0=clock_now(),t1,t2,t3;
     cp_game_rod(g,g->game_time+CP_DT,&s_rod);
-    s_count=0;s_surface_count=0;s_penetration=0;s_factory_cycles=0;g->cache_hits=g->sat_calls=g->vertical_culls=0;g->max_penetration=0;int32_t old_front=44*256+(int32_t)(g->pusher_y*256);
+    s_count=0;s_surface_count=0;s_penetration=0;s_factory_cycles=0;g->cache_hits=g->sat_calls=g->vertical_culls=g->orientation_skips=0;g->max_penetration=0;int32_t old_front=44*256+(int32_t)(g->pusher_y*256);
     /* Sleeping is conditional on the contact support graph. A moving/removed
      * support wakes the full stack, including coins no longer touching it. */
     for(unsigned pass=0;pass<3;++pass) for(unsigned i=0;i<CP_MAX_COINS;++i) {
@@ -1141,7 +1141,12 @@ static void tick(cp_game_t *g)
     for(unsigned i=0;i<CP_MAX_COINS;++i) {
         cp_coin_t *b=&g->coins[i];if(!b->active) continue;
         if(!b->sleeping){fixed_body_t *f=&s_fixed[i];f->p=fa(f->p,fv((int32_t)(((int64_t)f->sv.x*DT16)>>8),(int32_t)(((int64_t)f->sv.y*DT16)>>8),(int32_t)(((int64_t)f->sv.z*DT16)>>8)));
-            b->p=cp_v(cp_fixed_float(f->p.x,16),cp_fixed_float(f->p.y,16),cp_fixed_float(f->p.z,16));s_geometry[i].p=gv(f->p.x>>8,f->p.y>>8,f->p.z>>8);integrate_orientation(i,b);}
+            b->p=cp_v(cp_fixed_float(f->p.x,16),cp_fixed_float(f->p.y,16),cp_fixed_float(f->p.z,16));s_geometry[i].p=gv(f->p.x>>8,f->p.y>>8,f->p.z>>8);
+            /* Exactly zero angular velocity: no new rotation is possible.
+             * Keep the current pose/tensor rather than recomputing an
+             * expensive integer square root, divisions and 3x3 tensor. */
+            if(f->sw.x||f->sw.y||f->sw.z)integrate_orientation(i,b);
+            else ++g->orientation_skips;}
         if(b->p.z<-26) {
             if((b->feeder_mask&CP_BODY_SIPHON)||(b->p.y>CP_FRONT_EDGE-7&&b->p.x>=18&&b->p.x<=190)) {
                 unsigned value=box(b)?(b->kind==CP_PRIZE_RED?40:b->kind==CP_PRIZE_BLUE?60:25):(b->kind==CP_CHIP?25:1);

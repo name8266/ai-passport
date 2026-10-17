@@ -105,9 +105,9 @@ static void status(void)
     ESP_LOGI(TAG,"FEED rod=%lu pegs=%lu exits=%lu bins=%lu/%lu/%lu",
         (unsigned long)s_game.rod_hits,(unsigned long)s_game.peg_hits,(unsigned long)s_game.feeder_exits,
         (unsigned long)s_game.exit_bins[0],(unsigned long)s_game.exit_bins[1],(unsigned long)s_game.exit_bins[2]);
-    ESP_LOGI(TAG,"STAGE us prep=%lu contacts=%lu solve=%lu finish=%lu ground=%lu pairs=%lu factory=%lu stack=%u sat=%u cached=%u vertical_culls=%u",
+    ESP_LOGI(TAG,"STAGE us prep=%lu contacts=%lu solve=%lu finish=%lu ground=%lu pairs=%lu factory=%lu stack=%u sat=%u cached=%u vertical_culls=%u orientation_skips=%u",
         (unsigned long)s_game.prep_us,(unsigned long)s_game.contact_us,(unsigned long)s_game.solve_us,
-        (unsigned long)s_game.finish_us,(unsigned long)s_game.ground_us,(unsigned long)s_game.pairs_us,(unsigned long)s_game.factory_us,(unsigned)uxTaskGetStackHighWaterMark(NULL),s_game.sat_calls,s_game.cache_hits,s_game.vertical_culls);
+        (unsigned long)s_game.finish_us,(unsigned long)s_game.ground_us,(unsigned long)s_game.pairs_us,(unsigned long)s_game.factory_us,(unsigned)uxTaskGetStackHighWaterMark(NULL),s_game.sat_calls,s_game.cache_hits,s_game.vertical_culls,s_game.orientation_skips);
 }
 static void cast(unsigned kind){bool ok=cp_tactics_cast(&s_game,kind);if(ok)s_dirty=true;ESP_LOGI(TAG,"SPECIAL kind=%u accepted=%d",kind,ok);}
 static void launch(void)
