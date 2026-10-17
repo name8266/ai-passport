@@ -43,7 +43,7 @@ static void stage_setup(kin_game_t *g)
 {
     memset(g->bodies, 0, sizeof(g->bodies));
     g->ticks = 0;
-    g->shots = 5;
+    g->shots = (uint8_t)(g->stage < 5 ? 4 + g->stage : 8);
     g->targets = 0;
     g->cooldown = 0;
     g->flash = 0;
@@ -73,7 +73,7 @@ void kin_new_game(kin_game_t *g, uint32_t seed)
     memset(g, 0, sizeof(*g));
     g->rng = seed ? seed : 0xa47b9b2du;
     g->stage = 1;
-    g->aim_deg = 10;
+    g->aim_deg = 0;
     g->power = 1;
     stage_setup(g);
 }
@@ -90,7 +90,7 @@ void kin_aim(kin_game_t *g, int delta)
 {
     if (!g) return;
     int a = (int)g->aim_deg + delta;
-    g->aim_deg = (uint8_t)(a < 10 ? 10 : (a > 65 ? 65 : a));
+    g->aim_deg = (uint8_t)(a < 0 ? 0 : (a > 65 ? 65 : a));
 }
 
 void kin_power_next(kin_game_t *g)
