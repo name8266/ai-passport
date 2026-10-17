@@ -8,6 +8,7 @@
 #include "bsp_battery.h"
 #include "bsp_pins.h"
 #include "esp_log.h"
+#include "esp_random.h"
 #include "esp_system.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
