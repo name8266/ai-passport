@@ -41,3 +41,7 @@ Store reusable music and sound-effect sources in `music/`.
 - Prefer 16 kHz, 16-bit mono PCM when it matches the current BSP audio path.
 - Check Flash and internal-RAM cost before embedding audio; stream or chunk long recordings.
 - Do not commit media without redistribution permission.
+
+## Coin Pusher game assets
+
+`images/coin-pusher/cabinet-source.png` and `sprites-source.png` were generated with the built-in image generation tool on 2026-10-14 for this project, without third-party reference art. No third-party asset license is asserted. Derived PNGs and `main/coin_assets.c` are rebuilt by `python3 tools/convert_coin_assets.py` (Pillow). Firmware embeds 161,520 bytes of RGB565/RGB565A8 assets directly in Flash. Sources and conversion geometry remain in the repository.

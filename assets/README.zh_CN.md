@@ -39,3 +39,7 @@
 - 与当前 BSP 音频路径匹配时优先采用 16 kHz、16 位单声道 PCM。
 - 嵌入音频前评估 Flash 与内部 RAM 成本；长录音应流式或分块。
 - 无再分发许可不提交媒体文件。
+
+## 金币推土机素材
+
+`images/coin-pusher/cabinet-source.png` 与 `sprites-source.png` 于 2026-10-14 使用内置图像生成能力为本项目制作，未使用第三方参考画。不宣称第三方素材许可证。衍生 PNG 与 `main/coin_assets.c` 通过 `python3 tools/convert_coin_assets.py`（Pillow）重建。固件将 161,520 字节 RGB565／RGB565A8 素材直接放在 Flash，原图与转换几何保存在仓库中。

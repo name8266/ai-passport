@@ -1,0 +1,7 @@
+.section .rodata.pusher_coin_impostors,"a",@progbits
+.balign 4
+.global _binary_pusher_coin_impostors_bin_start
+.global _binary_pusher_coin_impostors_bin_end
+_binary_pusher_coin_impostors_bin_start:
+.incbin "@CMAKE_CURRENT_SOURCE_DIR@/pusher_coin_impostors.bin"
+_binary_pusher_coin_impostors_bin_end:
