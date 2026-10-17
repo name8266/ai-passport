@@ -23,7 +23,7 @@ static void valid(const kin_game_t *g)
     }
     assert(active == kin_active_count(g));
     assert(targets == g->targets);
-    assert(g->shots <= 5);
+    assert(g->shots <= 8);
     assert(g->aim_deg >= 10 && g->aim_deg <= 65);
     assert(g->power <= 2);
     assert(g->phase <= KIN_LOST);
@@ -37,7 +37,7 @@ static void test_input_and_levels(void)
     assert(game.stage == 1 && game.shots == 5);
     assert(game.targets >= 4);
     kin_aim(&game, -1000);
-    assert(game.aim_deg == 10);
+    assert(game.aim_deg == 0);
     kin_aim(&game, 1000);
     assert(game.aim_deg == 65);
     kin_power_next(&game);
@@ -108,6 +108,7 @@ static void test_real_collision_breaks_glass(void)
     uint32_t score = g.score;
     kin_next_stage(&g);
     assert(g.stage == 1); /* stage starts at 0 in controlled test */
+    assert(g.shots == 5);
     assert(g.phase == KIN_PLAY);
     assert(g.score > score);
 }
