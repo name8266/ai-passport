@@ -126,7 +126,7 @@ static void create_game_ui(void)
 
     (void)rect(s_root, 0, 282, 240, 38, COLOR_PANEL, 0);
     (void)rect(s_root, 0, 282, 240, 1, COLOR_GOLD, 0);
-    s_power = label(s_root, 9, 283, "ANGLE 25  PWR 2", COLOR_GOLD);
+    s_power = label(s_root, 9, 283, "ANGLE 15  PWR 2", COLOR_GOLD);
     s_help = label(s_root, 9, 302, "UP/DN AIM  OK FIRE", COLOR_TEXT);
     s_status = label(s_root, 15, 137, "", COLOR_TEXT);
     lv_obj_add_flag(s_status, LV_OBJ_FLAG_HIDDEN);
