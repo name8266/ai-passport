@@ -1,0 +1,71 @@
+{
+  "seed": "0x42524831",
+  "track_m": 500,
+  "trajectories": 10000,
+  "strategies": {
+    "conservative": {
+      "count": 2500,
+      "success_rate": 1,
+      "qualified_rate": 1,
+      "brake_failure_rate": 0,
+      "peak_kmh": {
+        "min": 110.3966,
+        "mean": 125.81574744,
+        "max": 141.4765
+      },
+      "stop_remaining_m": {
+        "p05": 200.0145,
+        "p50": 276.3702,
+        "p95": 329.8198
+      }
+    },
+    "late_brake": {
+      "count": 2500,
+      "success_rate": 0.8048,
+      "qualified_rate": 0.8048,
+      "brake_failure_rate": 0,
+      "peak_kmh": {
+        "min": 153.8441,
+        "mean": 157.97028764,
+        "max": 161.703
+      },
+      "stop_remaining_m": {
+        "p05": 5.1074,
+        "p50": 46.4776,
+        "p95": 84.0996
+      }
+    },
+    "break_tent_rescue": {
+      "count": 2500,
+      "success_rate": 0.0532,
+      "qualified_rate": 0.0532,
+      "brake_failure_rate": 1,
+      "peak_kmh": {
+        "min": 119.023,
+        "mean": 134.75857556,
+        "max": 150.7427
+      },
+      "stop_remaining_m": {
+        "p05": 0.5038,
+        "p50": 3.5793,
+        "p95": 7.7017
+      }
+    },
+    "random": {
+      "count": 2500,
+      "success_rate": 0.6708,
+      "qualified_rate": 0.0044,
+      "brake_failure_rate": 0.0292,
+      "peak_kmh": {
+        "min": 0.0,
+        "mean": 43.43340572,
+        "max": 151.5969
+      },
+      "stop_remaining_m": {
+        "p05": 236.9525,
+        "p50": 496.2806,
+        "p95": 499.4496
+      }
+    }
+  }
+}

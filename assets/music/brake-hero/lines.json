@@ -1,0 +1,18 @@
+{
+  "engine": "eSpeak NG 1.52.0; recovered PCM8",
+  "samples": {
+    "start": 60401,
+    "100": 20749,
+    "tent": 38423,
+    "warn": 39940,
+    "break": 69968,
+    "near": 28378,
+    "win": 65301,
+    "lose": 32777,
+    "wall": 14400,
+    "cliff": 14400,
+    "truck": 14400,
+    "construction": 14400
+  },
+  "source_firmware_sha256": "6128ab20f18f0db50d13d2aab459975abfb85579771b33bf0c175f5b4f939940"
+}

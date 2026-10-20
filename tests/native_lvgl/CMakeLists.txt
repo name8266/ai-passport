@@ -1,0 +1,12 @@
+cmake_minimum_required(VERSION 3.16)
+project(brake_native C)
+set(CMAKE_C_STANDARD 11)
+set(LV_BUILD_CONF_PATH "${CMAKE_CURRENT_LIST_DIR}/lv_conf.h" CACHE PATH "")
+set(CONFIG_LV_BUILD_EXAMPLES OFF CACHE BOOL "")
+set(CONFIG_LV_BUILD_DEMOS OFF CACHE BOOL "")
+set(CONFIG_LV_USE_THORVG_INTERNAL OFF CACHE BOOL "")
+add_subdirectory(../../managed_components/lvgl__lvgl lvgl)
+add_executable(brake_lvgl test.c ../../main/brake_render.c ../../main/brake_vehicle.c ../../main/brake_hero.c ../../main/brake_scores.c
+    ../../assets/images/brake-hero/converted/brake_images.c ../../assets/fonts/brake-hero/brake_font.c)
+target_include_directories(brake_lvgl PRIVATE ../../main)
+target_link_libraries(brake_lvgl PRIVATE lvgl m)

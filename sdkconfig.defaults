@@ -19,9 +19,8 @@ CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
 
 # --- LVGL ---
 CONFIG_LV_COLOR_DEPTH_16=y
-# 20 ms display refresh period targets up to 50 FPS when rendering and SPI
-# transfer complete within the same budget.
-CONFIG_LV_DEF_REFR_PERIOD=20
+# 10 ms LVGL wake interval; the application submits frames at 30 Hz.
+CONFIG_LV_DEF_REFR_PERIOD=10
 CONFIG_LV_FONT_MONTSERRAT_14=y
 CONFIG_LV_FONT_MONTSERRAT_20=y
 # LVGL 内置 malloc 池大小(KB)。它是独立静态区、不与系统堆共享,配大了会白白占用 RAM。
@@ -31,14 +30,10 @@ CONFIG_LV_MEM_SIZE_KILOBYTES=24
 # --- 系统 ---
 CONFIG_FREERTOS_HZ=1000
 
-# --- Bluetooth LE / NimBLE ---
-# ESP32-C3 仅支持 BLE；示例只启用单连接 peripheral 所需的最小 host 配置。
-CONFIG_BT_ENABLED=y
-CONFIG_BT_NIMBLE_ENABLED=y
-CONFIG_BT_NIMBLE_ROLE_CENTRAL=n
-CONFIG_BT_NIMBLE_ROLE_PERIPHERAL=y
-CONFIG_BT_NIMBLE_ROLE_BROADCASTER=y
-CONFIG_BT_NIMBLE_ROLE_OBSERVER=n
-CONFIG_BT_NIMBLE_MAX_CONNECTIONS=1
-CONFIG_BT_NIMBLE_HOST_BASED_PRIVACY=n
-CONFIG_BT_NIMBLE_NVS_PERSIST=n
+# --- Offline Brake Hero: radio not initialized or linked ---
+CONFIG_BT_ENABLED=n
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_160=y
+CONFIG_LV_TXT_ENC_UTF8=y
+CONFIG_LV_USE_FONT_PLACEHOLDER=y
+# Indexed images decode scanlines, never a full-screen ARGB8888 copy.
+CONFIG_LV_BIN_DECODER_RAM_LOAD=n

@@ -13,6 +13,7 @@ run_static_checks() {
     local test_dir
 
     python3 tools/check_repo.py
+    ./tools/test_brake_hero.sh
 
     actionlint_bin="${ACTIONLINT_BIN:-}"
     if [[ -z "${actionlint_bin}" ]]; then

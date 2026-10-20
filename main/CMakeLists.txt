@@ -1,16 +1,9 @@
 idf_component_register(
-    SRCS "main.c"
-         "demo_navigation.c"
-         "ui_pixel.c"
-         "ui_pixel_math.c"
-         "demo_display.c"
-         "demo_button.c"
-         "demo_audio.c"
-         "demo_battery.c"
-         "demo_radio.c"
-         "demo_wifi.c"
-         "demo_ble.c"
-         "demo_low_power.c"
+    SRCS "main.c" "brake_hero.c" "brake_scores.c" "brake_app.c"
+         "brake_render.c" "brake_vehicle.c" "brake_display_math.c" "brake_runtime.c" "brake_sound.c"
+         "../assets/images/brake-hero/converted/brake_images.c"
+         "../assets/fonts/brake-hero/brake_font.c"
+         "../assets/music/brake-hero/brake_audio.c"
     INCLUDE_DIRS "."
-    REQUIRES bsp bt esp_event esp_hw_support esp_netif esp_timer esp_wifi nvs_flash
+    REQUIRES bsp esp_timer esp_hw_support nvs_flash
 )

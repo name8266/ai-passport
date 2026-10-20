@@ -103,7 +103,7 @@ int main(void) {
         reset_faults(); fail_create = i;
         assert(bsp_button_init(event_cb, &events) != ESP_OK); retry_success();
     }
-    for (int i = 1; i <= BSP_BTN_COUNT * 4; ++i) {
+    for (int i = 1; i <= BSP_BTN_COUNT * 5; ++i) {
         reset_faults(); fail_callback = i;
         assert(bsp_button_init(event_cb, &events) != ESP_OK); retry_success();
     }
@@ -131,5 +131,30 @@ int main(void) {
     assert(adc_live && cal_live && live_buttons == BSP_BTN_COUNT);
     assert(bsp_button_init(event_cb, &events) == ESP_ERR_INVALID_STATE);
     fail_delete = 0; button_cleanup(); retry_success();
+    assert(bsp_button_init(NULL, NULL) == ESP_OK);
+    check_voltage(595, BSP_BTN_OK);
+    cb_press(NULL, (void *)(intptr_t)BSP_BTN_OK);
+    assert(bsp_button_pressed_mask() == (1u << BSP_BTN_OK));
+    cb_long(NULL, (void *)(intptr_t)BSP_BTN_OK);
+    cb_release(NULL, (void *)(intptr_t)BSP_BTN_OK);
+    assert(!bsp_button_pressed_mask()); // Long release is not a CLICK.
+    for (int i = 0; i < 100; ++i) {
+        cb_press(NULL, (void *)(intptr_t)BSP_BTN_OK);
+        cb_press(NULL, (void *)(intptr_t)BSP_BTN_DOWN);
+        assert(bsp_button_pressed_mask() == (1u << BSP_BTN_DOWN));
+        cb_release(NULL, (void *)(intptr_t)BSP_BTN_OK);
+        assert(bsp_button_pressed_mask() == (1u << BSP_BTN_DOWN));
+        cb_release(NULL, (void *)(intptr_t)BSP_BTN_DOWN);
+        assert(!bsp_button_pressed_mask());
+    }
+    cb_press(NULL, (void *)(intptr_t)BSP_BTN_OK);
+    clock_us += 101000;
+    assert(!bsp_button_pressed_mask()); // Timer stall cannot leave a stuck input.
+    check_voltage(595, BSP_BTN_OK);
+    fail_read = 1; clock_us += 2000;
+    button_level(&s_drivers[0].base);
+    assert(!bsp_button_pressed_mask());
+    fail_read = 0;
+    button_cleanup();
     puts("BSP button fault-injection tests: PASS");
 }

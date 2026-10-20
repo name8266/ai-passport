@@ -8,6 +8,7 @@
 #include "esp_adc/adc_cali_scheme.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include <stdatomic.h>
 
 static const char *TAG = "bsp_btn";
 
@@ -36,6 +37,8 @@ static bsp_adc_button_t s_drivers[BSP_BTN_COUNT];
 static int64_t s_sample_time;
 static int s_sample_mv = -1;
 static bool s_sample_valid;
+static atomic_uint s_pressed;
+static atomic_uint s_poll_ms;
 
 static uint8_t button_level(button_driver_t *driver) {
     if (!s_ready) return BUTTON_INACTIVE;
@@ -45,11 +48,13 @@ static uint8_t button_level(button_driver_t *driver) {
     if (!s_sample_valid || now - s_sample_time >= 1000) {
         int sum = 0;
         s_sample_time = now;
+        atomic_store(&s_poll_ms, (unsigned)(now / 1000));
         s_sample_valid = true;
         s_sample_mv = -1;
         for (int i = 0; i < CONFIG_ADC_BUTTON_SAMPLE_TIMES; ++i) {
             int raw;
             if (adc_oneshot_read(s_adc, BSP_BTN_ADC_CHANNEL, &raw) != ESP_OK) {
+                atomic_store(&s_pressed, 0);
                 return BUTTON_INACTIVE;
             }
             sum += raw;
@@ -57,6 +62,7 @@ static uint8_t button_level(button_driver_t *driver) {
         if (adc_cali_raw_to_voltage(s_cali, sum / CONFIG_ADC_BUTTON_SAMPLE_TIMES,
                                    &s_sample_mv) != ESP_OK) {
             s_sample_mv = -1;
+            atomic_store(&s_pressed, 0);
         }
     }
     // Half-open windows prevent two keys from matching a shared boundary.
@@ -72,13 +78,18 @@ static esp_err_t button_driver_delete(button_driver_t *driver) {
 // 每个按键把"哪个键"随回调带回来。button 组件的回调签名固定,故用 usr_data 传索引。
 static void on_event(void *arg, void *usr_data, bsp_btn_ev_t ev) {
     (void)arg;
-    if (!s_ready || !s_cb) return;
+    if (!s_ready) return;
+    const unsigned bit = 1u << (unsigned)(intptr_t)usr_data;
+    if (ev == BSP_BTN_PRESS) atomic_fetch_or(&s_pressed, bit);
+    if (ev == BSP_BTN_RELEASE) atomic_fetch_and(&s_pressed, ~bit);
+    if (!s_cb) return;
     s_cb((bsp_btn_t)(intptr_t)usr_data, ev, s_user);
 }
 static void cb_press (void *a, void *u) { on_event(a, u, BSP_BTN_PRESS);  }
 static void cb_click (void *a, void *u) { on_event(a, u, BSP_BTN_CLICK);  }
 static void cb_double(void *a, void *u) { on_event(a, u, BSP_BTN_DOUBLE); }
 static void cb_long  (void *a, void *u) { on_event(a, u, BSP_BTN_LONG);   }
+static void cb_release(void *a, void *u) { on_event(a, u, BSP_BTN_RELEASE); }
 
 // 初始化中途失败时先停掉所有 button driver，再释放本文件持有的校准与 ADC unit。
 // button driver 仍在轮询时不能先删 ADC，否则 timer callback 会访问失效句柄。
@@ -87,6 +98,7 @@ static void button_cleanup(void) {
     s_user = NULL;
     s_ready = false;
     s_sample_valid = false;
+    atomic_store(&s_pressed, 0);
 
     for (int i = BSP_BTN_COUNT - 1; i >= 0; i--) {
         if (!s_btn[i]) continue;
@@ -120,6 +132,7 @@ static esp_err_t register_callbacks(button_handle_t button, void *index) {
     if (e == ESP_OK) e = iot_button_register_cb(button, BUTTON_SINGLE_CLICK, NULL, cb_click, index);
     if (e == ESP_OK) e = iot_button_register_cb(button, BUTTON_DOUBLE_CLICK, NULL, cb_double, index);
     if (e == ESP_OK) e = iot_button_register_cb(button, BUTTON_LONG_PRESS_START, NULL, cb_long, index);
+    if (e == ESP_OK) e = iot_button_register_cb(button, BUTTON_PRESS_UP, NULL, cb_release, index);
     return e;
 }
 
@@ -209,4 +222,11 @@ int bsp_button_read_mv(void) {
     if (adc_oneshot_read(s_adc, BSP_BTN_ADC_CHANNEL, &raw) != ESP_OK) return -1;
     if (adc_cali_raw_to_voltage(s_cali, raw, &mv) != ESP_OK) return -1;
     return mv;
+}
+
+uint32_t bsp_button_pressed_mask(void) {
+    if (!s_ready || (unsigned)(esp_timer_get_time()/1000) - atomic_load(&s_poll_ms) > 100) return 0;
+    unsigned mask = atomic_load(&s_pressed);
+    // Eliminate transient overlap while individual button debouncers switch.
+    return mask & (0u - mask);
 }

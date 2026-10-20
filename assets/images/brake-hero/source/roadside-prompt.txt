@@ -1,0 +1,13 @@
+Source: OpenAI image_gen imagegen, generated during this task on 2026-10-20.
+Original output: exec-6ade9672-078a-439e-abbd-e5d596501dbf.png, 1254 x 1254.
+Requested grid: 2 x 2, four equal cells. Actual cell size: 627 x 627.
+Tool option: transparent_background=false (magenta chroma key).
+
+Prompt:
+Create an original 2 by 2 game sprite atlas, four equal 512x512 cells in a square 1024x1024 image, no gutters or text. For a realistic first-person luxury driving game, amber dusk, teal mountains, warm rim light. Every cell uses solid pure MAGENTA #ff00ff background for transparent chroma key. TOP LEFT: a short modular silver galvanized highway guardrail, 3 supporting posts, straight horizontal front three-quarter view, long narrow object centered, realistic metallic material, no background landscape. TOP RIGHT: a single elegant tall modern highway streetlight pole, amber glowing LED lamp at top bent arm, complete pole visible, narrow vertical isolated sprite. BOTTOM LEFT: one tall dark teal evergreen pine tree, irregular realistic branches, complete trunk and canopy, isolated and front on, warm sun edges, no ground. BOTTOM RIGHT: distant layered teal rocky mountain silhouette with a few pines at the base, horizontal wide isolated skyline, realistic environment rendering. Clean hard silhouettes suitable for downsampling to 64 pixels, no logos, no photographed or copyrighted material.
+
+Use: generated for this project without third-party reference images.
+Use subject to applicable OpenAI service/output terms; no exclusive copyright
+or third-party trademark rights are claimed. Keep this provenance with reuse.
+tools/convert_brake_assets.py crops, keys and quantizes this source; runtime
+uses actual Flash-resident guardrail texture and lamp/tree/mountain sprites.

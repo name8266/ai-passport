@@ -6,6 +6,15 @@
 
 本目录集中存放可复用的资源（字库、图片、音乐等），按资源类型分子目录管理。每个资源放在其类型对应的子目录，并记录放置路径、命名方式、集成方式与来源/许可。二进制资源（字体、图片、音频）不属于纯 markdown 文档，请勿与文档混放。涉及版权/授权的资源需注明来源与许可。
 
+## Brake Hero 素材
+
+- `images/brake-hero/source/recovered/`：从完整镜像 SHA256 `6128ab20f18f0db50d13d2aab459975abfb85579771b33bf0c175f5b4f939940` 无损恢复的 13 张显示尺寸索引 PNG。`source/` 保留历史生成提示词；本次本地修复无法取得原始大图集。`tools/convert_brake_assets.py` 可重建最终调色板及 C 数组，其中 16 个颜色用于程序化车身材质。固件不嵌入车辆照片。
+- `fonts/brake-hero/`：Noto Sans CJK SC 子集 OTF、SIL OFL 许可、14 像素位图 C 字库及字符清单，原字体来自 <https://github.com/notofonts/noto-cjk>。运行 `python tools/convert_brake_assets.py` 重建；增加字符时以 `--font-source` 指定完整的上游 SC 字体。缺字会让转换失败。渲染器直接使用位图字库，不支持任意 Unicode 玩家姓名。
+- `music/brake-hero/`：从同一已验证镜像恢复的 8 段中文共振峰合成提示和 4 段碰撞音效，含解码后的 16 kHz PCM16 WAV 预览及逐字节相同的 PCM8 Flash 数组。原 eSpeak NG 1.52.0 处理见 `tools/generate_brake_audio.py`；不使用真人录音或克隆声纹。恢复的 WAV 还原已发布 PCM8 信号，不冒充未取得的高精度合成输入。
+- `main/brake_vehicle.c`：原创代码网格，外观参考 <https://hima.auto/zunjie/v800/>，实现帐篷布面/顶壳动画、刹车灯及游戏碰撞变形。它不是厂商 CAD 或真实碰撞数据，不分发官方参考照片。
+
+生成资源由 `main/CMakeLists.txt` 编译。素材重建依赖见 `tools/brake_asset_requirements.txt`；编译固件不需这些 Python 包。详见[工程说明](../docs/apps/brake-hero.zh_CN.md)。
+
 ## 字库（fonts）
 
 可复用的字库文件与生成的字库源码放在 `fonts/`。
