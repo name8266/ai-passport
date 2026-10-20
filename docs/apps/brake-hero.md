@@ -1,6 +1,6 @@
 <p align="right"><a href="brake-hero.zh_CN.md">简体中文</a> · <strong>English</strong></p>
 
-# Brake Hero 2.0 engineering notes
+# Brake Hero 2.1 engineering notes
 
 ## Source and scope
 
@@ -8,7 +8,7 @@ The previous GitHub artifact branch contained no game source. This repair recons
 
 ## Third-person vehicle
 
-`brake_vehicle.c` contains an original code-native low-polygon MPV mesh with an upright rear, long glasshouse, two-tone body, chrome trim and alloy wheels. The visual reference is the official [V800 page](https://hima.auto/zunjie/v800/); no manufacturer CAD, photograph or official logo asset is embedded. A constant rear-left chase camera projects mesh vertices; integer scanline triangles fill a fixed face array with depth ordering. No per-pixel floating-point work or per-frame heap allocation is used.
+`brake_vehicle.c` now composites a retained detailed rear-body sprite and an animated textured canopy in the same centered coordinate system as the road. The old car used a yawed camera basis while the road remained centered, which made the car appear pointed across the lane. The new view has zero yaw/roll and a silhouette-centering regression check. The V800-inspired body was generated with built-in image_gen using the official exterior as a reference. Source RGBA and exact prompt are retained in `assets/images/brake-hero/source/vehicle-rear-v21.*` (prompt in `vehicle-rear-v21-prompt.txt`). The runtime car is 136 x 123 indexed pixels; glass/paint/chrome detail shares a weighted 223-color texture palette with the scenery. No per-frame allocation or full-screen decoder is introduced. It is game art, not manufacturer CAD or real crash data.
 
 `bh_vehicle_pose` derives the roof lift from the same continuous 0–100% tent value used by physics and the Chinese HUD. A front-hinged hard shell and both cloth sides move together, including passive retraction. Functional pedal force lights both rear lamps and the upper stop lamp. Broken brakes extinguish these game lamps. Collision animation uses game impact speed and elapsed time for front crush, glass cracks, fragments and dust. A cliff uses a pitched falling trajectory. The crash scene remains visible for 2.6 s before results. These are game visuals, not physical vehicle damage validation.
 

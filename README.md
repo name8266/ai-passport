@@ -1,10 +1,10 @@
 <p align="right"><a href="README.zh_CN.md">简体中文</a> · <strong>English</strong></p>
 
-# Brake Hero 2.0
+# Brake Hero 2.1
 
 Offline braking game for FoloToy AI Passport: ESP32-C3, 8 MB Flash, 240 × 320 display, no PSRAM.
 
-The third-person chase camera shows an original low-polygon V800-inspired MPV. The roof tent lifts and closes continuously with the exact opening value, brake lamps follow functional braking, and impacts show speed-dependent deformation, glass cracks, debris and dust. Cliff collisions have a falling animation. The damage presentation is a game effect, not a real-vehicle safety model.
+The car and straight road now use the same centered rear chase view, with zero yaw and roll. A detailed generated V800 rear-body sprite replaces the coarse polygon body; glass, pearl paint, chrome, vertical tail lamps and panel contours remain visible at the native display resolution. Roof lift, cloth, braking lamps, impact deformation, cracked glass, debris and dust remain live game effects. The image is retained with its exact generation prompt; it is not manufacturer CAD or a crash prediction.
 
 ## Controls
 

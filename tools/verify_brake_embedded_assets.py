@@ -36,7 +36,7 @@ with args.elf.open('rb') as f:
                 continue
             assert embedded(symbol) == expected, f'{symbol}: current source differs from firmware'
             count += 1; total += len(expected)
-    assert count >= 22, count
+    assert count == 24, count
     source = (root/'assets/fonts/brake-hero/brake_font.c').read_text()
     glyphs = []
     for codepoint, width, body in re.findall(r'\{(\d+),(\d+),\{([\d,]+)\}\}', source):

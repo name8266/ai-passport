@@ -1,8 +1,8 @@
 #pragma once
 #include "brake_render.h"
 
-/* Visual game state only. This mesh is an original low-polygon interpretation
- * of the V800 silhouette, not manufacturer CAD or a crash prediction. */
+/* Visual game state. The centered prerendered V800 body and animated canopy
+ * share one coordinate system; these are game visuals, not crash predictions. */
 typedef struct {
     float tent_opening, roof_lift, crush, pitch, fall;
     bool brake_lights;

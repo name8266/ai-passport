@@ -2,6 +2,7 @@
 #include "brake_display_math.h"
 #include <assert.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static uint8_t frame[BH_FRAME_BYTES],previous[BH_FRAME_BYTES];
@@ -26,6 +27,18 @@ int main(void) {
     for(unsigned i=0;i<30;++i)bh_step(&v.car,BH_NONE);
     assert(bh_vehicle_pose(&v).roof_lift<lift);
     v.car.pedal=0;bh_render(frame,&v);assert(!count_color(234));
+    /* A straight road needs a centered rear silhouette. Color reflections may
+     * differ, but the body must not yaw/roll relative to the road. */
+    memset(frame,0,sizeof(frame));v.car.tent=0;
+    bh_vehicle_draw(frame+BH_PALETTE_BYTES,&v);
+    for(int y=156;y<242;++y) {
+        int left=BH_W,right=-1;
+        for(int x=0;x<BH_W;++x)if(frame[BH_PALETTE_BYTES+y*BH_W+x]) {
+            if(left==BH_W)left=x;
+            right=x;
+        }
+        if(right>=left)assert(abs(left+right-239)<=3);
+    }
     v.car.pedal=800;bh_render(frame,&v);assert(count_color(234)>4);
     v.car.brake_failed=true;bh_render(frame,&v);assert(!count_color(234));
     v.page=BH_CRASH;v.car.end=BH_COLLISION;v.animation=15;v.car.speed=30;

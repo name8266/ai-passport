@@ -20,13 +20,24 @@ parser=argparse.ArgumentParser();parser.add_argument('--font-source',type=Path)
 args=parser.parse_args()
 images={p.stem:Image.open(p) for p in sorted((DEST/'source/recovered').glob('*.png'))}
 assert len(images)==13
-palette=list(next(iter(images.values())).getpalette())
-assert len(palette)==768
-# Reserve 224..239 for the original low-poly vehicle's materials. Re-map old
-# texture pixels to their closest retained color, then store exact final PNGs.
-remap=list(range(256))
-for i in range(224,240):
-    remap[i]=min(range(1,224),key=lambda j:sum((palette[i*3+k]-palette[j*3+k])**2 for k in range(3)))
+images={name:im.convert('RGBA') for name,im in images.items()}
+car=Image.open(DEST/'source/vehicle-rear-v21.png').convert('RGBA')
+bbox=car.getchannel('A').point(lambda a:255 if a>128 else 0).getbbox()
+assert bbox
+car=car.crop(bbox)
+car=car.resize((136,round(136*car.height/car.width)),Image.Resampling.LANCZOS)
+images['vehicle_body']=car
+# Learn a shared 223-color texture palette. The rear vehicle gets extra weight
+# so pearl-paint curvature and glass reflections survive on the small display.
+training=Image.new('RGB',(256,256*(len(images)+6)))
+for i,im in enumerate(list(images.values())+[car]*6):
+    training.paste(im.convert('RGB').resize((256,256)),(0,i*256))
+learned=training.quantize(colors=223,method=Image.Quantize.MEDIANCUT)
+base=learned.getpalette()[:223*3]
+ui=['0c1016','19212a','89959d','f5f1e7','ffbd59','ff565a','4bd6ca','8ee38d',
+    '45484b','334442','d0c6a9','63717a','591d24','60451f','000000','2b393c']
+palette=[0,0,0]+base+[0]*48+[v for color in ui for v in bytes.fromhex(color)]
+quantizer=Image.new('P',(1,1));quantizer.putpalette(base+[0]*(768-len(base)))
 materials=['f5f1e7','dce1e2','b3bec6','55616e','d7e3e8','121e29','314c60','0b1015',
            'a6b6c2','691927','ff263a','c6a66c','87744f','24313e','a9a49c','ffb44b']
 for i,color in enumerate(materials,224):palette[i*3:i*3+3]=bytes.fromhex(color)
@@ -37,10 +48,21 @@ def array(name,data):
     out.append('};')
 array('bh_palette',bytes(v for i in range(256) for v in (*palette[3*i:3*i+3][::-1],255)))
 for name,im in images.items():
-    data=bytes(remap[v] for v in im.tobytes())
+    indexed=im.convert('RGB').quantize(palette=quantizer,dither=Image.Dither.NONE)
+    alpha=im.getchannel('A').tobytes()
+    data=bytes(min(v,222)+1 if alpha[i]>128 else 0 for i,v in enumerate(indexed.tobytes()))
     array('pixels_'+name,data)
     out.append(f'const bh_sprite_t bh_{name} = {{ {im.width}, {im.height}, pixels_{name} }};')
     p=Image.frombytes('P',im.size,data);p.putpalette(palette);p.save(DEST/'converted'/(name+'.png'),transparency=0)
+stride=(car.width+7)//8
+mask=bytearray(stride*car.height)
+for y in range(car.height):
+    for x in range(car.width):
+        r,g,b,a=car.getpixel((x,y));u=x/car.width;v=y/car.height
+        lens=((u<.17 or u>.83) and .43<v<.76) or (.32<u<.68 and .14<v<.25)
+        if a>128 and lens and r>g*1.35+12 and r>b*1.2+8:
+            mask[y*stride+x//8]|=1<<(x%8)
+array('bh_vehicle_brake_mask',mask)
 (DEST/'converted/brake_images.c').write_text('\n'.join(out)+'\n')
 strings=[]
 for path in ROOT.glob('main/brake*.c'):
@@ -66,4 +88,4 @@ font_out+=['};',f'const unsigned bh_glyph_count = {len(chars)};']
 (FONTS/'brake_font.c').write_text('\n'.join(font_out)+'\n')
 (FONTS/'inventory.json').write_text(json.dumps({'size_px':14,'characters':''.join(sorted(chars)),
     'count':len(chars),'missing':missing,'negative_probe':'U+9F98'},ensure_ascii=False,indent=2)+'\n')
-print('Generated 13 textures, 16 vehicle materials and',len(chars),'verified glyphs.')
+print('Generated',len(images),'textures, 16 vehicle materials and',len(chars),'verified glyphs.')
