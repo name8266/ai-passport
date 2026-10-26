@@ -104,6 +104,18 @@ int main(void) {
     assert(stock_watch_add(&config.watch, "600519"));
     assert(stock_watch_add(&config.watch, "000001"));
     assert(stock_watch_add(&config.watch, "600000"));
+    stock_quote_t partial[STOCK_MAX] = {0};
+    assert(stock_quote_fresh_mask(&config.watch, partial) == 0);
+    partial[0].valid = true;
+    memcpy(partial[0].code, "600519", 7);
+    partial[1].valid = true;
+    memcpy(partial[1].code, "600000", 7); // Valid quote, wrong watchlist slot.
+    partial[2].valid = true;
+    memcpy(partial[2].code, "600000", 7);
+    assert(stock_quote_fresh_mask(&config.watch, partial) == 0x5);
+    memcpy(partial[1].code, "000001", 7);
+    assert(stock_quote_fresh_mask(&config.watch, partial) == 0x7);
+    assert(stock_quote_fresh_mask(NULL, partial) == 0);
     stock_quote_t sorted[STOCK_MAX] = {{.valid = true, .change_bp = -100},
                                        {.valid = true, .change_bp = 200}};
     uint8_t order[STOCK_MAX];

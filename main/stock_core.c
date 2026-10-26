@@ -212,6 +212,16 @@ bool stock_watch_decode(stock_watch_t *w, const void *data, size_t bytes) {
     *w = clean;
     return true;
 }
+uint16_t stock_quote_fresh_mask(const stock_watch_t *watch,
+                                const stock_quote_t quotes[STOCK_MAX]) {
+    if (!watch || !quotes)
+        return 0;
+    uint16_t mask = 0;
+    for (unsigned i = 0; i < watch->count && i < STOCK_MAX; i++)
+        if (quotes[i].valid && !strcmp(quotes[i].code, watch->codes[i]))
+            mask |= (uint16_t)(1u << i);
+    return mask;
+}
 
 bool stock_volume(const char *text, uint64_t *out) {
     if (!text || !out || *text < '0' || *text > '9')

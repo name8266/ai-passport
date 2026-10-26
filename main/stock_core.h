@@ -36,6 +36,8 @@ int stock_watch_find(const stock_watch_t *watch, const char *code);
 bool stock_watch_add(stock_watch_t *watch, const char *code);
 bool stock_watch_remove(stock_watch_t *watch, const char *code);
 bool stock_watch_decode(stock_watch_t *watch, const void *data, size_t bytes);
+uint16_t stock_quote_fresh_mask(const stock_watch_t *watch,
+                                const stock_quote_t quotes[STOCK_MAX]);
 void stock_gbk_name(const char *src, size_t bytes, char *out, size_t cap);
 
 #define STOCK_MINUTES 242

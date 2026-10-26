@@ -83,6 +83,15 @@ run_static_checks() {
         tests/test_stock_core.c main/stock_core.c main/stock_gbk.c \
         -o "${test_dir}/test_stock_core"
     "${test_dir}/test_stock_core"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
+        tests/test_stock_preview.c main/stock_preview.c -o "${test_dir}/test_stock_preview"
+    "${test_dir}/test_stock_preview"
+    python3 tools/stock_wifi_config.py --repository "${repo_root}" \
+        --output "${test_dir}/stock_wifi_build.h"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain -I"${test_dir}" \
+        tests/test_stock_wifi.c main/stock_wifi.c -o "${test_dir}/test_stock_wifi"
+    "${test_dir}/test_stock_wifi"
+    PYTHONDONTWRITEBYTECODE=1 python3 tests/test_stock_wifi_config.py
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Itests/stock_stubs -Imain \
         tests/test_stock_sound.c main/stock_sound.c -o "${test_dir}/test_stock_sound"
     "${test_dir}/test_stock_sound"

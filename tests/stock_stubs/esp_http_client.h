@@ -9,6 +9,7 @@ typedef struct {
     const char *user_agent;
 } esp_http_client_config_t;
 esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t *cfg);
+esp_err_t esp_http_client_set_url(esp_http_client_handle_t c, const char *url);
 esp_err_t esp_http_client_set_header(esp_http_client_handle_t c, const char *key,
                                      const char *value);
 esp_err_t esp_http_client_open(esp_http_client_handle_t c, int bytes);

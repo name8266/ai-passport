@@ -6,6 +6,10 @@
 #define RESPONSE_LIMIT 18000
 // Only stocks_net calls this module; TLS and parsing share one reserved response arena.
 static char response_body[RESPONSE_LIMIT + 1];
+// Only stocks_net calls get(); keeping one client avoids repeated TLS/client
+// allocations on the small internal heap. A failed or incomplete response
+// discards the handle so the next request starts from a clean parser state.
+static esp_http_client_handle_t http_client;
 static char *get(const char *url, const char **error) {
     esp_http_client_config_t cfg = {.url = url,
                                     .timeout_ms = 6000,
@@ -13,20 +17,30 @@ static char *get(const char *url, const char **error) {
                                     .buffer_size_tx = 512,
                                     .crt_bundle_attach = esp_crt_bundle_attach,
                                     .user_agent = "PassportStocks/1.0"};
-    esp_http_client_handle_t c = esp_http_client_init(&cfg);
+    esp_http_client_handle_t c = http_client;
     char *body = NULL;
     if (!c) {
-        *error = "连接内存不足";
-        return NULL;
+        c = esp_http_client_init(&cfg);
+        if (!c) {
+            *error = "连接内存不足";
+            return NULL;
+        }
+        http_client = c;
+        if (esp_http_client_set_header(c, "Referer", "https://gu.qq.com/") != ESP_OK) {
+            *error = "行情连接失败";
+            goto discard;
+        }
+    } else if (esp_http_client_set_url(c, url) != ESP_OK) {
+        *error = "行情连接失败";
+        goto discard;
     }
-    esp_http_client_set_header(c, "Referer", "https://gu.qq.com/");
     if (esp_http_client_open(c, 0) != ESP_OK || esp_http_client_fetch_headers(c) < 0) {
         *error = "行情连接失败";
-        goto done;
+        goto discard;
     }
     if (esp_http_client_get_status_code(c) != 200) {
         *error = "行情服务暂不可用";
-        goto done;
+        goto discard;
     }
     body = response_body;
     size_t used = 0;
@@ -37,13 +51,15 @@ static char *get(const char *url, const char **error) {
     if (used == RESPONSE_LIMIT || !esp_http_client_is_complete_data_received(c)) {
         *error = "行情响应不完整";
         body = NULL;
-        goto done;
+        goto discard;
     }
     body[used] = 0;
-done:
     esp_http_client_close(c);
-    esp_http_client_cleanup(c);
     return body;
+discard:
+    esp_http_client_cleanup(c);
+    http_client = NULL;
+    return NULL;
 }
 
 // Bounded JSON views: validate the entire response, then read only chart fields.
@@ -260,14 +276,45 @@ bool stock_fetch_quotes(const stock_watch_t *w, stock_quote_t *quotes, const cha
     }
     return all;
 }
+static bool fetch_chart(const char *code, stock_period_t period, const stock_quote_t *q,
+                        stock_bar_t *bars, unsigned *count, stock_minute_t *minutes,
+                        unsigned *minute_count, char minute_date[11], const char **error);
+bool stock_fetch_chart_for_quote(const stock_quote_t *quote, stock_period_t period,
+                                 stock_bar_t bars[STOCK_BARS], unsigned *count,
+                                 stock_minute_t minutes[STOCK_MINUTES], unsigned *minute_count,
+                                 char minute_date[11], const char **error) {
+    if (!quote || !quote->valid || !stock_symbol(quote->code, NULL)) {
+        if (error)
+            *error = "行情数据不可用";
+        return false;
+    }
+    return fetch_chart(quote->code, period, quote, bars, count, minutes, minute_count,
+                       minute_date, error);
+}
 bool stock_fetch_detail(const char *code, stock_period_t period, stock_quote_t *q,
                         stock_bar_t bars[STOCK_BARS], unsigned *count,
                         stock_minute_t minutes[STOCK_MINUTES], unsigned *minute_count,
                         char minute_date[11], const char **error) {
     stock_watch_t one = {0};
-    stock_watch_add(&one, code);
+    if (!stock_watch_add(&one, code)) {
+        *error = "股票代码无效";
+        return false;
+    }
     if (!stock_fetch_quotes(&one, q, error))
         return false;
+    return stock_fetch_chart_for_quote(q, period, bars, count, minutes, minute_count,
+                                       minute_date, error);
+}
+bool stock_fetch_minutes(const stock_quote_t *q, stock_minute_t minutes[STOCK_MINUTES],
+                         unsigned *count, char date[11], const char **error) {
+    unsigned ignored = 0;
+    *count = 0;
+    return q->valid && fetch_chart(q->code, STOCK_INTRADAY, q, NULL, &ignored, minutes,
+                                   count, date, error);
+}
+static bool fetch_chart(const char *code, stock_period_t period, const stock_quote_t *q,
+                        stock_bar_t *bars, unsigned *count, stock_minute_t *minutes,
+                        unsigned *minute_count, char minute_date[11], const char **error) {
     char symbol[9], url[200];
     if (!stock_symbol(code, symbol)) {
         *error = "股票代码无效";

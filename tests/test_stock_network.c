@@ -14,6 +14,8 @@ static char quote[1800], response[19000], last_url[256];
 static bool complete = true;
 static size_t read_chunk = 18000;
 static int response_status = 200;
+static unsigned quote_requests;
+static unsigned client_inits;
 esp_err_t esp_crt_bundle_attach(void *c) {
     (void)c;
     return ESP_OK;
@@ -21,9 +23,16 @@ esp_err_t esp_crt_bundle_attach(void *c) {
 esp_http_client_handle_t esp_http_client_init(const esp_http_client_config_t *cfg) {
     assert(cfg->crt_bundle_attach == esp_crt_bundle_attach);
     assert(cfg->timeout_ms == 6000);
+    client_inits++;
     snprintf(last_url, sizeof(last_url), "%s", cfg->url);
     client = (struct client){.body = strstr(cfg->url, "qt.gtimg.cn") ? quote : response};
     return &client;
+}
+esp_err_t esp_http_client_set_url(esp_http_client_handle_t c, const char *url) {
+    assert(c == &client);
+    snprintf(last_url, sizeof(last_url), "%s", url);
+    client = (struct client){.body = strstr(url, "qt.gtimg.cn") ? quote : response};
+    return ESP_OK;
 }
 esp_err_t esp_http_client_set_header(esp_http_client_handle_t c, const char *k, const char *v) {
     (void)c;
@@ -31,8 +40,10 @@ esp_err_t esp_http_client_set_header(esp_http_client_handle_t c, const char *k, 
     return ESP_OK;
 }
 esp_err_t esp_http_client_open(esp_http_client_handle_t c, int n) {
-    (void)c;
+    assert(c == &client);
     (void)n;
+    if (strstr(last_url, "qt.gtimg.cn"))
+        quote_requests++;
     return ESP_OK;
 }
 long long esp_http_client_fetch_headers(esp_http_client_handle_t c) {
@@ -97,6 +108,23 @@ int main(void) {
            "300\",\"1500 11.57 400\",\"1501 11.57 401\",\"1530 11.57 450\"]}}}}");
     assert(detail(STOCK_INTRADAY, &count, &n, bars, minutes) && n == 4 && count == 0);
     assert(minutes[0].hhmm == 930 && minutes[3].hhmm == 1500 && minutes[3].volume == 400);
+    stock_quote_t cached_quote = {0};
+    stock_watch_t one = {.count = 1, .codes = {"000001"}};
+    const char *error = NULL;
+    char minute_date[11];
+    assert(stock_fetch_quotes(&one, &cached_quote, &error));
+    unsigned requests_before = quote_requests;
+    assert(stock_fetch_minutes(&cached_quote, minutes, &n, minute_date, &error) && n == 4);
+    assert(quote_requests == requests_before); // Preview reuses batch quotes.
+    assert(!strcmp(minute_date, "2026-09-30"));
+    count = n = 0;
+    assert(stock_fetch_chart_for_quote(&cached_quote, STOCK_INTRADAY, bars, &count, minutes, &n,
+                                       minute_date, &error) && n == 4 && count == 0);
+    assert(quote_requests == requests_before); // Detail reuses the same batch quote.
+    stock_quote_t invalid_quote = {0};
+    assert(!stock_fetch_chart_for_quote(&invalid_quote, STOCK_INTRADAY, bars, &count, minutes,
+                                        &n, minute_date, &error));
+    assert(quote_requests == requests_before);
     char *date = strstr(response, "20260930");
     memcpy(date, "20260929", 8);
     assert(!detail(STOCK_INTRADAY, &count, &n, bars, minutes));
@@ -131,10 +159,13 @@ int main(void) {
     }
     strcat(response,
            "],\"qt\":{\"name\":\"\\u5e73\\u5b89\",\"other\":[null,true,false,-1.25e+3]}}}}");
-    for (unsigned i = 0; i < 200; i++) {
+    assert(detail(STOCK_DAY, &count, &n, bars, minutes) && count == 60);
+    unsigned inits_before_repeat = client_inits;
+    for (unsigned i = 1; i < 200; i++) {
         assert(detail(STOCK_DAY, &count, &n, bars, minutes) && count == 60);
         assert(bars[59].close == 11570);
     }
+    assert(client_inits == inits_before_repeat); // Repeated successful fetches reuse the client.
     char valid_body[19000];
     strcpy(valid_body, response);
     // Every truncated JSON must fail cleanly, including cuts inside escaped strings.
