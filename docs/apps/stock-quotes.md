@@ -15,17 +15,16 @@ includes `000001`. Existing stock-app watchlists migrate automatically.
 
 | Screen | UP / DOWN | OK | Long UP | Long DOWN | Long OK |
 | --- | --- | --- | --- | --- | --- |
-| Watchlist | Scroll/select stock or final Add row | Stock detail; Add opens code wheel | Refresh | Cycle sorting | Settings menu |
+| Watchlist | Scroll/select stock or final Add row | Stock detail; Add opens code wheel | Refresh | Cycle sorting | Global settings |
 | Code wheel | Change digit, wrapping 0–9 | Next digit; sixth queries | Previous digit | — | Watchlist |
-| Detail | Move chart cursor | Refresh | Add/remove favorite | Cycle intraday/day/week/month | Detail menu |
+| Detail | Move chart cursor | Refresh | Add/remove favorite | Cycle intraday/day/week/month | Stock menu (can return to list) |
 | Menu | Select item | Apply/open | — | — | Watchlist |
 | Alert editor | Change digit | Next; sixth saves | Previous digit | Cycle alert type/off | Detail menu |
 | Phone management | — | — | — | — | Watchlist |
 
-The detail menu controls chart period, MA visibility, alerts and favorites.
-The list menu controls sorting, power saving, sound, phone management and
-refresh and Add/query. Manual order follows the phone editor; code order is ascending;
-percentage order is descending, with unavailable quotes last. The final “+ Add favorite” row is always present: press OK to open the six-digit code wheel, confirm the final digit, then hold UP in the detail view to save the stock. Hold OK to return to the list and add another. At 12 favorites it prompts you to remove one first. Add/query remains in the long-OK menu. A valid six-digit code can be saved offline; the list shows the code and a waiting-for-quotes state until prices and intraday charts arrive.
+The stock menu controls chart period, MA visibility, alerts and favorites, and includes an explicit return-to-watchlist action.
+Hold OK on the watchlist to open global settings for sorting, power saving, sound, 30/60/120/300-second quote intervals, phone management, refresh and Add/query. Manual order follows the phone editor; code order is ascending;
+percentage order is descending, with unavailable quotes last. The final “+ Add favorite” row is always present: press OK to open the six-digit code wheel, confirm the final digit, then hold UP in the detail view to save the stock. The app returns to the Add row, where OK starts another entry. At 12 favorites it prompts you to remove one first. Duplicate codes stay in the wheel with a prompt to choose another; Add/query in global settings can still inspect an existing stock. A valid six-digit code can be saved offline; the list shows the code and a waiting-for-quotes state until prices and intraday charts arrive.
 
 ## Three-chart watchlist
 
@@ -149,7 +148,9 @@ previous data and explicitly mark it as cached/stale.
 
 After 60 seconds without input, power saving dims the backlight to 20%.
 A key restores brightness and performs its normal action. Idle refresh becomes
-120 seconds when there are no alerts; enabled alerts retain 30-second checks.
+at least 120 seconds when there are no alerts. Quote intervals can be set to
+30, 60, 120 or 300 seconds (default 30); enabled alerts retain 30-second checks.
+Existing saved settings migrate with the new interval defaulting to 30 seconds.
 Wi-Fi uses modem power saving. The app does not deep-sleep during monitoring.
 
 ## Data and validation

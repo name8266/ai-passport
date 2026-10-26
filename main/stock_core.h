@@ -62,7 +62,7 @@ typedef struct {
     uint32_t fired_date;
 } stock_alert_t;
 typedef struct {
-    uint8_t version, sort, power_save, sound;
+    uint8_t version, sort, power_save, sound, refresh_interval;
 } stock_preferences_t;
 bool stock_volume(const char *text, uint64_t *out);
 bool stock_parse_minute(const char *line, stock_minute_t *out);
@@ -71,10 +71,12 @@ void stock_order(const stock_watch_t *watch, const stock_quote_t quotes[STOCK_MA
                  stock_sort_t sort, uint8_t order[STOCK_MAX]);
 bool stock_alert_valid(const stock_alert_t *alert);
 bool stock_alert_evaluate(stock_alert_t *alert, const stock_quote_t *quote, bool fresh);
-unsigned stock_refresh_seconds(bool power_save, uint32_t idle_seconds, bool has_alerts);
+unsigned stock_refresh_seconds(const stock_preferences_t *prefs, uint32_t idle_seconds,
+                               bool has_alerts);
 typedef struct {
     stock_watch_t watch;
     stock_preferences_t prefs;
     stock_alert_t alerts[STOCK_MAX];
 } stock_config_t;
 bool stock_config_valid(const stock_config_t *config);
+bool stock_config_migrate(stock_config_t *config);

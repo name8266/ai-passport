@@ -79,7 +79,7 @@ def encode_frame(image, acquired, full=False):
     width, height = (FULL_WIDTH, FULL_HEIGHT) if full else (WIDTH, HEIGHT)
     image = ImageOps.pad(image.convert('RGB'), (width, height), color='#000000')
     pixels = bytearray(width * height * 2)
-    for i, (r, g, b) in enumerate(image.get_flattened_data()):
+    for i, (r, g, b) in enumerate(image.getdata()):
         struct.pack_into('<H', pixels, i * 2, ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3))
     return b'WCAM' + struct.pack('<HHI', width, height, acquired) + pixels
 

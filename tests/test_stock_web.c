@@ -68,10 +68,10 @@ int main(void) {
     stock_web_callbacks(snapshot, update);
     const char *good =
         "{\"codes\":[\"000001\",\"600519\"],\"alerts\":[{\"code\":\"000001\",\"kind\":1,\"target\":"
-        "12000}],\"sort\":2,\"power_save\":true,\"sound\":false}";
+        "12000}],\"sort\":2,\"power_save\":true,\"sound\":false,\"refresh_interval\":2}";
     assert(post(good) == 202 && writes == 1);
     assert(received.watch.count == 2 && received.alerts[0].target == 12000 &&
-           received.prefs.sound == 0);
+           received.prefs.sound == 0 && received.prefs.refresh_interval == 2);
     assert(post("{}") == 400);
     assert(post("{\"codes\":[\"000001\",\"000001\"],\"alerts\":[],\"sort\":0,\"power_save\":true,"
                 "\"sound\":true}") == 400);
@@ -81,6 +81,8 @@ int main(void) {
                 "10001}],\"sort\":0,\"power_save\":true,\"sound\":true}") == 400);
     assert(post("{\"codes\":[\"000001\"],\"alerts\":[],\"sort\":0.5,\"power_save\":true,\"sound\":"
                 "true}") == 400);
+    assert(post("{\"codes\":[\"000001\"],\"alerts\":[],\"sort\":0,\"power_save\":true,\"sound\":"
+                "true,\"refresh_interval\":4}") == 400);
     assert(writes == 1);
     accept = false;
     assert(post(good) == 503 && writes == 1);
@@ -90,6 +92,7 @@ int main(void) {
     assert(cJSON_GetArraySize(cJSON_GetObjectItem(root, "stocks")) == 2);
     assert(cJSON_IsTrue(cJSON_GetObjectItem(root, "stale")));
     assert(cJSON_GetObjectItem(root, "password") == NULL);
+    assert(cJSON_GetObjectItem(root, "refresh_interval")->valueint == 2);
     cJSON_Delete(root);
     puts("Stock web: PASS (configuration validation, partial reads, queue failure, state JSON, "
          "credential exclusion)");

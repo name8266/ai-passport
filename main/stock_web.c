@@ -35,6 +35,7 @@ esp_err_t stock_web_state(httpd_req_t *r) {
     cJSON_AddNumberToObject(root, "sort", state.config.prefs.sort);
     cJSON_AddBoolToObject(root, "power_save", state.config.prefs.power_save);
     cJSON_AddBoolToObject(root, "sound", state.config.prefs.sound);
+    cJSON_AddNumberToObject(root, "refresh_interval", state.config.prefs.refresh_interval);
     for (unsigned i = 0; i < state.config.watch.count; i++) {
         const stock_quote_t *q = &state.quotes[i];
         cJSON *s = cJSON_CreateObject();
@@ -93,11 +94,13 @@ esp_err_t stock_web_config(httpd_req_t *r) {
           *alerts = cJSON_GetObjectItemCaseSensitive(root, "alerts"),
           *sort = cJSON_GetObjectItemCaseSensitive(root, "sort"),
           *saving = cJSON_GetObjectItemCaseSensitive(root, "power_save"),
-          *sound = cJSON_GetObjectItemCaseSensitive(root, "sound");
-    stock_config_t next = {.prefs = {.version = 1}};
+          *sound = cJSON_GetObjectItemCaseSensitive(root, "sound"),
+          *interval = cJSON_GetObjectItemCaseSensitive(root, "refresh_interval");
+    stock_config_t next = {.prefs = {.version = 2}};
     bool valid = cJSON_IsArray(codes) && cJSON_GetArraySize(codes) <= STOCK_MAX &&
                  cJSON_IsArray(alerts) && cJSON_GetArraySize(alerts) <= STOCK_MAX &&
-                 integer(sort, 0, 2) && cJSON_IsBool(saving) && cJSON_IsBool(sound);
+                 integer(sort, 0, 2) && cJSON_IsBool(saving) && cJSON_IsBool(sound) &&
+                 (!interval || integer(interval, 0, 3));
     for (int i = 0; valid && i < cJSON_GetArraySize(codes); i++) {
         cJSON *code = cJSON_GetArrayItem(codes, i);
         valid = cJSON_IsString(code) && stock_watch_add(&next.watch, code->valuestring);
@@ -123,6 +126,7 @@ esp_err_t stock_web_config(httpd_req_t *r) {
         next.prefs.sort = (uint8_t)sort->valueint;
         next.prefs.power_save = cJSON_IsTrue(saving);
         next.prefs.sound = cJSON_IsTrue(sound);
+        next.prefs.refresh_interval = interval ? (uint8_t)interval->valueint : 0;
     }
     cJSON_Delete(root);
     if (!valid)

@@ -82,7 +82,7 @@ static stock_wifi_source_t active_wifi_source;
 static unsigned wifi_failed_attempts;
 static httpd_handle_t server;
 static stock_watch_t watch;
-static stock_preferences_t prefs = {.version = 1, .sort = 0, .power_save = 1, .sound = 1};
+static stock_preferences_t prefs = {.version = 2, .sort = 0, .power_save = 1, .sound = 1};
 static stock_alert_t alerts[STOCK_MAX];
 static stock_quote_t quotes[STOCK_MAX], detail_quote;
 static stock_bar_t bars[STOCK_BARS];
@@ -112,6 +112,7 @@ static uint8_t edit_alert_kind = STOCK_PRICE_ABOVE;
 static stock_period_t period = STOCK_DAY;
 static bool indicators = true, busy, stale = true, dimmed;
 static page_t page = LIST, menu_parent = LIST;
+static bool adding_from_list, added_hint;
 static uint32_t generation;
 static int battery = -1;
 static int64_t next_refresh, last_input, cache_saved, alert_until;
@@ -238,7 +239,7 @@ static void request(bool detail) {
     xQueueOverwrite(jobs, &job);
     uint32_t idle = (uint32_t)((esp_timer_get_time() - last_input) / 1000000);
     next_refresh = esp_timer_get_time() +
-                   (int64_t)stock_refresh_seconds(prefs.power_save, idle, has_alerts()) * 1000000;
+                   (int64_t)stock_refresh_seconds(&prefs, idle, has_alerts()) * 1000000;
 }
 static void request_preview(int64_t now) {
     if (page != LIST || busy || !watch.count)
@@ -511,6 +512,13 @@ static void toggle_watch(void) {
     align_quotes(old);
     save_cache(true);
     strcpy(status, added ? "已加入自选" : "已删除自选");
+    if (added && adding_from_list) {
+        page = LIST;
+        selected = watch.count;
+        list_force_snap = true;
+        added_hint = true;
+        adding_from_list = false;
+    }
 }
 static void alert_save(void) {
     stock_config_t c = configuration();
@@ -569,9 +577,14 @@ static void menu_action(void) {
             edit_alert();
         else if (menu_selected == 3) {
             toggle_watch();
+            if (page != LIST)
+                page = DETAIL;
+        } else if (menu_selected == 4)
             page = DETAIL;
-        } else
-            page = DETAIL;
+        else {
+            page = LIST;
+            adding_from_list = false;
+        }
     } else {
         stock_config_t c = configuration();
         if (menu_selected == 0)
@@ -581,16 +594,19 @@ static void menu_action(void) {
         else if (menu_selected == 2)
             c.prefs.sound = !c.prefs.sound;
         else if (menu_selected == 3) {
+            c.prefs.refresh_interval = (c.prefs.refresh_interval + 1) % 4;
+        } else if (menu_selected == 4) {
             start_setup();
             return;
-        } else if (menu_selected == 4) {
+        } else if (menu_selected == 5) {
             page = LIST;
             request(false);
             return;
-        } else if (menu_selected == 5) {
+        } else if (menu_selected == 6) {
             ++generation;
             busy = false;
             stock_wheel_init(&wheel, "000001");
+            adding_from_list = false;
             page = WHEEL;
             return;
         } else {
@@ -627,6 +643,7 @@ static void handle(stock_key_t key) {
             } else {
                 page = LIST;
                 selected = selected <= watch.count ? selected : watch.count;
+                adding_from_list = false;
             }
         } else if (key.key == BSP_BTN_DOWN) {
             if (page == DETAIL) {
@@ -654,6 +671,7 @@ static void handle(stock_key_t key) {
         }
     } else if (key.event == BSP_BTN_CLICK) {
         if (page == LIST) {
+            added_hint = false;
             if (key.key == BSP_BTN_UP)
                 selected = stock_list_move(selected, watch.count, -1);
             else if (key.key == BSP_BTN_DOWN)
@@ -665,11 +683,14 @@ static void handle(stock_key_t key) {
                     ++generation;
                     busy = false;
                     stock_wheel_init(&wheel, "000001");
+                    adding_from_list = true;
                     page = WHEEL;
                     strcpy(status, "六位代码 · 自动识别交易所");
                 }
-            } else
+            } else {
+                adding_from_list = false;
                 select_detail(watch.codes[order[selected]]);
+            }
         } else if (page == WHEEL || page == ALERT) {
             if (key.key == BSP_BTN_UP)
                 stock_wheel_turn(&wheel, 1);
@@ -678,9 +699,12 @@ static void handle(stock_key_t key) {
             else if (stock_wheel_next(&wheel)) {
                 if (page == ALERT)
                     alert_save();
-                else if (stock_symbol(wheel.code, NULL))
-                    select_detail(wheel.code);
-                else
+                else if (stock_symbol(wheel.code, NULL)) {
+                    if (adding_from_list && stock_watch_find(&watch, wheel.code) >= 0)
+                        strcpy(status, "已在自选中，请换代码");
+                    else
+                        select_detail(wheel.code);
+                } else
                     strcpy(status, "代码无效，请调整数字");
             }
         } else if (page == DETAIL) {
@@ -697,7 +721,7 @@ static void handle(stock_key_t key) {
                 bsp_lvgl_unlock();
             }
         } else if (page == MENU) {
-            unsigned count = menu_parent == DETAIL ? 5 : 7;
+            unsigned count = menu_parent == DETAIL ? 6 : 8;
             if (key.key == BSP_BTN_UP)
                 menu_selected = menu_selected ? menu_selected - 1 : count - 1;
             else if (key.key == BSP_BTN_DOWN)
@@ -1172,9 +1196,9 @@ static void draw_list(void) {
     text_fmt(subtitle, "%s · %u/12 · %s", sort_name(), watch.count,
              stale ? (fresh_mask ? "部分" : "缓存") : "在线");
     if (selected == watch.count)
-        text_set(help, "OK 添加自选 · 长OK 菜单");
+        text_set(help, added_hint ? "已加入 · OK 继续添加" : "OK 输入代码 · 长OK 设置");
     else
-        text_fmt(help, "%02u/%02u · OK 查看 · 长OK 菜单", selected + 1, watch.count);
+        text_fmt(help, "%02u/%02u · OK 查看 · 长OK 设置", selected + 1, watch.count);
     lv_obj_set_pos(list_view, 14, 60);
     lv_obj_set_height(list_view, STOCK_LIST_VISIBLE * STOCK_LIST_PITCH);
     unsigned count = watch.count + 1;
@@ -1282,7 +1306,7 @@ static void draw(void) {
     text_set(title, page == LIST     ? "自选行情"
                              : page == DETAIL ? "行情详情"
                              : page == WHEEL  ? "查询股票"
-                             : page == MENU   ? "快捷菜单"
+                             : page == MENU   ? (menu_parent == DETAIL ? "个股菜单" : "全局设置")
                              : page == ALERT  ? "设置预警"
                                               : "手机管理");
     if (battery >= 0)
@@ -1339,10 +1363,10 @@ static void draw(void) {
             lv_obj_set_pos(row_code[i], 9, 26);
             lv_label_set_long_mode(row_code[i], LV_LABEL_LONG_DOT);
         }
-        unsigned at = menu_selected, count = menu_parent == DETAIL ? 5 : 7,
+        unsigned at = menu_selected, count = menu_parent == DETAIL ? 6 : 8,
                  start = at >= 3 ? at - 3 : 0;
-        text_set(subtitle, menu_parent == DETAIL ? "图表 / 预警 / 自选"
-                                                          : "排序 / 省电 / 手机管理");
+        text_set(subtitle, menu_parent == DETAIL ? "图表 / 预警 / 返回自选"
+                                                 : "排序 / 刷新间隔 / 配网");
         for (unsigned row = 0; row < 4; row++) {
             unsigned i = start + row;
             bool show = i < count;
@@ -1355,26 +1379,32 @@ static void draw(void) {
             const char *desc = "OK 执行";
             if (menu_parent == DETAIL) {
                 const char *items[] = {"切换图表周期", "均线显示", "设置股票预警",
-                                       "加入 / 删除自选", "返回详情"};
+                                       "加入 / 删除自选", "返回详情", "返回自选列表"};
                 snprintf(text, sizeof(text), "%s%s", items[i],
                          i == 1 ? (indicators ? " · 开" : " · 关") : "");
                 if (i == 2)
                     desc = "价格 / 涨跌幅 · 每日一次";
             } else {
-                const char *items[] = {"自选排序",        "自动省电", "预警声音",
+                const char *items[] = {"自选排序", "自动省电", "预警声音", "刷新间隔",
                                        "手机管理 / 配网", "立即刷新", "+ 添加自选 / 查询", "返回自选"};
                 snprintf(text, sizeof(text), "%s%s", items[i],
                          i == 0   ? sort_name()
                          : i == 1 ? (prefs.power_save ? " · 开" : " · 关")
                          : i == 2 ? (prefs.sound ? " · 开" : " · 关")
                                   : "");
+                if (i == 3) {
+                    const unsigned seconds[] = {30, 60, 120, 300};
+                    snprintf(text, sizeof(text), "%s · %u秒", items[i],
+                             seconds[prefs.refresh_interval]);
+                    desc = "空闲120秒 · 预警30秒";
+                }
             }
             text_set(row_name[row], text);
             text_set(row_code[row], desc);
             lv_obj_set_width(row_name[row], 190);
             lv_obj_set_width(row_code[row], 190);
         }
-        text_set(help, "UP/DOWN 选择 · OK 执行");
+        text_set(help, "OK 执行 · 长OK 返回自选");
     } else if (page == WHEEL || page == ALERT) {
         lv_obj_set_pos(body, 18, 176);
         text_set(subtitle,
@@ -1446,7 +1476,8 @@ static void draw(void) {
         } else
             text_set(meta_label, busy ? "正在加载图表…" : status);
         lv_obj_invalidate(chart);
-        text_set(help, "长DOWN 周期 · 长OK 菜单");
+        text_set(help, adding_from_list ? "长UP 保存 · 长OK 菜单" :
+                               "长DOWN 周期 · 长OK 菜单");
     } else {
         esp_netif_ip_info_t ip = {0};
         esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
@@ -1471,11 +1502,14 @@ void app_main(void) {
     ESP_ERROR_CHECK(nvs_open("worldcam", NVS_READWRITE, &credentials));
     stock_config_t saved = {0};
     size_t n = sizeof(saved);
-    if (nvs_get_blob(settings, "board_v2", &saved, &n) == ESP_OK && n == sizeof(saved) &&
-        stock_config_valid(&saved)) {
+    bool loaded = nvs_get_blob(settings, "board_v2", &saved, &n) == ESP_OK && n == sizeof(saved);
+    bool migrated = loaded && saved.prefs.version == 1 && stock_config_migrate(&saved);
+    if (loaded && stock_config_valid(&saved)) {
         watch = saved.watch;
         prefs = saved.prefs;
         memcpy(alerts, saved.alerts, sizeof(alerts));
+        if (migrated && !persist(&saved))
+            ESP_LOGW("stocks", "refresh settings migration not persisted");
     } else {
         stock_watch_t old = {0};
         n = sizeof(old);

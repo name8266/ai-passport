@@ -3,6 +3,11 @@ set -euo pipefail
 
 mode="${1:---all}"
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+if [[ "$(uname -s)" == "Darwin" ]]; then
+    link_gc_flag="-Wl,-dead_strip"
+else
+    link_gc_flag="-Wl,--gc-sections"
+fi
 
 usage() {
     echo "Usage: $0 [--all|--static|--firmware]" >&2
@@ -57,7 +62,7 @@ run_static_checks() {
     for demo in audio low_power ble wifi; do
         "${CC:-cc}" -std=c11 -Wall -Wextra -Werror \
             -ffunction-sections -fdata-sections -Itests/demo_stubs -Imain \
-            "tests/test_demo_${demo}_runtime.c" -Wl,--gc-sections \
+            "tests/test_demo_${demo}_runtime.c" "${link_gc_flag}" \
             -o "${test_dir}/test_demo_${demo}_runtime"
         "${test_dir}/test_demo_${demo}_runtime"
     done
@@ -123,7 +128,7 @@ run_firmware_checks() (
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -ffunction-sections -fdata-sections \
         -Itests/stock_stubs -Imain -I"${IDF_PATH}/components/json/cJSON" \
         tests/test_stock_web.c main/stock_web.c main/stock_core.c main/stock_gbk.c \
-        "${IDF_PATH}/components/json/cJSON/cJSON.c" -Wl,--gc-sections -lm \
+        "${IDF_PATH}/components/json/cJSON/cJSON.c" "${link_gc_flag}" -lm \
         -o "${stock_test_dir}/test_stock_web"
     "${stock_test_dir}/test_stock_web"
     rm -rf "${stock_test_dir}"

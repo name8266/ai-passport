@@ -1,7 +1,19 @@
 #include "stock_core.h"
 #include <assert.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+typedef struct {
+    uint8_t version, sort, power_save, sound;
+} old_preferences_t;
+typedef struct {
+    stock_watch_t watch;
+    old_preferences_t prefs;
+    stock_alert_t alerts[STOCK_MAX];
+} old_config_t;
+_Static_assert(sizeof(old_config_t) == sizeof(stock_config_t), "NVS blob size changed");
+_Static_assert(offsetof(old_config_t, alerts) == offsetof(stock_config_t, alerts),
+               "NVS alert position changed");
 int main(void) {
     char symbol[9];
     assert(stock_symbol("600519", symbol) && !strcmp(symbol, "sh600519"));
@@ -100,7 +112,7 @@ int main(void) {
     assert(stock_ma(series, 20, 19, 10) == 15500);
     assert(stock_ma(series, 20, 19, 20) == 10500);
     assert(stock_ma(series, 20, 3, 5) == 0);
-    stock_config_t config = {.prefs = {.version = 1, .power_save = 1, .sound = 1}};
+    stock_config_t config = {.prefs = {.version = 2, .power_save = 1, .sound = 1}};
     assert(stock_watch_add(&config.watch, "600519"));
     assert(stock_watch_add(&config.watch, "000001"));
     assert(stock_watch_add(&config.watch, "600000"));
@@ -159,10 +171,24 @@ int main(void) {
     config.alerts[1].kind = STOCK_ALERT_OFF;
     config.prefs.sort = 3;
     assert(!stock_config_valid(&config));
-    assert(stock_refresh_seconds(true, 60, false) == 120);
-    assert(stock_refresh_seconds(true, 60, true) == 30);
-    assert(stock_refresh_seconds(true, 59, false) == 30);
-    assert(stock_refresh_seconds(false, 100, false) == 30);
+    config.prefs.sort = 0;
+    config.prefs.refresh_interval = 4;
+    assert(!stock_config_valid(&config));
+    config.prefs.refresh_interval = 0;
+    assert(stock_refresh_seconds(&config.prefs, 60, false) == 120);
+    assert(stock_refresh_seconds(&config.prefs, 60, true) == 30);
+    assert(stock_refresh_seconds(&config.prefs, 59, false) == 30);
+    config.prefs.power_save = 0;
+    for (unsigned i = 0, expect[] = {30, 60, 120, 300}; i < 4; i++) {
+        config.prefs.refresh_interval = i;
+        assert(stock_refresh_seconds(&config.prefs, 100, false) == expect[i]);
+        assert(stock_refresh_seconds(&config.prefs, 100, true) == 30);
+    }
+    config.prefs.version = 1;
+    config.prefs.refresh_interval = 255; // formerly unused padding in the persisted blob
+    assert(stock_config_migrate(&config));
+    assert(config.prefs.version == 2 && config.prefs.refresh_interval == 0);
+    assert(stock_config_valid(&config));
     puts("Stock core: PASS (markets, fixed-point values, wheel, watchlist persistence, GBK, "
          "quotes, OHLC, volume, sessions, MA, sorting, alerts, configuration, power)");
     return 0;

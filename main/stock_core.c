@@ -327,13 +327,28 @@ bool stock_alert_evaluate(stock_alert_t *a, const stock_quote_t *q, bool fresh) 
         a->fired_date = date;
     return hit;
 }
-unsigned stock_refresh_seconds(bool saving, uint32_t idle, bool alerts) {
-    return saving && idle >= 60 && !alerts ? 120 : 30;
+unsigned stock_refresh_seconds(const stock_preferences_t *prefs, uint32_t idle, bool alerts) {
+    static const unsigned intervals[] = {30, 60, 120, 300};
+    unsigned selected = prefs && prefs->refresh_interval < 4
+                            ? intervals[prefs->refresh_interval] : intervals[0];
+    if (alerts && selected > 30)
+        selected = 30;
+    if (prefs && prefs->power_save && idle >= 60 && !alerts && selected < 120)
+        selected = 120;
+    return selected;
+}
+bool stock_config_migrate(stock_config_t *c) {
+    if (!c || c->prefs.version != 1)
+        return false;
+    c->prefs.version = 2;
+    c->prefs.refresh_interval = 0;
+    return stock_config_valid(c);
 }
 bool stock_config_valid(const stock_config_t *c) {
     stock_watch_t check;
-    if (!c || !stock_watch_decode(&check, &c->watch, sizeof(c->watch)) || c->prefs.version != 1 ||
-        c->prefs.sort > STOCK_SORT_CHANGE || c->prefs.power_save > 1 || c->prefs.sound > 1)
+    if (!c || !stock_watch_decode(&check, &c->watch, sizeof(c->watch)) || c->prefs.version != 2 ||
+        c->prefs.sort > STOCK_SORT_CHANGE || c->prefs.power_save > 1 || c->prefs.sound > 1 ||
+        c->prefs.refresh_interval > 3)
         return false;
     for (unsigned i = 0; i < STOCK_MAX; i++) {
         const stock_alert_t *a = &c->alerts[i];
